@@ -24,11 +24,14 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.buttons["onboardingFinishButton"].tap()
 
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
-        for tab in ["Player", "Matches", "Tournaments", "Training", "Settings", "Dashboard"] {
+        for tab in ["Player", "Matches", "Training", "Settings", "Dashboard"] {
             let button = app.tabBars.buttons[tab]
             XCTAssertTrue(button.exists, "Missing tab \(tab)")
             button.tap()
         }
+
+        app.tabBars.buttons["Dashboard"].tap()
+        XCTAssertTrue(app.buttons["dashboardOpenTournamentsLink"].exists)
     }
 
     func testSettingsSaveActivates() throws {

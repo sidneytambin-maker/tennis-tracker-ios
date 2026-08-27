@@ -41,6 +41,18 @@ struct DashboardView: View {
                         .accessibilityValue(nextFocus)
                 }
 
+                Section("Tournaments") {
+                    NavigationLink("Open tournaments") {
+                        TournamentsView()
+                    }
+                    .accessibilityIdentifier("dashboardOpenTournamentsLink")
+                    if store.selectedTournaments.isEmpty {
+                        Text("No upcoming competitions.")
+                    } else if let next = store.selectedTournaments.filter({ $0.date >= Calendar.current.startOfDay(for: Date()) }).sorted(by: { $0.date < $1.date }).first {
+                        Text("Next tournament: \(next.name.fallback("unnamed tournament")), \(next.date.shortTennisDate).")
+                    }
+                }
+
                 if store.data.settings.showRecentActivity {
                     Section("Recent Matches") {
                         if store.selectedMatches.isEmpty {

@@ -27,12 +27,6 @@ struct TennisTrackerRootView: View {
                         }
                         .tag("matches")
 
-                    TournamentsView()
-                        .tabItem {
-                            Label("Tournaments", systemImage: "trophy")
-                        }
-                        .tag("tournaments")
-
                     TrainingView()
                         .tabItem {
                             Label("Training", systemImage: "figure.tennis")
@@ -57,7 +51,7 @@ struct TennisTrackerRootView: View {
 extension AppTheme {
     var accentColor: Color {
         switch self {
-        case .tennis: return Color(red: 0.18, green: 0.46, blue: 0.20)
+        case .tennis: return Color(red: 0.0, green: 0.32, blue: 0.13)
         case .classic: return .blue
         case .highContrast: return .yellow
         case .system: return .accentColor

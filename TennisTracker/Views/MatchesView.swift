@@ -14,6 +14,11 @@ struct MatchesView: View {
                         showingLiveScorer = true
                     }
                     .accessibilityHint("Opens a point by point tennis scorer.")
+
+                    NavigationLink("Open tournaments") {
+                        TournamentsView()
+                    }
+                    .accessibilityIdentifier("matchesOpenTournamentsLink")
                 }
 
                 Section("Match History") {

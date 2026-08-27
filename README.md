@@ -8,7 +8,7 @@ The first phone installation proved the pipeline from Windows source files to a 
 
 The app contains:
 
-- A native tab bar for Dashboard, Player, Matches, Tournaments, Training, and Settings.
+- A native five-item iPhone tab bar for Dashboard, Player, Matches, Training, and Settings.
 - Player profiles with blind-tennis sight categories and allowed-bounce wording.
 - Match history, match detail, match editing, performance notes, set scores, and tiebreak notes.
 - Live best-of-three scoring with love, 15, 30, 40, deuce, advantage, games, sets, tiebreaks, undo, haptics, and VoiceOver announcements.
@@ -240,6 +240,8 @@ With Apple free personal development provisioning, the installed app expires aft
 
 Version `0.3.0` is a major accessibility repair build. It removes the app-level overlay that could intercept bottom tab and toolbar activation, removes production seed data, adds first-run setup, and resets the earlier development demo records once by data-version migration.
 
+The iPhone bottom tab bar deliberately uses five direct tabs. Native iPhone tab bars collapse a sixth item into `More`, which made direct VoiceOver tab activation unreliable for Settings in automated testing. Tournaments remains a full feature screen reachable from Dashboard and Matches.
+
 Manual test priority:
 
 1. Turn on VoiceOver before launching `Tennis Tracker`.
@@ -249,15 +251,16 @@ Manual test priority:
 5. Continue through player type, sight level, match type, tracking mode, season, theme, score announcements, and haptics.
 6. Double-tap `Finish setup`.
 7. Confirm the Dashboard says welcome using the entered preferred name and shows empty real-data summaries.
-8. Double-tap every bottom tab: Dashboard, Player, Matches, Tournaments, Training, Settings.
+8. Double-tap every bottom tab: Dashboard, Player, Matches, Training, Settings.
 9. In Settings, change a value and double-tap `Save settings`; confirm it announces `Settings saved`.
 10. In Player, edit the profile and double-tap `Save`.
-11. Add one training session, one tournament, and one match.
-12. Link a match to a tournament or training session and confirm it appears in the related summaries.
-13. Start live scoring and test Player wins point, Opponent wins point, Undo, Reset, and Save completed match.
-14. Close and reopen the app; confirm the player profile and created records persist.
-15. Confirm no old Player One, practice opponent, or sample training records appear.
-16. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
+11. Open Tournaments from Dashboard or Matches, then add one tournament.
+12. Add one training session and one match.
+13. Link a match to a tournament or training session and confirm it appears in the related summaries.
+14. Start live scoring and test Player wins point, Opponent wins point, Undo, Reset, and Save completed match.
+15. Close and reopen the app; confirm the player profile and created records persist.
+16. Confirm no old Player One, practice opponent, or sample training records appear.
+17. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
 
 ## Current limitations
 
