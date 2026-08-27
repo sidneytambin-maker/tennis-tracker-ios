@@ -236,11 +236,11 @@ With Apple free personal development provisioning, the installed app expires aft
 5. Open Sideloadly and install the new IPA with the same Apple Account.
 6. Launch `Tennis Tracker` on the iPhone and repeat the VoiceOver checks below.
 
-## VoiceOver repair checklist
+## VoiceOver refinement checklist
 
-Version `0.3.0` is a major accessibility repair build. It removes the app-level overlay that could intercept bottom tab and toolbar activation, removes production seed data, adds first-run setup, and resets the earlier development demo records once by data-version migration.
+Version `0.4.0` is a product refinement build. It keeps the first-run clean setup, removes duplicate Add and Notes patterns, restores Tournaments as a primary destination, improves Dashboard language, adds structured form controls, expands tournament linking, improves themes, and redesigns live scoring around named players.
 
-The iPhone bottom tab bar deliberately uses five direct tabs. Native iPhone tab bars collapse a sixth item into `More`, which made direct VoiceOver tab activation unreliable for Settings in automated testing. Tournaments remains a full feature screen reachable from Dashboard and Matches.
+The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
 Manual test priority:
 
@@ -251,20 +251,19 @@ Manual test priority:
 5. Continue through player type, sight level, match type, tracking mode, season, theme, score announcements, and haptics.
 6. Double-tap `Finish setup`.
 7. Confirm the Dashboard says welcome using the entered preferred name and shows empty real-data summaries.
-8. Double-tap every bottom tab: Dashboard, Player, Matches, Training, Settings.
-9. In Settings, change a value and double-tap `Save settings`; confirm it announces `Settings saved`.
+8. Double-tap every destination: Dashboard, Player, Matches, Tournaments, Training, and Settings through More.
+9. In Settings, change theme or scoring announcement mode and double-tap `Save settings`; confirm it announces `Settings saved`.
 10. In Player, edit the profile and double-tap `Save`.
-11. Open Tournaments from Dashboard or Matches, then add one tournament.
+11. Open Tournaments from the tab bar, then add one tournament.
 12. Add one training session and one match.
 13. Link a match to a tournament or training session and confirm it appears in the related summaries.
-14. Start live scoring and test Player wins point, Opponent wins point, Undo, Reset, and Save completed match.
+14. Start live scoring and test named point buttons, automatic/reduced/off announcements, Hear full score, sudden-death deuce, Undo, Reset, and Save completed match.
 15. Close and reopen the app; confirm the player profile and created records persist.
 16. Confirm no old Player One, practice opponent, or sample training records appear.
 17. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
 
 ## Current limitations
 
-- Codex cannot complete your Apple Account sign-in, Google sign-in, CAPTCHA, two-factor authentication, device trust prompt, or legal acceptance.
 - Codex cannot complete your Apple Account sign-in, Google sign-in, CAPTCHA, two-factor authentication, device trust prompt, or legal acceptance.
 - Automated tests cannot prove real VoiceOver behaviour completely; they are guardrails alongside the physical VoiceOver checklist.
 - The IPA produced by GitHub Actions is unsigned. Sideloadly signs it on Windows using your free Apple Account.
