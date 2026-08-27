@@ -167,7 +167,8 @@ Actual device status on 27 August 2026:
 - Windows detected `Apple iPhone`.
 - Sideloadly detected `Sidney's iPhone (27.0) 00008140-00120D84267B001C @USB`.
 - Sideloadly required one-time administrator setup for local anisette. That warning was accepted and the Sideloadly main window reopened.
-- A signing attempt reached Apple Account authentication, but Apple rejected the supplied password with Sideloadly error `Login failed (-22406): Enter the correct password for this Apple Account.` Do not keep retrying with the same password because repeated failures can lock the Apple Account.
+- Sideloadly successfully completed signing and installation after Apple Account password authentication and a six-digit Apple verification code.
+- Final Sideloadly status: `Done.` and `100%`.
 
 To check prerequisites again:
 
@@ -181,12 +182,6 @@ To open Sideloadly with the newest downloaded Tennis Tracker IPA:
 .\Scripts\open_sideloadly_with_latest_ipa.ps1
 ```
 
-Current signing blocker:
-
-If Sideloadly reports `Login failed (-22406): Enter the correct password for this Apple Account`, update the local temporary password file with the current correct Apple Account password, or sign in manually when Sideloadly asks. Do not commit the password file. Do not paste the password into chat.
-
-If Sideloadly reports `Login failed (-20209): This Apple Account has been locked for security reasons`, unlock the Apple Account through Apple's account recovery page before trying Sideloadly again.
-
 Sign and install:
 
 1. Open Sideloadly on Windows.
@@ -194,8 +189,9 @@ Sign and install:
 3. Choose `TennisTracker-unsigned.ipa`.
 4. Find the Apple ID field and enter your Apple Account email address.
 5. Start the sideload/install action.
-6. If Apple asks for a password, app-specific password, two-factor code, CAPTCHA, or account approval, complete that personally.
-7. Wait for Sideloadly to report that installation has completed.
+6. When the `Apple ID Authentication` dialog asks for `Password for sidney.tambin@googlemail.com`, enter the Apple Account password. Sideloadly states in this dialog that app-specific passwords are not supported.
+7. When the `Apple ID Authentication` dialog asks for a verification code, read the six-digit code from the trusted Apple device, type it into the blank edit field, then activate `OK`.
+8. Wait for Sideloadly to report `Done.` and `100%`.
 
 On the iPhone:
 
