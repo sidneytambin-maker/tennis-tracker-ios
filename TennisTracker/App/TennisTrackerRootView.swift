@@ -42,7 +42,6 @@ struct TennisTrackerRootView: View {
                 .accessibilityIdentifier("mainTabView")
             }
         }
-        .dynamicTypeSize(...DynamicTypeSize.accessibility5)
         .tint(store.data.settings.theme.accentColor)
         .preferredColorScheme(store.data.settings.theme.preferredColorScheme)
     }
