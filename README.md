@@ -26,6 +26,9 @@ The proof-of-concept app contains:
 - `codemagic.yaml`: free Codemagic workflow.
 - `.github/workflows/ios-free-build.yml`: GitHub Actions macOS workflow used because GitHub was already authenticated locally and can run a free included-minutes macOS build.
 - `Scripts/build_unsigned_ipa.sh`: macOS build script that packages an unsigned IPA.
+- `Scripts/check_windows_prereqs.ps1`: checks Git, Apple support software, Apple services, and iPhone detection on Windows.
+- `Scripts/download_latest_github_artifact.ps1`: downloads the newest successful GitHub Actions IPA artifact into `builds`.
+- `Scripts/open_sideloadly_with_latest_ipa.ps1`: opens Sideloadly with the newest downloaded IPA.
 
 ## Reference Windows app findings
 
@@ -111,6 +114,19 @@ gh run watch
 
 Expected result: GitHub runs on a hosted macOS runner, installs XcodeGen, generates the Xcode project, runs the tests, builds an unsigned physical-device IPA, and uploads an artifact named `tennis-tracker-ios-phase-one-unsigned`.
 
+Actual result on 27 August 2026:
+
+- Successful run: `33104948788`
+- Commit built: `b6b4436`
+- Artifact downloaded to: `builds\TennisTracker-phase-one-unsigned-33104948788.ipa`
+- Verified package contents include `Payload/TennisTracker.app/TennisTracker`
+
+To download the newest successful artifact again:
+
+```powershell
+.\Scripts\download_latest_github_artifact.ps1
+```
+
 ## Codemagic setup with NVDA
 
 1. Open https://codemagic.io/start in your browser.
@@ -145,6 +161,24 @@ Install prerequisites:
 2. Install Sideloadly from https://sideloadly.io/ or with Windows Package Manager using package `iOSGods.Sideloadly`.
 3. Connect the iPhone by USB.
 4. If the iPhone asks whether to trust this computer, choose `Trust` and enter the iPhone passcode.
+
+Actual device status on 27 August 2026:
+
+- Windows detected `Apple iPhone`.
+- Sideloadly detected `Sidney's iPhone (27.0) 00008140-00120D84267B001C @USB`.
+- Sideloadly required one-time administrator setup for local anisette. That warning was accepted and the Sideloadly main window reopened.
+
+To check prerequisites again:
+
+```powershell
+.\Scripts\check_windows_prereqs.ps1
+```
+
+To open Sideloadly with the newest downloaded Tennis Tracker IPA:
+
+```powershell
+.\Scripts\open_sideloadly_with_latest_ipa.ps1
+```
 
 Sign and install:
 
