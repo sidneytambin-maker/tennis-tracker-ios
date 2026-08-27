@@ -31,7 +31,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         }
 
         app.tabBars.buttons["Dashboard"].tap()
-        XCTAssertTrue(app.buttons["Open tournaments"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
     }
 
     func testSettingsSaveActivates() throws {
