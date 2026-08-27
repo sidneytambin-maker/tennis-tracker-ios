@@ -137,6 +137,9 @@ Actual result on 27 August 2026:
 - Artifact downloaded to: `builds\TennisTracker-phase-one-unsigned-33104948788.ipa`
 - Current development builds download to: `builds\TennisTracker-development-unsigned-<run id>.ipa`
 - Verified package contents include `Payload/TennisTracker.app/TennisTracker`
+- First native development app build succeeded on run `33111054153`.
+- The native development IPA downloaded to `builds\TennisTracker-development-unsigned-33111054153.ipa`.
+- Sideloadly accepted that development IPA and refreshed the local installation record for the connected iPhone.
 
 To download the newest successful artifact again:
 
