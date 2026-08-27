@@ -19,9 +19,9 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         nameField.tap()
         nameField.typeText("Sidney")
 
-        app.buttons["onboardingContinueButton"].tap()
-        app.buttons["onboardingContinueButton"].tap()
-        app.buttons["onboardingFinishButton"].tap()
+        continueOnboarding(to: "Choose Tennis Details")
+        continueOnboarding(to: "Choose Preferences")
+        finishOnboarding()
 
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
         for tab in ["Player", "Matches", "Training", "Settings", "Dashboard"] {
@@ -72,9 +72,25 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         nameField.tap()
         nameField.typeText("Sidney")
-        app.buttons["onboardingContinueButton"].tap()
-        app.buttons["onboardingContinueButton"].tap()
-        app.buttons["onboardingFinishButton"].tap()
+        continueOnboarding(to: "Choose Tennis Details")
+        continueOnboarding(to: "Choose Preferences")
+        finishOnboarding()
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
+    }
+
+    private func continueOnboarding(to heading: String) {
+        let button = app.buttons["onboardingContinueButton"]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
+        XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 5))
+    }
+
+    private func finishOnboarding() {
+        let button = app.buttons["onboardingFinishButton"]
+        if !button.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.tap()
     }
 }
