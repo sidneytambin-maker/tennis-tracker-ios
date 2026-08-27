@@ -71,7 +71,7 @@ struct TennisScoringEngine {
     }
 
     mutating func awardPoint(to winner: PointWinner) -> String {
-        guard !state.isMatchComplete else { return "Match is already complete. \(fullScore)." }
+        guard !state.isMatchComplete else { return "Match is already complete. \(fullScore)" }
         history.append(state)
         state.lastWinner = winner
         switch winner {
@@ -90,7 +90,7 @@ struct TennisScoringEngine {
             return "Nothing to undo. \(fullScore)."
         }
         state = previous
-        return "Undone. \(fullScore)."
+        return "Undone. \(fullScore)"
     }
 
     mutating func reset() {

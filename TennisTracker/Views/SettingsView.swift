@@ -9,6 +9,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if !savedMessage.isBlank {
+                    Section("Status") {
+                        Text(savedMessage)
+                            .accessibilityLabel("Settings status")
+                    }
+                }
+
                 Section("Tracking") {
                     Picker("Mode", selection: $settings.trackingMode) {
                         ForEach(TrackingMode.allCases) { mode in
@@ -60,13 +67,6 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settingsRecentActivityToggle")
                     Toggle("Show upcoming tournaments", isOn: $settings.showUpcomingTournaments)
                         .accessibilityIdentifier("settingsUpcomingTournamentsToggle")
-                }
-
-                if !savedMessage.isBlank {
-                    Section("Status") {
-                        Text(savedMessage)
-                            .accessibilityLabel("Settings status")
-                    }
                 }
 
                 Section("Build") {

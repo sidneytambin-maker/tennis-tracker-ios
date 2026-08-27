@@ -46,9 +46,9 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["playerWinsPointButton"].waitForExistence(timeout: 5))
         app.buttons["playerWinsPointButton"].tap()
         app.buttons["opponentWinsPointButton"].tap()
-        app.buttons["undoScoreButton"].tap()
-        app.buttons["hearFullScoreButton"].tap()
-        app.buttons["resetScoreButton"].tap()
+        tapPossiblyScrolledButton("undoScoreButton")
+        tapPossiblyScrolledButton("hearFullScoreButton")
+        tapPossiblyScrolledButton("resetScoreButton")
     }
 
     func testFreshSetupShowsPersonalEmptyDashboardWithoutSeedData() throws {
@@ -69,13 +69,13 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         tournamentName.tap()
         tournamentName.typeText("Regional Open")
         app.buttons["saveTournamentButton"].tap()
-        XCTAssertTrue(app.staticTexts["Regional Open"].waitForExistence(timeout: 5))
+        XCTAssertTrue(textContaining("Regional Open").waitForExistence(timeout: 5))
 
         openDestination("Training")
         app.buttons["addTrainingButton"].tap()
         XCTAssertTrue(app.buttons["trainingTypePicker"].waitForExistence(timeout: 5))
         app.buttons["saveTrainingButton"].tap()
-        XCTAssertTrue(app.staticTexts["General practice"].waitForExistence(timeout: 5))
+        XCTAssertTrue(textContaining("General practice").waitForExistence(timeout: 5))
     }
 
     private func completeOnboarding() {
@@ -102,6 +102,19 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         let row = app.tables.staticTexts[name]
         XCTAssertTrue(row.waitForExistence(timeout: 5), "Missing More row for \(name)")
         row.tap()
+    }
+
+    private func tapPossiblyScrolledButton(_ identifier: String) {
+        let button = app.buttons[identifier]
+        if !button.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing button \(identifier)")
+        button.tap()
+    }
+
+    private func textContaining(_ text: String) -> XCUIElement {
+        app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
     }
 
     private func continueOnboarding(to heading: String) {
