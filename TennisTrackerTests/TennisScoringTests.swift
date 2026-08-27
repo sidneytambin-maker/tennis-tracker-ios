@@ -1,0 +1,92 @@
+import XCTest
+@testable import TennisTracker
+
+final class TennisScoringTests: XCTestCase {
+    func testInitialScoreUsesTennisTerms() {
+        let scorer = TennisScoringEngine()
+
+        XCTAssertEqual(scorer.state.pointScore, "Love-Love")
+        XCTAssertEqual(scorer.state.spokenScore, "Love-Love, games 0-0, sets 0-0")
+    }
+
+    func testDeuceAndAdvantage() {
+        var scorer = TennisScoringEngine()
+
+        for winner in [PointWinner.player, .player, .player, .opponent, .opponent, .opponent] {
+            _ = scorer.awardPoint(to: winner)
+        }
+
+        XCTAssertEqual(scorer.state.pointScore, "Deuce")
+
+        _ = scorer.awardPoint(to: .player)
+        XCTAssertEqual(scorer.state.pointScore, "Advantage Player")
+
+        _ = scorer.awardPoint(to: .opponent)
+        XCTAssertEqual(scorer.state.pointScore, "Deuce")
+    }
+
+    func testGameAfterFourStraightPoints() {
+        var scorer = TennisScoringEngine()
+
+        for _ in 0..<4 {
+            _ = scorer.awardPoint(to: .player)
+        }
+
+        XCTAssertEqual(scorer.state.playerGames, 1)
+        XCTAssertEqual(scorer.state.opponentGames, 0)
+        XCTAssertEqual(scorer.state.pointScore, "Love-Love")
+    }
+
+    func testSetCompletesAtSixLove() {
+        var scorer = TennisScoringEngine()
+
+        winGames(6, for: .player, scorer: &scorer)
+
+        XCTAssertEqual(scorer.state.playerSets, 1)
+        XCTAssertEqual(scorer.state.opponentSets, 0)
+        XCTAssertEqual(scorer.state.completedSetScores, ["6-0"])
+        XCTAssertEqual(scorer.state.playerGames, 0)
+        XCTAssertEqual(scorer.state.opponentGames, 0)
+    }
+
+    func testTiebreakCompletesAtSevenFive() {
+        var scorer = TennisScoringEngine()
+
+        winGames(5, for: .player, scorer: &scorer)
+        winGames(5, for: .opponent, scorer: &scorer)
+        winGames(1, for: .player, scorer: &scorer)
+        winGames(1, for: .opponent, scorer: &scorer)
+        for _ in 0..<6 { _ = scorer.awardPoint(to: .player) }
+        for _ in 0..<5 { _ = scorer.awardPoint(to: .opponent) }
+        _ = scorer.awardPoint(to: .player)
+
+        XCTAssertEqual(scorer.state.playerSets, 1)
+        XCTAssertEqual(scorer.state.completedSetScores, ["7-6"])
+    }
+
+    func testBestOfThreeMatchCompletes() {
+        var scorer = TennisScoringEngine()
+
+        winGames(6, for: .player, scorer: &scorer)
+        winGames(6, for: .player, scorer: &scorer)
+
+        XCTAssertTrue(scorer.state.isMatchComplete)
+        XCTAssertEqual(scorer.awardPoint(to: .opponent), "Match is already complete. Match complete, games 0-0, sets 2-0.")
+    }
+
+    func testUndoRestoresPreviousState() {
+        var scorer = TennisScoringEngine()
+
+        _ = scorer.awardPoint(to: .player)
+        XCTAssertEqual(scorer.state.pointScore, "15-Love")
+        XCTAssertEqual(scorer.undo(), "Undone. Love-Love, games 0-0, sets 0-0.")
+    }
+
+    private func winGames(_ count: Int, for winner: PointWinner, scorer: inout TennisScoringEngine) {
+        for _ in 0..<count {
+            for _ in 0..<4 {
+                _ = scorer.awardPoint(to: winner)
+            }
+        }
+    }
+}

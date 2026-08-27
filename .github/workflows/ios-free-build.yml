@@ -1,4 +1,4 @@
-name: iOS free proof-of-concept build
+name: iOS free development build
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Run scoring and accessibility wording tests
+      - name: Run scoring and statistics tests
         run: |
           set -euo pipefail
           SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
@@ -49,10 +49,9 @@ jobs:
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tennis-tracker-ios-phase-one-unsigned
+          name: tennis-tracker-ios-development-unsigned
           path: |
             artifacts/TennisTracker-unsigned.ipa
             artifacts/build-summary.txt
           if-no-files-found: error
           retention-days: 7
-

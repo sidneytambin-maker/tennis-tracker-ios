@@ -1,27 +1,33 @@
-# Tennis Tracker iOS proof of concept
+# Tennis Tracker iOS
 
-This folder contains phase one of the native iOS Tennis Tracker project. The existing Windows project at `C:\Users\User\dodge Dropbox\sidney tambin\shared folders\klaudia and sidney\TennisTracker` is a read-only reference implementation and must not be used as the iOS working folder.
+This folder contains the native iOS Tennis Tracker project. The existing Windows project at `C:\Users\User\dodge Dropbox\sidney tambin\shared folders\klaudia and sidney\TennisTracker` is a read-only reference implementation and must not be used as the iOS working folder.
 
 ## Current scope
 
-Phase one is deliberately small. It proves the pipeline from Windows source files to a free macOS cloud build, then to a Windows signing and sideloading step using a normal Apple Account.
+The first phone installation proved the pipeline from Windows source files to a free macOS cloud build, then to Windows signing and sideloading using a normal Apple Account. The current app now starts the real native iPhone version of Tennis Tracker.
 
-The proof-of-concept app contains:
+The app contains:
 
-- Navigation title: `Tennis Tracker`
-- Heading: `Development build`
-- Button: `Player One wins point`
-- Button: `Player Two wins point`
-- Current test score exposed as text and as a VoiceOver accessibility value
-- VoiceOver announcement after every score change
-- Native Dynamic Type support
+- A native tab bar for Dashboard, Player, Matches, Tournaments, Training, and Settings.
+- Player profiles with blind-tennis sight categories and allowed-bounce wording.
+- Match history, match detail, match editing, performance notes, set scores, and tiebreak notes.
+- Live best-of-three scoring with love, 15, 30, 40, deuce, advantage, games, sets, tiebreaks, undo, haptics, and VoiceOver announcements.
+- Tournament records with preparation notes, review notes, stages, formats, and outstanding linked-match counts.
+- Training records with venues, duration, focus, effort, confidence, energy, pain, conditions, equipment, and notes.
+- Dashboard summaries that mirror the Windows app's calm key cards, needs-attention items, next focus, recent matches, and training totals.
+- Settings for tracking mode, form detail, score announcements, haptics, and dashboard visibility.
+- Native Dynamic Type support, standard controls, headings, labels, status text, and accessible text summaries for statistics.
 
 ## Project structure
 
 - `TennisTracker/App/TennisTrackerApp.swift`: SwiftUI app entry point.
-- `TennisTracker/App/ScoreboardView.swift`: accessible proof-of-concept screen.
-- `TennisTracker/Scoring/TestScore.swift`: tennis point progression and announcement wording.
-- `TennisTrackerTests/TestScoreTests.swift`: tests for the scoring and spoken output.
+- `TennisTracker/App/TennisTrackerRootView.swift`: the native tab-based app shell.
+- `TennisTracker/Models/TennisModels.swift`: player, match, tournament, training, settings, sight-level, and tracking-mode data.
+- `TennisTracker/Store/TennisStore.swift`: native on-device JSON persistence in Application Support.
+- `TennisTracker/Scoring/TennisScoring.swift`: tennis scoring engine.
+- `TennisTracker/Stats/TennisStatistics.swift`: dashboard and report-style summaries.
+- `TennisTracker/Views`: SwiftUI screens for each main feature area.
+- `TennisTrackerTests`: tests for scoring and statistics.
 - `project.yml`: XcodeGen recipe used to create the Xcode project on macOS.
 - `codemagic.yaml`: free Codemagic workflow.
 - `.github/workflows/ios-free-build.yml`: GitHub Actions macOS workflow used because GitHub was already authenticated locally and can run a free included-minutes macOS build.
@@ -36,7 +42,17 @@ The Windows Tennis Tracker app is a native WPF application targeting `.NET` on W
 
 Accessibility is already treated as core in the Windows version. The reference app uses named controls, heading levels, keyboard focus, standard WPF controls, and an assertive live status text area for screen-reader feedback. The iOS proof of concept mirrors that principle with native SwiftUI accessibility labels, values, heading traits, focus movement, Dynamic Type, and explicit VoiceOver announcements.
 
-Relevant tennis terminology from the Windows app includes player, match, training, tournament, singles, doubles, opponent, result, set scores, tiebreak, win, loss, and tracking modes. Phase one only implements point scoring because the request is to prove the pipeline before porting the full app.
+Relevant tennis terminology from the Windows app includes player, match, training, tournament, singles, doubles, opponent, result, set scores, tiebreak, win, loss, sight level, allowed bounces, and tracking modes. The iPhone app now implements the core workflow in native SwiftUI while keeping the Windows app as the reference.
+
+## Accessibility guidance used
+
+The iPhone app follows Apple's SwiftUI accessibility model by using native controls, explicit labels and values where needed, heading traits for important summaries, VoiceOver announcements for live scoring, Dynamic Type, and text-first statistical summaries. Current Apple guidance reviewed during this phase:
+
+- Apple SwiftUI accessibility modifiers: https://developer.apple.com/documentation/swiftui/view-accessibility
+- Apple Human Interface Guidelines, Accessibility: https://developer.apple.com/design/human-interface-guidelines/accessibility
+- Apple WWDC guidance on accessible charts: https://developer.apple.com/videos/play/wwdc2021/10122/
+- Apple SwiftUI chart accessibility descriptor: https://developer.apple.com/documentation/swiftui/view/accessibilitychartdescriptor%28_%3A%29
+- Apple AXChart: https://developer.apple.com/documentation/accessibility/axchart
 
 ## Required free accounts
 
@@ -62,7 +78,7 @@ Sources:
 
 ## Actual repository
 
-The phase-one iOS project is stored in a private GitHub repository:
+The iOS project is stored in a private GitHub repository:
 
 `https://github.com/sidneytambin-maker/tennis-tracker-ios`
 
@@ -103,7 +119,7 @@ This is the currently active cloud build route.
 To run it from Windows:
 
 ```powershell
-gh workflow run "iOS free proof-of-concept build" --ref codex/ios-poc
+gh workflow run "iOS free development build" --ref codex/ios-poc
 ```
 
 To watch it:
@@ -112,13 +128,14 @@ To watch it:
 gh run watch
 ```
 
-Expected result: GitHub runs on a hosted macOS runner, installs XcodeGen, generates the Xcode project, runs the tests, builds an unsigned physical-device IPA, and uploads an artifact named `tennis-tracker-ios-phase-one-unsigned`.
+Expected result: GitHub runs on a hosted macOS runner, installs XcodeGen, generates the Xcode project, runs the tests, builds an unsigned physical-device IPA, and uploads an artifact named `tennis-tracker-ios-development-unsigned`.
 
 Actual result on 27 August 2026:
 
 - Successful run: `33104948788`
 - Commit built: `b6b4436`
 - Artifact downloaded to: `builds\TennisTracker-phase-one-unsigned-33104948788.ipa`
+- Current development builds download to: `builds\TennisTracker-development-unsigned-<run id>.ipa`
 - Verified package contents include `Payload/TennisTracker.app/TennisTracker`
 
 To download the newest successful artifact again:

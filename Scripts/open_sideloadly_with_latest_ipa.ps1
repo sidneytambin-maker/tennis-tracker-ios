@@ -8,7 +8,7 @@ if (-not (Test-Path $sideloadly)) {
     throw "Sideloadly was not found at $sideloadly"
 }
 
-$ipa = Get-ChildItem -Path $buildsRoot -Filter "TennisTracker-phase-one-unsigned-*.ipa" |
+$ipa = Get-ChildItem -Path $buildsRoot -Filter "TennisTracker-development-unsigned-*.ipa" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -19,4 +19,3 @@ if (-not $ipa) {
 Start-Process -FilePath $sideloadly -ArgumentList ('"' + $ipa.FullName + '"')
 Write-Host "Opened Sideloadly with:"
 Write-Host $ipa.FullName
-

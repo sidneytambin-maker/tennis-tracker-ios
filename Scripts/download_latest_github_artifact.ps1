@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$workflowName = "iOS free proof-of-concept build"
-$artifactName = "tennis-tracker-ios-phase-one-unsigned"
+$workflowName = "iOS free development build"
+$artifactName = "tennis-tracker-ios-development-unsigned"
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $artifactsRoot = Join-Path $projectRoot "artifacts"
 $buildsRoot = Join-Path $projectRoot "builds"
@@ -24,7 +24,7 @@ if (-not (Test-Path $sourceIpa)) {
     throw "Downloaded artifact did not contain TennisTracker-unsigned.ipa."
 }
 
-$destinationIpa = Join-Path $buildsRoot "TennisTracker-phase-one-unsigned-$runId.ipa"
+$destinationIpa = Join-Path $buildsRoot "TennisTracker-development-unsigned-$runId.ipa"
 Copy-Item -Path $sourceIpa -Destination $destinationIpa -Force
 
 $ipa = Get-Item $destinationIpa
@@ -35,4 +35,3 @@ if ($ipa.Length -le 0) {
 Write-Host "Downloaded IPA:"
 Write-Host $ipa.FullName
 Write-Host "Size in bytes: $($ipa.Length)"
-
