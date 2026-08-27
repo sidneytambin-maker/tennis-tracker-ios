@@ -50,9 +50,7 @@ struct MatchesView: View {
             }
             .sheet(isPresented: $showingNewMatch) {
                 if let playerID = store.selectedPlayerID {
-                    var match = MatchRecord(playerID: playerID)
-                    match.matchType = store.data.settings.defaultMatchType
-                    MatchEditorView(match: match)
+                    MatchEditorView(match: newMatch(for: playerID))
                 }
             }
             .sheet(isPresented: $showingLiveScorer) {
@@ -64,6 +62,12 @@ struct MatchesView: View {
     private func scoreSummary(_ match: MatchRecord) -> String {
         let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
         return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
+    }
+
+    private func newMatch(for playerID: UUID) -> MatchRecord {
+        var match = MatchRecord(playerID: playerID)
+        match.matchType = store.data.settings.defaultMatchType
+        return match
     }
 }
 
