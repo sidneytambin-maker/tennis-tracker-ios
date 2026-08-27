@@ -1,0 +1,58 @@
+name: iOS free proof-of-concept build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/ios-poc
+
+jobs:
+  build:
+    name: Build unsigned iOS IPA
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run scoring and accessibility wording tests
+        run: |
+          set -euo pipefail
+          SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "No available iPhone simulator was found on the hosted macOS runner." >&2
+            exit 1
+          fi
+
+          xcodebuild test \
+            -project "TennisTrackeriOS.xcodeproj" \
+            -scheme "TennisTracker" \
+            -sdk iphonesimulator \
+            -destination "id=$SIMULATOR_ID" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Build unsigned device IPA
+        run: |
+          chmod +x Scripts/build_unsigned_ipa.sh
+          Scripts/build_unsigned_ipa.sh
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-tracker-ios-phase-one-unsigned
+          path: |
+            artifacts/TennisTracker-unsigned.ipa
+            artifacts/build-summary.txt
+          if-no-files-found: error
+          retention-days: 7
+

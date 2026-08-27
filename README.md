@@ -24,6 +24,7 @@ The proof-of-concept app contains:
 - `TennisTrackerTests/TestScoreTests.swift`: tests for the scoring and spoken output.
 - `project.yml`: XcodeGen recipe used to create the Xcode project on macOS.
 - `codemagic.yaml`: free Codemagic workflow.
+- `.github/workflows/ios-free-build.yml`: GitHub Actions macOS workflow used because GitHub was already authenticated locally and can run a free included-minutes macOS build.
 - `Scripts/build_unsigned_ipa.sh`: macOS build script that packages an unsigned IPA.
 
 ## Reference Windows app findings
@@ -44,6 +45,8 @@ Do not enable Codemagic billing. Do not enrol in the paid Apple Developer Progra
 
 As checked on 27 August 2026, Codemagic documents 500 free macOS M2 build minutes per month for individual personal accounts, reset on the first day of each month. Apple documents that Xcode Personal Team provisioning profiles expire after 7 days and that free accounts have limited App IDs and devices. Sideloadly documents support for free Apple IDs on Windows, with sideloaded apps valid for 7 days.
 
+GitHub Actions is also a valid free cloud macOS build route while the account stays within its included free private-repository minutes. This project currently uses GitHub Actions first because the private repository is already created and authenticated on this Windows PC, while Codemagic still requires an interactive browser sign-in.
+
 Sources:
 
 - Codemagic pricing: https://docs.codemagic.io/billing/pricing/
@@ -52,6 +55,31 @@ Sources:
 - Sideloadly: https://sideloadly.io/
 - SideStore install docs: https://docs.sidestore.io/docs/installation/install
 - AltStore Classic downloads: https://altstore.io/
+- GitHub Actions billing: https://docs.github.com/en/billing/concepts/product-billing/github-actions
+
+## Actual repository
+
+The phase-one iOS project is stored in a private GitHub repository:
+
+`https://github.com/sidneytambin-maker/tennis-tracker-ios`
+
+Current branch:
+
+`codex/ios-poc`
+
+Do not commit Apple Account passwords, Codemagic tokens, signing certificates, provisioning profiles, downloaded IPA files, or build artifacts.
+
+## Installed Windows software
+
+Installed on this Windows PC during setup:
+
+- Apple Mobile Device Support `19.4.0.10`
+- iTunes `12.13.10.3`
+- iCloud for Windows legacy `7.21.0.23`
+- Bonjour service, installed as an iCloud dependency
+- Sideloadly `0.60.0`
+
+Apple Mobile Device Service and Bonjour Service were running after installation.
 
 ## Local Git setup
 
@@ -64,6 +92,24 @@ git commit -m "Create iOS proof of concept"
 ```
 
 Then push it to the free repository provider you want Codemagic to read from. GitHub is the simplest common choice, but any free Codemagic-supported provider is acceptable.
+
+## GitHub Actions cloud build
+
+This is the currently active cloud build route.
+
+To run it from Windows:
+
+```powershell
+gh workflow run "iOS free proof-of-concept build" --ref codex/ios-poc
+```
+
+To watch it:
+
+```powershell
+gh run watch
+```
+
+Expected result: GitHub runs on a hosted macOS runner, installs XcodeGen, generates the Xcode project, runs the tests, builds an unsigned physical-device IPA, and uploads an artifact named `tennis-tracker-ios-phase-one-unsigned`.
 
 ## Codemagic setup with NVDA
 
@@ -154,4 +200,3 @@ With Apple free personal development provisioning, the installed app expires aft
 - The IPA produced by Codemagic is unsigned. The intended experiment is that Sideloadly signs it on Windows using your free Apple Account.
 - If Sideloadly cannot sign the Codemagic unsigned IPA, stop and record the exact Sideloadly error. The fallback to investigate is SideStore or AltStore Classic, but the workflow must remain legitimate and free.
 - This phase intentionally does not include App Store Connect, TestFlight, paid Apple Developer Program distribution, or the full Windows Tennis Tracker feature set.
-
