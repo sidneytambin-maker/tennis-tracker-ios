@@ -26,7 +26,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
         for destination in ["Player", "Matches", "Tournaments", "Training", "Settings", "Dashboard"] {
             openDestination(destination)
-            XCTAssertTrue(app.navigationBars[destination].waitForExistence(timeout: 5), "Missing destination \(destination)")
+            XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5), "Missing destination \(destination)")
         }
     }
 
