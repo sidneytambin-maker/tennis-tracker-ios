@@ -1,0 +1,11 @@
+.DS_Store
+DerivedData/
+build/
+artifacts/
+*.xcuserdata/
+*.xcuserstate
+*.ipa
+*.app
+*.xcarchive
+TennisTrackeriOS.xcodeproj/
+
