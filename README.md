@@ -167,6 +167,7 @@ Actual device status on 27 August 2026:
 - Windows detected `Apple iPhone`.
 - Sideloadly detected `Sidney's iPhone (27.0) 00008140-00120D84267B001C @USB`.
 - Sideloadly required one-time administrator setup for local anisette. That warning was accepted and the Sideloadly main window reopened.
+- A signing attempt reached Apple Account authentication, but Apple rejected the supplied password with Sideloadly error `Login failed (-22406): Enter the correct password for this Apple Account.` Do not keep retrying with the same password because repeated failures can lock the Apple Account.
 
 To check prerequisites again:
 
@@ -179,6 +180,12 @@ To open Sideloadly with the newest downloaded Tennis Tracker IPA:
 ```powershell
 .\Scripts\open_sideloadly_with_latest_ipa.ps1
 ```
+
+Current signing blocker:
+
+If Sideloadly reports `Login failed (-22406): Enter the correct password for this Apple Account`, update the local temporary password file with the current correct Apple Account password, or sign in manually when Sideloadly asks. Do not commit the password file. Do not paste the password into chat.
+
+If Sideloadly reports `Login failed (-20209): This Apple Account has been locked for security reasons`, unlock the Apple Account through Apple's account recovery page before trying Sideloadly again.
 
 Sign and install:
 
