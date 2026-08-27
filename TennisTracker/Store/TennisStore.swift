@@ -151,9 +151,18 @@ final class TennisStore: ObservableObject {
         data.trainingSessions = [
             TrainingSession(playerID: player.id, durationMinutes: 60, location: "Home club", venue: "Indoor court", focus: "Serve rhythm", sessionOutcome: "Good rhythm and clearer targets")
         ]
-        data.matches = [
-            MatchRecord(playerID: player.id, opponentName: "Practice opponent", result: .win, courtSurface: "Hard", matchStrengths: "Serve placement", nextPracticeFocus: "Return position", yourSetsWon: 2, opponentSetsWon: 1, setScores: "6-4, 4-6, 10-8", hadTiebreak: true, tiebreakScore: "10-8")
-        ]
+        var match = MatchRecord(playerID: player.id)
+        match.opponentName = "Practice opponent"
+        match.result = .win
+        match.nextPracticeFocus = "Return position"
+        match.courtSurface = "Hard"
+        match.matchStrengths = "Serve placement"
+        match.yourSetsWon = 2
+        match.opponentSetsWon = 1
+        match.setScores = "6-4, 4-6, 10-8"
+        match.hadTiebreak = true
+        match.tiebreakScore = "10-8"
+        data.matches = [match]
         save()
     }
 }
