@@ -12,7 +12,7 @@ xcodebuild clean build \
   CODE_SIGN_IDENTITY=""
 
 mkdir -p artifacts/Payload
-APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-iphoneos/Tennis Tracker.app" -type d | head -n 1)"
+APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-iphoneos/TennisTracker.app" -type d | head -n 1)"
 
 if [ -z "$APP_PATH" ]; then
   echo "Could not find the unsigned Tennis Tracker.app build output." >&2
@@ -32,4 +32,3 @@ Signing status: unsigned
 Intended next step: download on Windows and sign/install with Sideloadly using a free Apple Account.
 Bundle identifier: com.inclusophy.tennistracker.dev
 SUMMARY
-

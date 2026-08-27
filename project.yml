@@ -23,12 +23,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev
-        PRODUCT_NAME: Tennis Tracker
+        PRODUCT_NAME: TennisTracker
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
   TennisTrackerTests:
     type: bundle.unit-test
     platform: iOS
+    hostApplication: TennisTracker
     sources:
       - TennisTrackerTests
     dependencies:
