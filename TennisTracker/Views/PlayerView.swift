@@ -14,6 +14,7 @@ struct PlayerView: View {
                         Button("Edit current player") {
                             editingPlayer = player
                         }
+                        .accessibilityIdentifier("editCurrentPlayerButton")
                     } else {
                         EmptyStateView(title: "No player", message: "Add a player profile to start tracking.")
                     }
@@ -42,6 +43,7 @@ struct PlayerView: View {
                     showingNewPlayer = true
                 }
                 .accessibilityLabel("Add player")
+                .accessibilityIdentifier("addPlayerButton")
             }
             .sheet(item: $editingPlayer) { player in
                 PlayerEditorView(player: player)
@@ -70,11 +72,18 @@ struct PlayerEditorView: View {
                     TextField("Nationality", text: $player.nationality)
                 }
                 Section("Blind Tennis") {
+                    Picker("Player type", selection: $player.playerMode) {
+                        ForEach(PlayerMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .accessibilityIdentifier("editPlayerModePicker")
                     Picker("Sight level", selection: $player.sightLevel) {
                         ForEach(SightLevel.allCases) { level in
                             Text(level.rawValue).tag(level)
                         }
                     }
+                    .accessibilityIdentifier("editSightLevelPicker")
                     Text("Allowed bounces: \(player.sightLevel.allowedBounces)")
                     TextField("B category", text: $player.bCategory)
                     TextField("LTA number", text: $player.ltaNumber)
@@ -86,6 +95,7 @@ struct PlayerEditorView: View {
                             Text(mode.rawValue).tag(mode)
                         }
                     }
+                    .accessibilityIdentifier("editTrackingModePicker")
                     Text(player.trackingMode.description)
                     TextField("Playing hand", text: $player.playingHand)
                     TextField("Club", text: $player.club)
@@ -100,18 +110,21 @@ struct PlayerEditorView: View {
                     Button("Delete player", role: .destructive) {
                         confirmDelete = true
                     }
+                    .accessibilityIdentifier("deletePlayerButton")
                 }
             }
             .navigationTitle("Player Details")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("cancelPlayerButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         store.upsertPlayer(player)
                         dismiss()
                     }
+                    .accessibilityIdentifier("savePlayerButton")
                 }
             }
             .confirmationDialog("Delete this player and their activity?", isPresented: $confirmDelete, titleVisibility: .visible) {

@@ -17,8 +17,8 @@ targets:
       path: TennisTracker/Info.plist
       properties:
         CFBundleDisplayName: Tennis Tracker
-        CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "3"
         UILaunchScreen:
           UIColorName: ""
           UIImageName: ""
@@ -39,6 +39,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev.tests
+  TennisTrackerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - TennisTrackerUITests
+    dependencies:
+      - target: TennisTracker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev.uitests
 schemes:
   TennisTracker:
     build:
@@ -47,3 +57,4 @@ schemes:
     test:
       targets:
         - TennisTrackerTests
+        - TennisTrackerUITests

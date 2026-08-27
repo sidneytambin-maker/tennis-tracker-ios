@@ -18,7 +18,12 @@ struct MatchesView: View {
 
                 Section("Match History") {
                     if store.selectedMatches.isEmpty {
-                        EmptyStateView(title: "No matches", message: "Add a match result or use live scoring.")
+                        VStack(alignment: .leading, spacing: 12) {
+                            EmptyStateView(title: "No matches recorded yet", message: "Your match record will appear here after you record your first match.")
+                            Button("Record match") { showingNewMatch = true }
+                                .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("emptyRecordMatchButton")
+                        }
                     } else {
                         ForEach(store.selectedMatches) { match in
                             NavigationLink {
@@ -41,10 +46,13 @@ struct MatchesView: View {
             .toolbar {
                 Button("Add") { showingNewMatch = true }
                     .accessibilityLabel("Add match")
+                    .accessibilityIdentifier("addMatchButton")
             }
             .sheet(isPresented: $showingNewMatch) {
                 if let playerID = store.selectedPlayerID {
-                    MatchEditorView(match: MatchRecord(playerID: playerID))
+                    var match = MatchRecord(playerID: playerID)
+                    match.matchType = store.data.settings.defaultMatchType
+                    MatchEditorView(match: match)
                 }
             }
             .sheet(isPresented: $showingLiveScorer) {
@@ -128,6 +136,25 @@ struct MatchEditorView: View {
                     TextField("Court surface", text: $match.courtSurface)
                     TextField("Match conditions", text: $match.matchConditions)
                 }
+                if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
+                    Section("Links") {
+                        Picker("Tournament", selection: $match.tournamentID) {
+                            Text("No tournament").tag(Optional<UUID>.none)
+                            ForEach(store.selectedTournaments) { tournament in
+                                Text(tournament.name.fallback("Unnamed tournament")).tag(Optional(tournament.id))
+                            }
+                        }
+                        .accessibilityIdentifier("matchTournamentPicker")
+
+                        Picker("Training session", selection: $match.trainingSessionID) {
+                            Text("No training session").tag(Optional<UUID>.none)
+                            ForEach(store.selectedTraining) { session in
+                                Text("\(session.date.shortTennisDate), \(session.placeText)").tag(Optional(session.id))
+                            }
+                        }
+                        .accessibilityIdentifier("matchTrainingPicker")
+                    }
+                }
                 Section("Score") {
                     Stepper("Your sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
                     Stepper("Opponent sets won \(match.opponentSetsWon)", value: $match.opponentSetsWon, in: 0...5)
@@ -190,21 +217,25 @@ struct LiveMatchView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .accessibilityIdentifier("playerWinsPointButton")
 
                 Button("Opponent wins point") {
                     score(.opponent)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .accessibilityIdentifier("opponentWinsPointButton")
 
                 HStack {
                     Button("Undo") {
                         announce(scorer.undo())
                     }
+                    .accessibilityIdentifier("undoScoreButton")
                     Button("Reset") {
                         scorer.reset()
                         announce("Score reset. \(scorer.state.spokenScore).")
                     }
+                    .accessibilityIdentifier("resetScoreButton")
                 }
                 .buttonStyle(.bordered)
 
@@ -212,6 +243,7 @@ struct LiveMatchView: View {
                     saveLiveMatch()
                 }
                 .disabled(!scorer.state.isMatchComplete || store.selectedPlayerID == nil)
+                .accessibilityIdentifier("saveCompletedMatchButton")
 
                 Spacer()
             }

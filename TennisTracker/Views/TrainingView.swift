@@ -9,7 +9,12 @@ struct TrainingView: View {
             List {
                 Section("Training History") {
                     if store.selectedTraining.isEmpty {
-                        EmptyStateView(title: "No training", message: "Add a training session or location.")
+                        VStack(alignment: .leading, spacing: 12) {
+                            EmptyStateView(title: "No training sessions recorded yet", message: "Training sessions will appear here after you add them.")
+                            Button("Add training session") { showingNewTraining = true }
+                                .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("emptyAddTrainingButton")
+                        }
                     } else {
                         ForEach(store.selectedTraining) { session in
                             NavigationLink {
@@ -30,6 +35,7 @@ struct TrainingView: View {
             .toolbar {
                 Button("Add") { showingNewTraining = true }
                     .accessibilityLabel("Add training")
+                    .accessibilityIdentifier("addTrainingButton")
             }
             .sheet(isPresented: $showingNewTraining) {
                 if let playerID = store.selectedPlayerID {

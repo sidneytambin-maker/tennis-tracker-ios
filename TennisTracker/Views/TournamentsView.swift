@@ -9,7 +9,12 @@ struct TournamentsView: View {
             List {
                 Section("Tournaments") {
                     if store.selectedTournaments.isEmpty {
-                        EmptyStateView(title: "No tournaments", message: "Add a tournament to track preparation and linked matches.")
+                        VStack(alignment: .leading, spacing: 12) {
+                            EmptyStateView(title: "No tournaments added yet", message: "Upcoming and completed tournaments will appear here.")
+                            Button("Add tournament") { showingNewTournament = true }
+                                .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("emptyAddTournamentButton")
+                        }
                     } else {
                         ForEach(store.selectedTournaments) { tournament in
                             NavigationLink {
@@ -30,6 +35,7 @@ struct TournamentsView: View {
             .toolbar {
                 Button("Add") { showingNewTournament = true }
                     .accessibilityLabel("Add tournament")
+                    .accessibilityIdentifier("addTournamentButton")
             }
             .sheet(isPresented: $showingNewTournament) {
                 if let playerID = store.selectedPlayerID {

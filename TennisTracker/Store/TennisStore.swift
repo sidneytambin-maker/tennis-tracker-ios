@@ -16,8 +16,15 @@ final class TennisStore: ObservableObject {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             self.storeURL = directory.appendingPathComponent("tennis-tracker-data.json")
         }
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-store") {
+            try? FileManager.default.removeItem(at: self.storeURL)
+        }
         load()
-        seedIfNeeded()
+        migrateIfNeeded()
+    }
+
+    var needsOnboarding: Bool {
+        data.players.isEmpty
     }
 
     var selectedPlayer: PlayerProfile? {
@@ -108,6 +115,15 @@ final class TennisStore: ObservableObject {
         saveAndAnnounce("Saved settings.")
     }
 
+    func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
+        data = AppData()
+        data.dataVersion = 3
+        data.players = [player]
+        data.selectedPlayerID = player.id
+        data.settings = settings
+        saveAndAnnounce("Set up \(player.displayName).")
+    }
+
     func announce(_ message: String) {
         lastAnnouncement = message
     }
@@ -138,31 +154,11 @@ final class TennisStore: ObservableObject {
         try? encoded.write(to: storeURL, options: [.atomic])
     }
 
-    private func seedIfNeeded() {
-        guard data.players.isEmpty else { return }
-        var player = PlayerProfile()
-        player.name = "Player One"
-        player.preferredName = "Player One"
-        player.bCategory = "B1"
-        player.sightLevel = .b1
-        player.primaryGoal = "Build consistent match and training records."
-        data.players = [player]
-        data.selectedPlayerID = player.id
-        data.trainingSessions = [
-            TrainingSession(playerID: player.id, durationMinutes: 60, location: "Home club", venue: "Indoor court", focus: "Serve rhythm", sessionOutcome: "Good rhythm and clearer targets")
-        ]
-        var match = MatchRecord(playerID: player.id)
-        match.opponentName = "Practice opponent"
-        match.result = .win
-        match.nextPracticeFocus = "Return position"
-        match.courtSurface = "Hard"
-        match.matchStrengths = "Serve placement"
-        match.yourSetsWon = 2
-        match.opponentSetsWon = 1
-        match.setScores = "6-4, 4-6, 10-8"
-        match.hadTiebreak = true
-        match.tiebreakScore = "10-8"
-        data.matches = [match]
+    private func migrateIfNeeded() {
+        guard data.dataVersion < 3 else { return }
+        data = AppData()
+        data.dataVersion = 3
+        lastAnnouncement = "Tennis Tracker is ready for first setup."
         save()
     }
 }

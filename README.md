@@ -225,35 +225,44 @@ On the iPhone:
 
 ## Seven-day limitation
 
-With Apple free personal development provisioning, the installed app expires after 7 days. Apple also limits free Personal Team App IDs and registered devices. To keep the proof-of-concept free, refresh or reinstall the app before or after expiry using Sideloadly. Do not enrol in the paid Apple Developer Program for phase one.
+With Apple free personal development provisioning, the installed app expires after 7 days. Apple also limits free Personal Team App IDs and registered devices. To keep development free, refresh or reinstall the app before or after expiry using Sideloadly. Do not enrol in the paid Apple Developer Program for this workflow.
 
 ## Refresh or reinstall after code changes
 
 1. Make and commit source changes in this folder.
 2. Push to the connected repository.
-3. Run the Codemagic workflow again.
+3. Run the GitHub Actions workflow again.
 4. Download the new `TennisTracker-unsigned.ipa`.
 5. Open Sideloadly and install the new IPA with the same Apple Account.
 6. Launch `Tennis Tracker` on the iPhone and repeat the VoiceOver checks below.
 
-## VoiceOver test procedure
+## VoiceOver repair checklist
 
-1. On the iPhone, turn on VoiceOver.
-2. Open `Tennis Tracker`.
-3. Confirm VoiceOver announces the app title or screen content.
-4. Navigate by headings and confirm the heading is `Development build`.
-5. Swipe to the score and confirm VoiceOver says `Current test score` and the current value, initially `Player One Love, Player Two Love`.
-6. Swipe to `Player One wins point`, button. Double-tap it.
-7. Confirm VoiceOver announces that Player One won the point and gives the updated score.
-8. Swipe to `Player Two wins point`, button. Double-tap it.
-9. Confirm VoiceOver announces that Player Two won the point and gives the updated score.
-10. Continue testing to `Deuce`, `Advantage Player One`, `Advantage Player Two`, and game winner announcements.
-11. Increase iPhone text size and repeat the main navigation and button tests.
+Version `0.3.0` is a major accessibility repair build. It removes the app-level overlay that could intercept bottom tab and toolbar activation, removes production seed data, adds first-run setup, and resets the earlier development demo records once by data-version migration.
+
+Manual test priority:
+
+1. Turn on VoiceOver before launching `Tennis Tracker`.
+2. Confirm first launch starts at `Welcome to Tennis Tracker`, not a populated dashboard.
+3. Double-tap `Set up my player profile`.
+4. Enter a player name or preferred name.
+5. Continue through player type, sight level, match type, tracking mode, season, theme, score announcements, and haptics.
+6. Double-tap `Finish setup`.
+7. Confirm the Dashboard says welcome using the entered preferred name and shows empty real-data summaries.
+8. Double-tap every bottom tab: Dashboard, Player, Matches, Tournaments, Training, Settings.
+9. In Settings, change a value and double-tap `Save settings`; confirm it announces `Settings saved`.
+10. In Player, edit the profile and double-tap `Save`.
+11. Add one training session, one tournament, and one match.
+12. Link a match to a tournament or training session and confirm it appears in the related summaries.
+13. Start live scoring and test Player wins point, Opponent wins point, Undo, Reset, and Save completed match.
+14. Close and reopen the app; confirm the player profile and created records persist.
+15. Confirm no old Player One, practice opponent, or sample training records appear.
+16. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
 
 ## Current limitations
 
 - Codex cannot complete your Apple Account sign-in, Google sign-in, CAPTCHA, two-factor authentication, device trust prompt, or legal acceptance.
-- Codex cannot truthfully mark phase one successful until the Codemagic build artifact has been downloaded, signed, installed, launched, and tested on your physical iPhone.
-- The IPA produced by Codemagic is unsigned. The intended experiment is that Sideloadly signs it on Windows using your free Apple Account.
-- If Sideloadly cannot sign the Codemagic unsigned IPA, stop and record the exact Sideloadly error. The fallback to investigate is SideStore or AltStore Classic, but the workflow must remain legitimate and free.
-- This phase intentionally does not include App Store Connect, TestFlight, paid Apple Developer Program distribution, or the full Windows Tennis Tracker feature set.
+- Codex cannot complete your Apple Account sign-in, Google sign-in, CAPTCHA, two-factor authentication, device trust prompt, or legal acceptance.
+- Automated tests cannot prove real VoiceOver behaviour completely; they are guardrails alongside the physical VoiceOver checklist.
+- The IPA produced by GitHub Actions is unsigned. Sideloadly signs it on Windows using your free Apple Account.
+- This workflow intentionally does not include App Store Connect, TestFlight, or the paid Apple Developer Program.
