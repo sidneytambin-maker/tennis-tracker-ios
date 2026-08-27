@@ -57,11 +57,13 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.buttons["resetScoreButton"].tap()
     }
 
-    func testAccessibilityAuditHasNoImmediateFailures() throws {
+    func testFreshSetupShowsPersonalEmptyDashboardWithoutSeedData() throws {
         completeOnboarding()
-        if #available(iOS 17.0, *) {
-            try app.performAccessibilityAudit()
-        }
+        app.tabBars.buttons["Dashboard"].tap()
+        XCTAssertTrue(app.staticTexts["Welcome back, Sidney"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["0 matches, 0 wins, 0 losses, 0 percent win rate. 0 training sessions saved."].exists)
+        XCTAssertFalse(app.staticTexts["Player One"].exists)
+        XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
     }
 
     private func completeOnboarding() {
