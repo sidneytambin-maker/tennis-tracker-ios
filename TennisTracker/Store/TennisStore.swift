@@ -74,7 +74,14 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertMatch(_ match: MatchRecord) {
-        upsert(match, in: \.matches)
+        var saved = match
+        if saved.playerName.isBlank {
+            saved.playerName = selectedPlayer?.displayName ?? "Player"
+        }
+        if saved.allowedBounces == 0 {
+            saved.allowedBounces = saved.sightLevel.allowedBounces
+        }
+        upsert(saved, in: \.matches)
         saveAndAnnounce("Saved match against \(match.opponentSummary.fallback("opponent not recorded")).")
     }
 
@@ -111,13 +118,40 @@ final class TennisStore: ObservableObject {
     }
 
     func updateSettings(_ settings: AppSettings) {
-        data.settings = settings
+        var saved = settings
+        saved.announceScores = settings.scoreAnnouncementMode != .off
+        data.settings = saved
         saveAndAnnounce("Saved settings.")
+    }
+
+    func makeDefaultMatch(tournamentID: UUID? = nil) -> MatchRecord? {
+        guard let player = selectedPlayer else { return nil }
+        var match = MatchRecord(playerID: player.id)
+        match.playerName = player.displayName
+        match.matchType = data.settings.defaultMatchType
+        match.sightLevel = player.sightLevel
+        match.allowedBounces = player.sightLevel.allowedBounces
+        match.suddenDeathDeuce = player.playerMode == .blindTennis
+        match.tournamentID = tournamentID
+        match.courtSurface = player.preferredSurface.isBlank ? .notSpecified : CourtSurface(rawValue: player.preferredSurface) ?? .notSpecified
+        return match
+    }
+
+    func makeDefaultTournament() -> TournamentRecord? {
+        guard let player = selectedPlayer else { return nil }
+        var tournament = TournamentRecord(playerID: player.id)
+        tournament.category = player.bCategory
+        return tournament
+    }
+
+    func makeDefaultTraining() -> TrainingSession? {
+        guard let player = selectedPlayer else { return nil }
+        return TrainingSession(playerID: player.id)
     }
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 3
+        data.dataVersion = 4
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -155,11 +189,17 @@ final class TennisStore: ObservableObject {
     }
 
     private func migrateIfNeeded() {
-        guard data.dataVersion < 3 else { return }
-        data = AppData()
-        data.dataVersion = 3
-        lastAnnouncement = "Tennis Tracker is ready for first setup."
-        save()
+        if data.dataVersion < 3 {
+            data = AppData()
+            data.dataVersion = 4
+            lastAnnouncement = "Tennis Tracker is ready for first setup."
+            save()
+            return
+        }
+        if data.dataVersion < 4 {
+            data.dataVersion = 4
+            save()
+        }
     }
 }
 

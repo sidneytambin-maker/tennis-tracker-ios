@@ -17,8 +17,8 @@ targets:
       path: TennisTracker/Info.plist
       properties:
         CFBundleDisplayName: Tennis Tracker
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "0.4.0"
+        CFBundleVersion: "4"
         UILaunchScreen:
           UIColorName: ""
           UIImageName: ""

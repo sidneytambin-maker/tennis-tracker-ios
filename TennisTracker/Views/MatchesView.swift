@@ -9,26 +9,17 @@ struct MatchesView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
+                Section("Live scorer") {
                     Button("Start live scoring") {
                         showingLiveScorer = true
                     }
-                    .accessibilityHint("Opens a point by point tennis scorer.")
-
-                    NavigationLink("Open tournaments") {
-                        TournamentsView()
-                    }
-                    .accessibilityIdentifier("matchesOpenTournamentsLink")
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityHint("Opens a point by point scorer with player and opponent names.")
                 }
 
-                Section("Match History") {
+                Section("Match history") {
                     if store.selectedMatches.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmptyStateView(title: "No matches recorded yet", message: "Your match record will appear here after you record your first match.")
-                            Button("Record match") { showingNewMatch = true }
-                                .buttonStyle(.borderedProminent)
-                                .accessibilityIdentifier("emptyRecordMatchButton")
-                        }
+                        EmptyStateView(title: "No matches recorded yet", message: "Use Add to record a match or start live scoring.")
                     } else {
                         ForEach(store.selectedMatches) { match in
                             NavigationLink {
@@ -47,6 +38,7 @@ struct MatchesView: View {
                     }
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Matches")
             .toolbar {
                 Button("Add") { showingNewMatch = true }
@@ -54,8 +46,8 @@ struct MatchesView: View {
                     .accessibilityIdentifier("addMatchButton")
             }
             .sheet(isPresented: $showingNewMatch) {
-                if let playerID = store.selectedPlayerID {
-                    MatchEditorView(match: newMatch(for: playerID))
+                if let match = store.makeDefaultMatch() {
+                    MatchEditorView(match: match)
                 }
             }
             .sheet(isPresented: $showingLiveScorer) {
@@ -67,12 +59,6 @@ struct MatchesView: View {
     private func scoreSummary(_ match: MatchRecord) -> String {
         let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
         return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
-    }
-
-    private func newMatch(for playerID: UUID) -> MatchRecord {
-        var match = MatchRecord(playerID: playerID)
-        match.matchType = store.data.settings.defaultMatchType
-        return match
     }
 }
 
@@ -86,26 +72,30 @@ struct MatchDetailView: View {
         List {
             Section("Summary") {
                 SummaryRow(title: "\(match.result.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))", value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
+                SummaryRow(title: "Players", value: "\(match.playerName.fallback("Player")) against \(match.opponentSummary.fallback("opponent not recorded")).")
                 SummaryRow(title: "Score", value: "\(match.yourSetsWon)-\(match.opponentSetsWon) sets. \(match.setScores.fallback("set scores not recorded")).")
-                if match.hadTiebreak {
-                    SummaryRow(title: "Tiebreak", value: match.tiebreakScore.fallback("tiebreak score not recorded"))
+                SummaryRow(title: "Rules", value: "\(match.sightLevel.rawValue). \(match.allowedBounces) bounces. Sudden-death deuce \(match.suddenDeathDeuce ? "on" : "off").")
+            }
+
+            if store.data.settings.trackingMode != .basic {
+                Section("Performance") {
+                    SummaryRow(title: "Key stats", value: "\(match.aces) aces, \(match.doubleFaults) double faults, \(match.winners) winners, \(match.unforcedErrors) unforced errors.")
+                    SummaryRow(title: "Strengths", value: match.matchStrengths.fallback("not recorded"))
+                    SummaryRow(title: "Needs work", value: match.matchNeedsWork.fallback("not recorded"))
+                    SummaryRow(title: "Next practice focus", value: match.nextPracticeFocus.fallback("not recorded"))
                 }
             }
-            Section("Performance") {
-                SummaryRow(title: "Key stats", value: "\(match.aces) aces, \(match.doubleFaults) double faults, \(match.winners) winners, \(match.unforcedErrors) unforced errors.")
-                SummaryRow(title: "Strengths", value: match.matchStrengths.fallback("not recorded"))
-                SummaryRow(title: "Needs work", value: match.matchNeedsWork.fallback("not recorded"))
-                SummaryRow(title: "Next practice focus", value: match.nextPracticeFocus.fallback("not recorded"))
-            }
+
             Section("Notes") {
-                Text(match.matchStory.fallback("No match story recorded."))
-                Text(match.notes.fallback("No extra notes recorded."))
+                Text(match.notes.fallback(match.matchStory.fallback("No notes recorded.")))
             }
+
             Section {
                 Button("Delete match", role: .destructive) { confirmDelete = true }
             }
         }
-        .navigationTitle("Match Detail")
+        .tennisThemedList()
+        .navigationTitle("Match detail")
         .toolbar {
             Button("Edit") { showingEditor = true }
         }
@@ -129,22 +119,40 @@ struct MatchEditorView: View {
         NavigationStack {
             Form {
                 Section("Match") {
-                    DatePicker("Date", selection: $match.date, displayedComponents: .date)
+                    DateShortcutPicker(title: "Date", date: $match.date)
+                        .accessibilityIdentifier("matchDatePicker")
                     Picker("Match type", selection: $match.matchType) {
                         ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
                     }
                     Picker("Result", selection: $match.result) {
                         ForEach(MatchResult.allCases) { result in Text(result.rawValue).tag(result) }
                     }
-                    TextField("Opponent 1", text: $match.opponentName)
+                }
+
+                Section("Players") {
+                    TextField("Player name", text: $match.playerName)
+                        .accessibilityIdentifier("matchPlayerNameField")
+                    TextField("Opponent name", text: $match.opponentName)
+                        .accessibilityIdentifier("matchOpponentNameField")
                     if match.matchType == .doubles {
                         TextField("Partner", text: $match.partnerName)
-                        TextField("Opponent 2", text: $match.opponent2Name)
+                        TextField("Second opponent", text: $match.opponent2Name)
                     }
-                    TextField("Match position", text: $match.matchPosition)
-                    TextField("Court surface", text: $match.courtSurface)
-                    TextField("Match conditions", text: $match.matchConditions)
                 }
+
+                Section("Rules") {
+                    Picker("Sight level", selection: $match.sightLevel) {
+                        ForEach(SightLevel.allCases) { level in Text(level.rawValue).tag(level) }
+                    }
+                    .onChange(of: match.sightLevel) { _, newValue in
+                        match.allowedBounces = newValue.allowedBounces
+                        match.suddenDeathDeuce = newValue != .fullySighted
+                    }
+                    Stepper("Allowed bounces \(match.allowedBounces)", value: $match.allowedBounces, in: 1...3)
+                    Toggle("Sudden-death deuce", isOn: $match.suddenDeathDeuce)
+                        .accessibilityIdentifier("matchSuddenDeathToggle")
+                }
+
                 if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
                     Section("Links") {
                         Picker("Tournament", selection: $match.tournamentID) {
@@ -158,33 +166,44 @@ struct MatchEditorView: View {
                         Picker("Training session", selection: $match.trainingSessionID) {
                             Text("No training session").tag(Optional<UUID>.none)
                             ForEach(store.selectedTraining) { session in
-                                Text("\(session.date.shortTennisDate), \(session.placeText)").tag(Optional(session.id))
+                                Text("\(session.date.shortTennisDate), \(session.trainingType.rawValue)").tag(Optional(session.id))
                             }
                         }
                         .accessibilityIdentifier("matchTrainingPicker")
                     }
                 }
+
                 Section("Score") {
-                    Stepper("Your sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
+                    Stepper("Player sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
                     Stepper("Opponent sets won \(match.opponentSetsWon)", value: $match.opponentSetsWon, in: 0...5)
                     TextField("Set scores", text: $match.setScores)
                     Toggle("Had tiebreak", isOn: $match.hadTiebreak)
-                    TextField("Tiebreak score", text: $match.tiebreakScore)
+                    if match.hadTiebreak {
+                        TextField("Tiebreak score", text: $match.tiebreakScore)
+                    }
                 }
-                Section("Performance") {
-                    Stepper("Aces \(match.aces)", value: $match.aces, in: 0...99)
-                    Stepper("Double faults \(match.doubleFaults)", value: $match.doubleFaults, in: 0...99)
-                    Stepper("Winners \(match.winners)", value: $match.winners, in: 0...999)
-                    Stepper("Unforced errors \(match.unforcedErrors)", value: $match.unforcedErrors, in: 0...999)
-                    TextField("Opponent style", text: $match.opponentStyle, axis: .vertical)
-                    TextField("Pressure moment", text: $match.pressureMoment, axis: .vertical)
-                    TextField("Match strengths", text: $match.matchStrengths, axis: .vertical)
-                    TextField("Needs work", text: $match.matchNeedsWork, axis: .vertical)
-                    TextField("Next practice focus", text: $match.nextPracticeFocus, axis: .vertical)
-                    TextField("Match story", text: $match.matchStory, axis: .vertical)
+
+                if store.data.settings.trackingMode != .basic {
+                    Section("Performance") {
+                        Picker("Round or position", selection: $match.matchPosition) {
+                            ForEach(MatchPosition.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Picker("Court surface", selection: $match.courtSurface) {
+                            ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Stepper("Aces \(match.aces)", value: $match.aces, in: 0...99)
+                        Stepper("Double faults \(match.doubleFaults)", value: $match.doubleFaults, in: 0...99)
+                        TextField("Next practice focus", text: $match.nextPracticeFocus, axis: .vertical)
+                    }
+                }
+
+                Section("Notes") {
                     TextField("Notes", text: $match.notes, axis: .vertical)
+                        .lineLimit(3...6)
+                        .accessibilityIdentifier("matchNotesField")
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Match")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -193,6 +212,7 @@ struct MatchEditorView: View {
                         store.upsertMatch(match)
                         dismiss()
                     }
+                    .accessibilityIdentifier("saveMatchButton")
                 }
             }
         }
@@ -203,82 +223,126 @@ struct LiveMatchView: View {
     @EnvironmentObject private var store: TennisStore
     @Environment(\.dismiss) private var dismiss
     @State private var scorer = TennisScoringEngine()
+    @State private var playerName = ""
     @State private var opponentName = ""
+    @State private var suddenDeathDeuce = true
     @AccessibilityFocusState private var focusedScore: Bool
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(scorer.state.spokenScore)
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .lineLimit(4)
-                    .minimumScaleFactor(0.7)
-                    .accessibilityLabel("Current score")
-                    .accessibilityValue(scorer.state.spokenScore)
-                    .accessibilityAddTraits(.updatesFrequently)
-                    .accessibilityFocused($focusedScore)
-
-                TextField("Opponent name", text: $opponentName)
-                    .textFieldStyle(.roundedBorder)
-
-                Button("Player wins point") {
-                    score(.player)
+            List {
+                Section("Players") {
+                    TextField("Player name", text: $playerName)
+                        .accessibilityIdentifier("livePlayerNameField")
+                    TextField("Opponent name", text: $opponentName)
+                        .accessibilityIdentifier("liveOpponentNameField")
+                    Toggle("Sudden-death deuce", isOn: $suddenDeathDeuce)
+                        .accessibilityIdentifier("liveSuddenDeathToggle")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("playerWinsPointButton")
 
-                Button("Opponent wins point") {
-                    score(.opponent)
+                Section("Score") {
+                    Text(scorer.fullScore)
+                        .font(.title2.bold())
+                        .accessibilityLabel("Current score")
+                        .accessibilityValue(scorer.fullScore)
+                        .accessibilityAddTraits(.updatesFrequently)
+                        .accessibilityFocused($focusedScore)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .accessibilityIdentifier("opponentWinsPointButton")
 
-                HStack {
+                Section("Points") {
+                    Button("Point to \(playerName.fallback("Player"))") {
+                        score(.player)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("playerWinsPointButton")
+
+                    Button("Point to \(opponentName.fallback("Opponent"))") {
+                        score(.opponent)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("opponentWinsPointButton")
+                }
+
+                Section("Actions") {
                     Button("Undo") {
-                        announce(scorer.undo())
+                        announce(scorer.undo(), force: store.data.settings.scoreAnnouncementMode != .off)
                     }
                     .accessibilityIdentifier("undoScoreButton")
-                    Button("Reset") {
+                    Button("Hear full score") {
+                        announce(scorer.fullScore, force: true)
+                    }
+                    .accessibilityIdentifier("hearFullScoreButton")
+                    Button("Reset score") {
                         scorer.reset()
-                        announce("Score reset. \(scorer.state.spokenScore).")
+                        announce("Score reset. \(scorer.fullScore).", force: store.data.settings.scoreAnnouncementMode != .off)
                     }
                     .accessibilityIdentifier("resetScoreButton")
                 }
-                .buttonStyle(.bordered)
 
-                Button("Save completed match") {
-                    saveLiveMatch()
+                Section {
+                    Button("Save completed match") {
+                        saveLiveMatch()
+                    }
+                    .disabled(!scorer.state.isMatchComplete || store.selectedPlayerID == nil)
+                    .accessibilityIdentifier("saveCompletedMatchButton")
                 }
-                .disabled(!scorer.state.isMatchComplete || store.selectedPlayerID == nil)
-                .accessibilityIdentifier("saveCompletedMatchButton")
-
-                Spacer()
             }
-            .padding()
-            .navigationTitle("Live Scoring")
+            .tennisThemedList()
+            .navigationTitle("Live scorer")
             .toolbar {
                 Button("Done") { dismiss() }
             }
             .onAppear {
+                configureDefaults()
                 focusedScore = true
             }
+            .onChange(of: playerName) { _, _ in syncScorerNames() }
+            .onChange(of: opponentName) { _, _ in syncScorerNames() }
+            .onChange(of: suddenDeathDeuce) { _, _ in syncScorerNames() }
         }
     }
 
+    private func configureDefaults() {
+        let player = store.selectedPlayer
+        if playerName.isBlank {
+            playerName = player?.displayName ?? "Player"
+        }
+        if opponentName.isBlank {
+            opponentName = "Opponent"
+        }
+        suddenDeathDeuce = player?.playerMode == .blindTennis
+        syncScorerNames()
+    }
+
+    private func syncScorerNames() {
+        scorer.playerName = playerName.fallback("Player")
+        scorer.opponentName = opponentName.fallback("Opponent")
+        scorer.suddenDeathDeuce = suddenDeathDeuce
+    }
+
     private func score(_ winner: PointWinner) {
+        syncScorerNames()
         let message = scorer.awardPoint(to: winner)
         if store.data.settings.hapticsEnabled {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
-        announce(message)
+        switch store.data.settings.scoreAnnouncementMode {
+        case .automatic:
+            announce(message, force: true)
+        case .reduced:
+            let name = winner == .player ? playerName.fallback("Player") : opponentName.fallback("Opponent")
+            announce("Point to \(name). \(scorer.state.pointScore(suddenDeathDeuce: suddenDeathDeuce)).", force: true)
+        case .off:
+            store.announce(message)
+        }
     }
 
-    private func announce(_ message: String) {
+    private func announce(_ message: String, force: Bool) {
         store.announce(message)
         focusedScore = true
-        if store.data.settings.announceScores {
+        if force {
             UIAccessibility.post(notification: .announcement, argument: message)
         }
     }
@@ -286,14 +350,17 @@ struct LiveMatchView: View {
     private func saveLiveMatch() {
         guard let playerID = store.selectedPlayerID else { return }
         let playerWon = scorer.state.playerSets > scorer.state.opponentSets
-        var match = MatchRecord(playerID: playerID)
+        var match = store.makeDefaultMatch() ?? MatchRecord(playerID: playerID)
+        match.playerName = playerName
         match.opponentName = opponentName
         match.result = playerWon ? .win : .loss
         match.yourSetsWon = scorer.state.playerSets
         match.opponentSetsWon = scorer.state.opponentSets
         match.setScores = scorer.state.completedSetScores.joined(separator: ", ")
         match.hadTiebreak = match.setScores.contains("7-6") || match.setScores.contains("6-7")
+        match.suddenDeathDeuce = suddenDeathDeuce
         store.upsertMatch(match)
+        announce(scorer.fullScore, force: store.data.settings.scoreAnnouncementMode != .off)
         dismiss()
     }
 }

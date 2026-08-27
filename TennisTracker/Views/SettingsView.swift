@@ -9,7 +9,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Tracking Mode") {
+                Section("Tracking") {
                     Picker("Mode", selection: $settings.trackingMode) {
                         ForEach(TrackingMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -17,7 +17,6 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settingsTrackingModePicker")
                     Text(settings.trackingMode.description)
-                    Text("Form detail: \(settings.formDetail)")
                 }
 
                 Section("Theme") {
@@ -26,6 +25,7 @@ struct SettingsView: View {
                             Text(theme.rawValue).tag(theme)
                         }
                     }
+                    .pickerStyle(.inline)
                     .accessibilityIdentifier("settingsThemePicker")
                     Text(themeDescription)
                 }
@@ -41,12 +41,16 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settingsSeasonStepper")
                 }
 
-                Section("Accessibility") {
-                    Toggle("Announce live scores", isOn: $settings.announceScores)
-                        .accessibilityIdentifier("settingsAnnounceScoresToggle")
+                Section("Live scoring") {
+                    Picker("Score announcements", selection: $settings.scoreAnnouncementMode) {
+                        ForEach(ScoreAnnouncementMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .accessibilityIdentifier("settingsScoreAnnouncementPicker")
                     Toggle("Haptics", isOn: $settings.hapticsEnabled)
                         .accessibilityIdentifier("settingsHapticsToggle")
-                    Text("The app uses native controls, Dynamic Type, headings, explicit labels, status announcements, and text summaries for statistics.")
+                    Text("Automatic speaks the new score after each point. Reduced speaks the point winner and current game score. Off keeps the Hear full score button available.")
                 }
 
                 Section("Dashboard") {
@@ -58,35 +62,35 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settingsUpcomingTournamentsToggle")
                 }
 
-                Section {
-                    Button("Save settings") {
-                        saveSettings()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("settingsSaveButton")
-                    if !savedMessage.isBlank {
+                if !savedMessage.isBlank {
+                    Section("Status") {
                         Text(savedMessage)
                             .accessibilityLabel("Settings status")
-                            .accessibilityValue(savedMessage)
                     }
                 }
 
                 Section("Build") {
-                    SummaryRow(title: "Version", value: "0.3.0")
+                    SummaryRow(title: "Version", value: "0.4.0")
                     SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Settings")
             .onAppear {
                 settings = store.data.settings
             }
             .onChange(of: settings.trackingMode) { _, _ in
                 settings.applyModeDefaults()
+                saveSettings(announce: false)
+            }
+            .onChange(of: settings.theme) { _, _ in
+                saveSettings(announce: false)
             }
             .toolbar {
                 Button("Save") {
-                    saveSettings()
+                    saveSettings(announce: true)
                 }
+                .accessibilityLabel("Save settings")
                 .accessibilityIdentifier("settingsToolbarSaveButton")
             }
         }
@@ -95,19 +99,21 @@ struct SettingsView: View {
     private var themeDescription: String {
         switch settings.theme {
         case .tennis:
-            return "Tennis uses a grass-court green accent with native contrast support."
+            return "Tennis uses light court surfaces with a restrained tennis-ball accent."
         case .classic:
-            return "Classic uses the standard iOS blue accent."
+            return "Classic uses a clean blue iOS style."
         case .highContrast:
-            return "High Contrast uses a dark appearance and bright accent."
+            return "High Contrast uses dark surfaces and bright controls."
         case .system:
-            return "System follows the iPhone appearance and accent."
+            return "System follows the iPhone appearance."
         }
     }
 
-    private func saveSettings() {
+    private func saveSettings(announce: Bool) {
         store.updateSettings(settings)
-        savedMessage = "Settings saved."
-        UIAccessibility.post(notification: .announcement, argument: savedMessage)
+        if announce {
+            savedMessage = "Settings saved."
+            UIAccessibility.post(notification: .announcement, argument: savedMessage)
+        }
     }
 }

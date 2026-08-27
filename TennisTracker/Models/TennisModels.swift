@@ -28,6 +28,14 @@ enum AppTheme: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum ScoreAnnouncementMode: String, Codable, CaseIterable, Identifiable {
+    case automatic = "Automatic"
+    case reduced = "Reduced"
+    case off = "Off"
+
+    var id: String { rawValue }
+}
+
 enum PlayerMode: String, Codable, CaseIterable, Identifiable {
     case blindTennis = "Blind or visually impaired tennis"
     case standardTennis = "Standard tennis"
@@ -53,6 +61,17 @@ enum SightLevel: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum CourtSurface: String, Codable, CaseIterable, Identifiable {
+    case notSpecified = "Not specified"
+    case hard = "Hard court"
+    case clay = "Clay"
+    case grass = "Grass"
+    case carpet = "Carpet"
+    case indoor = "Indoor"
+
+    var id: String { rawValue }
+}
+
 enum MatchResult: String, Codable, CaseIterable, Identifiable {
     case win = "Win"
     case loss = "Loss"
@@ -62,9 +81,79 @@ enum MatchResult: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum MatchPosition: String, Codable, CaseIterable, Identifiable {
+    case notSpecified = "Not specified"
+    case roundRobin = "Round robin"
+    case last16 = "Last 16"
+    case quarterFinal = "Quarter-final"
+    case semiFinal = "Semi-final"
+    case final = "Final"
+
+    var id: String { rawValue }
+}
+
 enum MatchKind: String, Codable, CaseIterable, Identifiable {
     case singles = "Singles"
     case doubles = "Doubles"
+
+    var id: String { rawValue }
+}
+
+enum TrainingType: String, Codable, CaseIterable, Identifiable {
+    case general = "General practice"
+    case technical = "Technical session"
+    case tactical = "Tactical session"
+    case fitness = "Fitness"
+    case matchPractice = "Match practice"
+    case coaching = "Coaching"
+
+    var id: String { rawValue }
+}
+
+enum RatingLevel: String, Codable, CaseIterable, Identifiable {
+    case low = "Low"
+    case medium = "Medium"
+    case high = "High"
+
+    var id: String { rawValue }
+}
+
+enum PainLevel: String, Codable, CaseIterable, Identifiable {
+    case none = "None"
+    case mild = "Mild"
+    case moderate = "Moderate"
+    case high = "High"
+
+    var id: String { rawValue }
+}
+
+enum TournamentFormat: String, Codable, CaseIterable, Identifiable {
+    case singleElimination = "Single elimination"
+    case roundRobin = "Round robin"
+    case league = "League"
+    case friendly = "Friendly event"
+    case other = "Other"
+
+    var id: String { rawValue }
+}
+
+enum TournamentStage: String, Codable, CaseIterable, Identifiable {
+    case notStarted = "Not started"
+    case groupStage = "Group stage"
+    case last16 = "Last 16"
+    case quarterFinal = "Quarter-final"
+    case semiFinal = "Semi-final"
+    case final = "Final"
+    case winner = "Winner"
+
+    var id: String { rawValue }
+}
+
+enum TournamentResult: String, Codable, CaseIterable, Identifiable {
+    case entered = "Entered"
+    case inProgress = "In progress"
+    case completed = "Completed"
+    case withdrawn = "Withdrawn"
 
     var id: String { rawValue }
 }
@@ -133,22 +222,20 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var hasSessionDetails = true
     var date = Date()
     var durationMinutes = 60
+    var trainingType: TrainingType = .general
     var location = ""
     var venue = ""
-    var venueType = ""
-    var focus = ""
-    var effortLevel = "Medium"
-    var confidenceLevel = "Medium"
+    var surface: CourtSurface = .notSpecified
+    var focus = "General practice"
+    var effortLevel: RatingLevel = .medium
+    var confidenceLevel: RatingLevel = .medium
     var sessionOutcome = ""
-    var energyLevel = "Medium"
-    var painLevel = "None"
-    var trainingConditions = ""
-    var weatherConditions = ""
-    var equipmentNotes = ""
+    var energyLevel: RatingLevel = .medium
+    var painLevel: PainLevel = .none
     var notes = ""
 
     var placeText: String {
-        [venue, location, venueType].filter { !$0.isBlank }.joined(separator: ", ").fallback("location not recorded")
+        [venue, location, surface == .notSpecified ? "" : surface.rawValue].filter { !$0.isBlank }.joined(separator: ", ").fallback("location not recorded")
     }
 }
 
@@ -157,20 +244,24 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var playerID: UUID
     var date = Date()
     var matchType: MatchKind = .singles
+    var playerName = ""
     var opponentName = ""
     var partnerName = ""
     var opponent2Name = ""
     var result: MatchResult = .win
-    var matchPosition = "Not specified"
+    var matchPosition: MatchPosition = .notSpecified
     var opponentStyle = ""
     var pressureMoment = ""
     var matchStory = ""
     var nextPracticeFocus = ""
-    var courtSurface = ""
+    var courtSurface: CourtSurface = .notSpecified
     var matchConditions = ""
     var matchStrengths = ""
     var matchNeedsWork = ""
     var notes = ""
+    var sightLevel: SightLevel = .b1
+    var allowedBounces = 3
+    var suddenDeathDeuce = true
     var aces = 0
     var doubleFaults = 0
     var winners = 0
@@ -204,14 +295,18 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
     var name = ""
     var location = ""
     var date = Date()
-    var finalResult = "Entered"
+    var endDate = Date()
+    var category = "B1"
+    var finalResult: TournamentResult = .entered
     var matchesPlayed = 0
-    var format = "Single elimination"
-    var stageReached = "Not started"
+    var format: TournamentFormat = .singleElimination
+    var stageReached: TournamentStage = .notStarted
     var goal = ""
-    var preparationNotes = ""
-    var reviewNotes = ""
     var notes = ""
+
+    var isCompleted: Bool {
+        finalResult == .completed || finalResult == .withdrawn || endDate < Calendar.current.startOfDay(for: Date())
+    }
 
     func outstandingMatches(linkedMatchCount: Int) -> Int {
         max(0, matchesPlayed - linkedMatchCount)
@@ -224,6 +319,7 @@ struct AppSettings: Codable, Equatable {
     var formDetail = "Simple"
     var defaultMatchType: MatchKind = .singles
     var defaultSeason = Calendar.current.component(.year, from: Date())
+    var scoreAnnouncementMode: ScoreAnnouncementMode = .automatic
     var announceScores = true
     var hapticsEnabled = true
     var showNeedsAttention = true
@@ -250,6 +346,7 @@ struct AppSettings: Codable, Equatable {
         formDetail = try container.decodeIfPresent(String.self, forKey: .formDetail) ?? "Simple"
         defaultMatchType = try container.decodeIfPresent(MatchKind.self, forKey: .defaultMatchType) ?? .singles
         defaultSeason = try container.decodeIfPresent(Int.self, forKey: .defaultSeason) ?? Calendar.current.component(.year, from: Date())
+        scoreAnnouncementMode = try container.decodeIfPresent(ScoreAnnouncementMode.self, forKey: .scoreAnnouncementMode) ?? ((try container.decodeIfPresent(Bool.self, forKey: .announceScores) ?? true) ? .automatic : .off)
         announceScores = try container.decodeIfPresent(Bool.self, forKey: .announceScores) ?? true
         hapticsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
         showNeedsAttention = try container.decodeIfPresent(Bool.self, forKey: .showNeedsAttention) ?? true
@@ -259,7 +356,7 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 3
+    var dataVersion = 4
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []

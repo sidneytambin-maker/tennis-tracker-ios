@@ -7,39 +7,37 @@ struct TrainingView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Training History") {
+                Section("Training history") {
                     if store.selectedTraining.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmptyStateView(title: "No training sessions recorded yet", message: "Training sessions will appear here after you add them.")
-                            Button("Add training session") { showingNewTraining = true }
-                                .buttonStyle(.borderedProminent)
-                                .accessibilityIdentifier("emptyAddTrainingButton")
-                        }
+                        EmptyStateView(title: "No training sessions recorded yet", message: "Use Add to save your first session.")
                     } else {
                         ForEach(store.selectedTraining) { session in
                             NavigationLink {
                                 TrainingDetailView(session: session)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(session.date.shortTennisDate): \(session.placeText)")
+                                    Text("\(session.date.shortTennisDate): \(session.trainingType.rawValue)")
                                     Text("\(session.durationMinutes) minutes. Focus: \(session.focus.fallback("not recorded")).")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .accessibilityLabel("Training session")
+                            .accessibilityValue("\(session.date.shortTennisDate), \(session.trainingType.rawValue), \(session.durationMinutes) minutes, focus \(session.focus.fallback("not recorded"))")
                         }
                     }
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Training")
             .toolbar {
                 Button("Add") { showingNewTraining = true }
-                    .accessibilityLabel("Add training")
+                    .accessibilityLabel("Add training session")
                     .accessibilityIdentifier("addTrainingButton")
             }
             .sheet(isPresented: $showingNewTraining) {
-                if let playerID = store.selectedPlayerID {
-                    TrainingEditorView(session: TrainingSession(playerID: playerID))
+                if let session = store.makeDefaultTraining() {
+                    TrainingEditorView(session: session)
                 }
             }
         }
@@ -55,27 +53,30 @@ struct TrainingDetailView: View {
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: session.placeText, value: "\(session.date.shortTennisDate). \(session.durationMinutes) minutes.")
+                SummaryRow(title: session.trainingType.rawValue, value: "\(session.date.shortTennisDate). \(session.durationMinutes) minutes. \(session.placeText).")
                 SummaryRow(title: "Focus", value: session.focus.fallback("not recorded"))
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
-            Section("Body and Conditions") {
-                SummaryRow(title: "Effort", value: session.effortLevel)
-                SummaryRow(title: "Confidence", value: session.confidenceLevel)
-                SummaryRow(title: "Energy", value: session.energyLevel)
-                SummaryRow(title: "Pain", value: session.painLevel)
-                Text(session.trainingConditions.fallback("No training conditions recorded."))
-                Text(session.weatherConditions.fallback("No weather conditions recorded."))
-                Text(session.equipmentNotes.fallback("No equipment notes recorded."))
+
+            if session.hasSessionDetails {
+                Section("Body") {
+                    SummaryRow(title: "Effort", value: session.effortLevel.rawValue)
+                    SummaryRow(title: "Confidence", value: session.confidenceLevel.rawValue)
+                    SummaryRow(title: "Energy", value: session.energyLevel.rawValue)
+                    SummaryRow(title: "Pain", value: session.painLevel.rawValue)
+                }
             }
+
             Section("Notes") {
                 Text(session.notes.fallback("No notes recorded."))
             }
+
             Section {
                 Button("Delete training session", role: .destructive) { confirmDelete = true }
             }
         }
-        .navigationTitle("Training Detail")
+        .tennisThemedList()
+        .navigationTitle("Training detail")
         .toolbar {
             Button("Edit") { showingEditor = true }
         }
@@ -99,28 +100,48 @@ struct TrainingEditorView: View {
         NavigationStack {
             Form {
                 Section("Training") {
-                    Toggle("Has session details", isOn: $session.hasSessionDetails)
-                    DatePicker("Date", selection: $session.date, displayedComponents: .date)
+                    Picker("Session type", selection: $session.trainingType) {
+                        ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .accessibilityIdentifier("trainingTypePicker")
+                    DateShortcutPicker(title: "Date", date: $session.date)
+                        .accessibilityIdentifier("trainingDatePicker")
                     Stepper("Duration \(session.durationMinutes) minutes", value: $session.durationMinutes, in: 0...480, step: 5)
-                    TextField("Location", text: $session.location)
                     TextField("Venue", text: $session.venue)
-                    TextField("Venue type", text: $session.venueType)
+                    TextField("Location", text: $session.location)
+                    Picker("Surface", selection: $session.surface) {
+                        ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .accessibilityIdentifier("trainingSurfacePicker")
                     TextField("Focus", text: $session.focus)
                 }
-                if session.hasSessionDetails {
-                    Section("Session Detail") {
-                        TextField("Effort level", text: $session.effortLevel)
-                        TextField("Confidence level", text: $session.confidenceLevel)
-                        TextField("Session outcome", text: $session.sessionOutcome, axis: .vertical)
-                        TextField("Energy level", text: $session.energyLevel)
-                        TextField("Pain level", text: $session.painLevel)
-                        TextField("Training conditions", text: $session.trainingConditions, axis: .vertical)
-                        TextField("Weather conditions", text: $session.weatherConditions, axis: .vertical)
-                        TextField("Equipment notes", text: $session.equipmentNotes, axis: .vertical)
-                        TextField("Notes", text: $session.notes, axis: .vertical)
+
+                Section("Detail") {
+                    Toggle("Include body ratings", isOn: $session.hasSessionDetails)
+                    if session.hasSessionDetails {
+                        Picker("Effort", selection: $session.effortLevel) {
+                            ForEach(RatingLevel.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Picker("Confidence", selection: $session.confidenceLevel) {
+                            ForEach(RatingLevel.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Picker("Energy", selection: $session.energyLevel) {
+                            ForEach(RatingLevel.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        Picker("Pain", selection: $session.painLevel) {
+                            ForEach(PainLevel.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        TextField("Outcome", text: $session.sessionOutcome, axis: .vertical)
                     }
                 }
+
+                Section("Notes") {
+                    TextField("Notes", text: $session.notes, axis: .vertical)
+                        .lineLimit(3...6)
+                        .accessibilityIdentifier("trainingNotesField")
+                }
             }
+            .tennisThemedList()
             .navigationTitle("Training")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -129,6 +150,7 @@ struct TrainingEditorView: View {
                         store.upsertTraining(session)
                         dismiss()
                     }
+                    .accessibilityIdentifier("saveTrainingButton")
                 }
             }
         }

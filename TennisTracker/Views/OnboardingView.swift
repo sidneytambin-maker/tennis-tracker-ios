@@ -149,8 +149,12 @@ struct OnboardingView: View {
             }
             .accessibilityIdentifier("themePicker")
 
-            Toggle("Announce live scores", isOn: $settings.announceScores)
-                .accessibilityIdentifier("announceScoresToggle")
+            Picker("Score announcements", selection: $settings.scoreAnnouncementMode) {
+                ForEach(ScoreAnnouncementMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .accessibilityIdentifier("announceScoresPicker")
             Toggle("Haptics", isOn: $settings.hapticsEnabled)
                 .accessibilityIdentifier("hapticsToggle")
         }
@@ -211,6 +215,7 @@ struct OnboardingView: View {
             player.bCategory = String(player.sightLevel.rawValue.prefix(2))
         }
         settings.applyModeDefaults()
+        settings.announceScores = settings.scoreAnnouncementMode != .off
         store.completeOnboarding(player: player, settings: settings)
         UIAccessibility.post(notification: .announcement, argument: "Setup complete. Welcome, \(player.displayName).")
     }

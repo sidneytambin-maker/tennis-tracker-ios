@@ -24,23 +24,16 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         finishOnboarding()
 
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
-        for tab in ["Player", "Matches", "Training", "Settings", "Dashboard"] {
-            let button = app.tabBars.buttons[tab]
-            XCTAssertTrue(button.exists, "Missing tab \(tab)")
-            button.tap()
+        for destination in ["Player", "Matches", "Tournaments", "Training", "Settings", "Dashboard"] {
+            openDestination(destination)
+            XCTAssertTrue(app.navigationBars[destination].waitForExistence(timeout: 5), "Missing destination \(destination)")
         }
-
-        app.tabBars.buttons["Dashboard"].tap()
-        XCTAssertTrue(app.navigationBars["Dashboard"].waitForExistence(timeout: 5))
     }
 
     func testSettingsSaveActivates() throws {
         completeOnboarding()
-        app.tabBars.buttons["Settings"].tap()
-        let save = app.buttons["Save settings"]
-        if !save.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
+        openDestination("Settings")
+        let save = app.buttons["settingsToolbarSaveButton"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         save.tap()
         XCTAssertTrue(app.staticTexts["Settings saved."].waitForExistence(timeout: 5))
@@ -48,22 +41,41 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
 
     func testImportantLiveScoringControlsActivate() throws {
         completeOnboarding()
-        app.tabBars.buttons["Matches"].tap()
+        openDestination("Matches")
         app.buttons["Start live scoring"].tap()
         XCTAssertTrue(app.buttons["playerWinsPointButton"].waitForExistence(timeout: 5))
         app.buttons["playerWinsPointButton"].tap()
         app.buttons["opponentWinsPointButton"].tap()
         app.buttons["undoScoreButton"].tap()
+        app.buttons["hearFullScoreButton"].tap()
         app.buttons["resetScoreButton"].tap()
     }
 
     func testFreshSetupShowsPersonalEmptyDashboardWithoutSeedData() throws {
         completeOnboarding()
-        app.tabBars.buttons["Dashboard"].tap()
-        XCTAssertTrue(app.staticTexts["Welcome back, Sidney"].waitForExistence(timeout: 5))
+        openDestination("Dashboard")
+        XCTAssertTrue(app.staticTexts["Welcome, Sidney"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["0 matches, 0 wins, 0 losses, 0 percent win rate. 0 training sessions saved."].exists)
         XCTAssertFalse(app.staticTexts["Player One"].exists)
         XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
+    }
+
+    func testTournamentAndTrainingCreationAreReachable() throws {
+        completeOnboarding()
+        openDestination("Tournaments")
+        app.buttons["addTournamentButton"].tap()
+        let tournamentName = app.textFields["tournamentNameField"]
+        XCTAssertTrue(tournamentName.waitForExistence(timeout: 5))
+        tournamentName.tap()
+        tournamentName.typeText("Regional Open")
+        app.buttons["saveTournamentButton"].tap()
+        XCTAssertTrue(app.staticTexts["Regional Open"].waitForExistence(timeout: 5))
+
+        openDestination("Training")
+        app.buttons["addTrainingButton"].tap()
+        XCTAssertTrue(app.buttons["trainingTypePicker"].waitForExistence(timeout: 5))
+        app.buttons["saveTrainingButton"].tap()
+        XCTAssertTrue(app.staticTexts["General practice"].waitForExistence(timeout: 5))
     }
 
     private func completeOnboarding() {
@@ -76,6 +88,20 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         continueOnboarding(to: "Choose Preferences")
         finishOnboarding()
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
+    }
+
+    private func openDestination(_ name: String) {
+        let visibleTab = app.tabBars.buttons[name]
+        if visibleTab.waitForExistence(timeout: 2) {
+            visibleTab.tap()
+            return
+        }
+        let more = app.tabBars.buttons["More"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5), "Missing More tab for \(name)")
+        more.tap()
+        let row = app.tables.staticTexts[name]
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Missing More row for \(name)")
+        row.tap()
     }
 
     private func continueOnboarding(to heading: String) {

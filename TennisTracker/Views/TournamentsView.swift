@@ -4,33 +4,40 @@ struct TournamentsView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var showingNewTournament = false
 
+    private var upcoming: [TournamentRecord] {
+        store.selectedTournaments.filter { !$0.isCompleted }.sorted { $0.date < $1.date }
+    }
+
+    private var completed: [TournamentRecord] {
+        store.selectedTournaments.filter(\.isCompleted).sorted { $0.date > $1.date }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Tournaments") {
-                    if store.selectedTournaments.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmptyStateView(title: "No tournaments added yet", message: "Upcoming and completed tournaments will appear here.")
-                            Button("Add tournament") { showingNewTournament = true }
-                                .buttonStyle(.borderedProminent)
-                                .accessibilityIdentifier("emptyAddTournamentButton")
+                if store.selectedTournaments.isEmpty {
+                    Section {
+                        EmptyStateView(title: "No tournaments added yet", message: "Add an upcoming tournament, then link matches to it later.")
+                    }
+                } else {
+                    Section("Upcoming tournaments") {
+                        if upcoming.isEmpty {
+                            Text("No upcoming tournaments.")
+                        } else {
+                            ForEach(upcoming) { tournamentRow($0) }
                         }
-                    } else {
-                        ForEach(store.selectedTournaments) { tournament in
-                            NavigationLink {
-                                TournamentDetailView(tournament: tournament)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(tournament.date.shortTennisDate): \(tournament.name.fallback("Unnamed tournament"))")
-                                    Text("\(tournament.location.fallback("location not recorded")). \(tournament.stageReached).")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
+                    }
+
+                    Section("Completed tournaments") {
+                        if completed.isEmpty {
+                            Text("No completed tournaments.")
+                        } else {
+                            ForEach(completed) { tournamentRow($0) }
                         }
                     }
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Tournaments")
             .toolbar {
                 Button("Add") { showingNewTournament = true }
@@ -38,11 +45,26 @@ struct TournamentsView: View {
                     .accessibilityIdentifier("addTournamentButton")
             }
             .sheet(isPresented: $showingNewTournament) {
-                if let playerID = store.selectedPlayerID {
-                    TournamentEditorView(tournament: TournamentRecord(playerID: playerID))
+                if let tournament = store.makeDefaultTournament() {
+                    TournamentEditorView(tournament: tournament)
                 }
             }
         }
+    }
+
+    private func tournamentRow(_ tournament: TournamentRecord) -> some View {
+        NavigationLink {
+            TournamentDetailView(tournament: tournament)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(tournament.date.shortTennisDate): \(tournament.name.fallback("Unnamed tournament"))")
+                Text("\(tournament.location.fallback("location not recorded")). \(tournament.finalResult.rawValue).")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityLabel(tournament.name.fallback("Unnamed tournament"))
+        .accessibilityValue("\(tournament.date.shortTennisDate), \(tournament.location.fallback("location not recorded")), \(tournament.finalResult.rawValue)")
     }
 }
 
@@ -50,43 +72,75 @@ struct TournamentDetailView: View {
     @EnvironmentObject private var store: TennisStore
     @State var tournament: TournamentRecord
     @State private var showingEditor = false
+    @State private var showingNewMatch = false
     @State private var confirmDelete = false
 
     private var linkedMatches: [MatchRecord] {
-        store.selectedMatches.filter { $0.tournamentID == tournament.id }
+        store.selectedMatches.filter { $0.tournamentID == tournament.id }.sorted { $0.date > $1.date }
     }
 
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: tournament.name.fallback("Unnamed tournament"), value: "\(tournament.date.shortTennisDate), \(tournament.location.fallback("location not recorded")).")
-                SummaryRow(title: "Status", value: "\(tournament.finalResult). \(tournament.format). Stage: \(tournament.stageReached).")
-                SummaryRow(title: "Matches", value: "\(linkedMatches.count) linked. \(tournament.outstandingMatches(linkedMatchCount: linkedMatches.count)) still need adding.")
+                SummaryRow(title: tournament.name.fallback("Unnamed tournament"), value: dateRangeText)
+                SummaryRow(title: "Status", value: "\(tournament.finalResult.rawValue). \(tournament.format.rawValue). Stage: \(tournament.stageReached.rawValue).")
+                SummaryRow(title: "Matches", value: linkedMatches.isEmpty ? "No matches linked yet." : "\(linkedMatches.count) matches linked.")
             }
-            Section("Preparation") {
-                Text(tournament.goal.fallback("No goal recorded."))
-                Text(tournament.preparationNotes.fallback("No preparation notes recorded."))
+
+            Section("Matches") {
+                Button("Add match to this tournament") { showingNewMatch = true }
+                    .accessibilityIdentifier("addTournamentMatchButton")
+                if linkedMatches.isEmpty {
+                    Text("Tournament matches will appear here after they are saved.")
+                } else {
+                    ForEach(linkedMatches) { match in
+                        NavigationLink("\(match.result.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))") {
+                            MatchDetailView(match: match)
+                        }
+                    }
+                }
             }
-            Section("Review") {
-                Text(tournament.reviewNotes.fallback("No review notes recorded."))
-                Text(tournament.notes.fallback("No extra notes recorded."))
+
+            if !tournament.goal.isBlank {
+                Section("Goal") {
+                    Text(tournament.goal)
+                }
             }
+
+            Section("Notes") {
+                Text(tournament.notes.fallback("No notes recorded."))
+            }
+
             Section {
                 Button("Delete tournament", role: .destructive) { confirmDelete = true }
             }
         }
-        .navigationTitle("Tournament")
+        .tennisThemedList()
+        .navigationTitle(tournament.name.fallback("Tournament"))
         .toolbar {
             Button("Edit") { showingEditor = true }
         }
         .sheet(isPresented: $showingEditor) {
             TournamentEditorView(tournament: tournament)
         }
+        .sheet(isPresented: $showingNewMatch) {
+            if let match = store.makeDefaultMatch(tournamentID: tournament.id) {
+                MatchEditorView(match: match)
+            }
+        }
         .confirmationDialog("Delete this tournament?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete tournament", role: .destructive) {
                 store.deleteTournament(tournament)
             }
         }
+    }
+
+    private var dateRangeText: String {
+        let base = "\(tournament.date.shortTennisDate), \(tournament.location.fallback("location not recorded"))."
+        if Calendar.current.isDate(tournament.date, inSameDayAs: tournament.endDate) {
+            return base
+        }
+        return "\(tournament.date.shortTennisDate) to \(tournament.endDate.shortTennisDate), \(tournament.location.fallback("location not recorded"))."
     }
 }
 
@@ -100,28 +154,57 @@ struct TournamentEditorView: View {
             Form {
                 Section("Tournament") {
                     TextField("Name", text: $tournament.name)
-                    TextField("Location", text: $tournament.location)
-                    DatePicker("Date", selection: $tournament.date, displayedComponents: .date)
-                    TextField("Format", text: $tournament.format)
-                    TextField("Final result", text: $tournament.finalResult)
-                    TextField("Stage reached", text: $tournament.stageReached)
-                    Stepper("Matches planned or played \(tournament.matchesPlayed)", value: $tournament.matchesPlayed, in: 0...99)
+                        .accessibilityIdentifier("tournamentNameField")
+                    TextField("Venue", text: $tournament.location)
+                        .accessibilityIdentifier("tournamentVenueField")
+                    DateShortcutPicker(title: "Start date", date: $tournament.date)
+                        .accessibilityIdentifier("tournamentStartDatePicker")
+                    DateShortcutPicker(title: "End date", date: $tournament.endDate)
+                        .accessibilityIdentifier("tournamentEndDatePicker")
                 }
-                Section("Goal and Notes") {
-                    TextField("Goal", text: $tournament.goal, axis: .vertical)
-                    TextField("Preparation notes", text: $tournament.preparationNotes, axis: .vertical)
-                    TextField("Review notes", text: $tournament.reviewNotes, axis: .vertical)
+
+                Section("Category and status") {
+                    TextField("Category", text: $tournament.category)
+                    Picker("Format", selection: $tournament.format) {
+                        ForEach(TournamentFormat.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .accessibilityIdentifier("tournamentFormatPicker")
+                    Picker("Status", selection: $tournament.finalResult) {
+                        ForEach(TournamentResult.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .accessibilityIdentifier("tournamentStatusPicker")
+                    Picker("Stage reached", selection: $tournament.stageReached) {
+                        ForEach(TournamentStage.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .accessibilityIdentifier("tournamentStagePicker")
+                    Stepper("Matches expected or played \(tournament.matchesPlayed)", value: $tournament.matchesPlayed, in: 0...99)
+                }
+
+                if store.data.settings.trackingMode != .basic {
+                    Section("Goal") {
+                        TextField("Goal", text: $tournament.goal, axis: .vertical)
+                    }
+                }
+
+                Section("Notes") {
                     TextField("Notes", text: $tournament.notes, axis: .vertical)
+                        .lineLimit(3...6)
+                        .accessibilityIdentifier("tournamentNotesField")
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Tournament")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        if tournament.endDate < tournament.date {
+                            tournament.endDate = tournament.date
+                        }
                         store.upsertTournament(tournament)
                         dismiss()
                     }
+                    .accessibilityIdentifier("saveTournamentButton")
                 }
             }
         }

@@ -21,21 +21,30 @@ struct TennisScoreState: Equatable {
     }
 
     var pointScore: String {
+        pointScore(suddenDeathDeuce: false)
+    }
+
+    func pointScore(suddenDeathDeuce: Bool) -> String {
         if isMatchComplete { return "Match complete" }
         if isTiebreak {
             return "Tiebreak \(playerPoints)-\(opponentPoints)"
         }
         if playerPoints >= 3 && opponentPoints >= 3 {
+            if suddenDeathDeuce { return "Sudden-death deuce" }
             if playerPoints == opponentPoints { return "Deuce" }
             return playerPoints > opponentPoints ? "Advantage Player" : "Advantage Opponent"
         }
         return "\(pointName(playerPoints))-\(pointName(opponentPoints))"
     }
 
-    var spokenScore: String {
+    func spokenScore(playerName: String = "Player", opponentName: String = "Opponent", suddenDeathDeuce: Bool = false) -> String {
         let sets = "sets \(playerSets)-\(opponentSets)"
         let games = "games \(playerGames)-\(opponentGames)"
-        return "\(pointScore), \(games), \(sets)"
+        return "\(pointScore(suddenDeathDeuce: suddenDeathDeuce)), \(games), \(sets), \(playerName) against \(opponentName)"
+    }
+
+    var spokenScore: String {
+        spokenScore()
     }
 
     private func pointName(_ points: Int) -> String {
@@ -51,9 +60,18 @@ struct TennisScoreState: Equatable {
 struct TennisScoringEngine {
     private(set) var state = TennisScoreState()
     private var history: [TennisScoreState] = []
+    var playerName = "Player"
+    var opponentName = "Opponent"
+    var suddenDeathDeuce = false
+
+    init(playerName: String = "Player", opponentName: String = "Opponent", suddenDeathDeuce: Bool = false) {
+        self.playerName = playerName.fallback("Player")
+        self.opponentName = opponentName.fallback("Opponent")
+        self.suddenDeathDeuce = suddenDeathDeuce
+    }
 
     mutating func awardPoint(to winner: PointWinner) -> String {
-        guard !state.isMatchComplete else { return "Match is already complete. \(state.spokenScore)." }
+        guard !state.isMatchComplete else { return "Match is already complete. \(fullScore)." }
         history.append(state)
         state.lastWinner = winner
         switch winner {
@@ -63,16 +81,16 @@ struct TennisScoringEngine {
             state.opponentPoints += 1
         }
         resolvePoint()
-        let name = winner == .player ? "Player" : "Opponent"
-        return "\(name) wins point. \(state.spokenScore)."
+        let name = winner == .player ? playerName : opponentName
+        return "\(scorePhrase). Point to \(name)."
     }
 
     mutating func undo() -> String {
         guard let previous = history.popLast() else {
-            return "Nothing to undo. \(state.spokenScore)."
+            return "Nothing to undo. \(fullScore)."
         }
         state = previous
-        return "Undone. \(state.spokenScore)."
+        return "Undone. \(fullScore)."
     }
 
     mutating func reset() {
@@ -88,6 +106,14 @@ struct TennisScoringEngine {
             return
         }
 
+        if suddenDeathDeuce && state.playerPoints >= 4 && state.opponentPoints >= 3 && state.playerPoints > state.opponentPoints {
+            finishGameAndMaybeSet()
+            return
+        }
+        if suddenDeathDeuce && state.opponentPoints >= 4 && state.playerPoints >= 3 && state.opponentPoints > state.playerPoints {
+            finishGameAndMaybeSet()
+            return
+        }
         if max(state.playerPoints, state.opponentPoints) >= 4 && abs(state.playerPoints - state.opponentPoints) >= 2 {
             finishGameAndMaybeSet()
         }
@@ -128,5 +154,25 @@ struct TennisScoringEngine {
         if state.playerSets == 2 || state.opponentSets == 2 {
             state.isMatchComplete = true
         }
+    }
+
+    var scorePhrase: String {
+        state.spokenScore(playerName: playerName, opponentName: opponentName, suddenDeathDeuce: suddenDeathDeuce)
+    }
+
+    var fullScore: String {
+        let leader: String
+        if state.playerSets != state.opponentSets {
+            leader = state.playerSets > state.opponentSets ? "\(playerName) leads \(opponentName)" : "\(opponentName) leads \(playerName)"
+        } else if state.playerGames != state.opponentGames {
+            leader = state.playerGames > state.opponentGames ? "\(playerName) leads \(opponentName)" : "\(opponentName) leads \(playerName)"
+        } else {
+            leader = "\(playerName) and \(opponentName) are level"
+        }
+        if state.isMatchComplete {
+            let winner = state.playerSets > state.opponentSets ? playerName : opponentName
+            return "Match complete. \(winner) wins. Final score, \(state.completedSetScores.joined(separator: ", ").fallback("sets \(state.playerSets)-\(state.opponentSets)"))."
+        }
+        return "\(leader). Current game, \(state.pointScore(suddenDeathDeuce: suddenDeathDeuce)). Games \(state.playerGames)-\(state.opponentGames). Sets \(state.playerSets)-\(state.opponentSets)."
     }
 }

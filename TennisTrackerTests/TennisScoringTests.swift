@@ -6,7 +6,7 @@ final class TennisScoringTests: XCTestCase {
         let scorer = TennisScoringEngine()
 
         XCTAssertEqual(scorer.state.pointScore, "Love-Love")
-        XCTAssertEqual(scorer.state.spokenScore, "Love-Love, games 0-0, sets 0-0")
+        XCTAssertEqual(scorer.state.spokenScore, "Love-Love, games 0-0, sets 0-0, Player against Opponent")
     }
 
     func testDeuceAndAdvantage() {
@@ -71,7 +71,7 @@ final class TennisScoringTests: XCTestCase {
         winGames(6, for: .player, scorer: &scorer)
 
         XCTAssertTrue(scorer.state.isMatchComplete)
-        XCTAssertEqual(scorer.awardPoint(to: .opponent), "Match is already complete. Match complete, games 0-0, sets 2-0.")
+        XCTAssertEqual(scorer.awardPoint(to: .opponent), "Match is already complete. Match complete. Player wins. Final score, 6-0, 6-0.")
     }
 
     func testUndoRestoresPreviousState() {
@@ -79,7 +79,29 @@ final class TennisScoringTests: XCTestCase {
 
         _ = scorer.awardPoint(to: .player)
         XCTAssertEqual(scorer.state.pointScore, "15-Love")
-        XCTAssertEqual(scorer.undo(), "Undone. Love-Love, games 0-0, sets 0-0.")
+        XCTAssertEqual(scorer.undo(), "Undone. Player and Opponent are level. Current game, Love-Love. Games 0-0. Sets 0-0.")
+    }
+
+    func testSuddenDeathDeuceWinsGameOnNextPoint() {
+        var scorer = TennisScoringEngine(playerName: "Sidney", opponentName: "Klaudia", suddenDeathDeuce: true)
+
+        for winner in [PointWinner.player, .player, .player, .opponent, .opponent, .opponent] {
+            _ = scorer.awardPoint(to: winner)
+        }
+
+        XCTAssertEqual(scorer.state.pointScore(suddenDeathDeuce: true), "Sudden-death deuce")
+        _ = scorer.awardPoint(to: .player)
+        XCTAssertEqual(scorer.state.playerGames, 1)
+        XCTAssertEqual(scorer.state.pointScore, "Love-Love")
+    }
+
+    func testNamedScoreAnnouncementMentionsPointWinner() {
+        var scorer = TennisScoringEngine(playerName: "Sidney", opponentName: "Klaudia")
+
+        let message = scorer.awardPoint(to: .player)
+
+        XCTAssertTrue(message.contains("Point to Sidney"))
+        XCTAssertTrue(message.contains("Sidney against Klaudia"))
     }
 
     private func winGames(_ count: Int, for winner: PointWinner, scorer: inout TennisScoringEngine) {

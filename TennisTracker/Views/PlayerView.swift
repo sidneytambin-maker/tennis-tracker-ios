@@ -8,7 +8,7 @@ struct PlayerView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Current Player") {
+                Section("Current player") {
                     if let player = store.selectedPlayer {
                         SummaryRow(title: player.displayName, value: "\(player.sightLevel.rawValue). \(player.trackingMode.rawValue) mode.")
                         Button("Edit current player") {
@@ -20,7 +20,7 @@ struct PlayerView: View {
                     }
                 }
 
-                Section("All Players") {
+                Section("All players") {
                     ForEach(store.data.players) { player in
                         Button {
                             store.selectPlayer(player)
@@ -37,6 +37,7 @@ struct PlayerView: View {
                     }
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Player")
             .toolbar {
                 Button("Add") {
@@ -71,7 +72,7 @@ struct PlayerEditorView: View {
                     Stepper("Age \(player.age)", value: $player.age, in: 0...120)
                     TextField("Nationality", text: $player.nationality)
                 }
-                Section("Blind Tennis") {
+                Section("Player category") {
                     Picker("Player type", selection: $player.playerMode) {
                         ForEach(PlayerMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -83,13 +84,15 @@ struct PlayerEditorView: View {
                             Text(level.rawValue).tag(level)
                         }
                     }
+                    .onChange(of: player.sightLevel) { _, level in
+                        player.bCategory = String(level.rawValue.prefix(2))
+                    }
                     .accessibilityIdentifier("editSightLevelPicker")
                     Text("Allowed bounces: \(player.sightLevel.allowedBounces)")
-                    TextField("B category", text: $player.bCategory)
                     TextField("LTA number", text: $player.ltaNumber)
                     TextField("ITF number", text: $player.itfNumber)
                 }
-                Section("Tennis Profile") {
+                Section("Tennis profile") {
                     Picker("Tracking mode", selection: $player.trackingMode) {
                         ForEach(TrackingMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -100,11 +103,17 @@ struct PlayerEditorView: View {
                     TextField("Playing hand", text: $player.playingHand)
                     TextField("Club", text: $player.club)
                     TextField("Primary goal", text: $player.primaryGoal, axis: .vertical)
-                    TextField("Preferred match type", text: $player.preferredMatchType)
-                    TextField("Preferred surface", text: $player.preferredSurface)
-                    TextField("Playing style", text: $player.playingStyle, axis: .vertical)
-                    TextField("Coaching focus", text: $player.coachingFocus, axis: .vertical)
-                    TextField("Profile notes", text: $player.profileNotes, axis: .vertical)
+                    Picker("Preferred match type", selection: preferredMatchTypeBinding) {
+                        ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind.rawValue) }
+                    }
+                    Picker("Preferred surface", selection: preferredSurfaceBinding) {
+                        ForEach(CourtSurface.allCases) { surface in Text(surface.rawValue).tag(surface.rawValue) }
+                    }
+                    if player.trackingMode != .basic {
+                        TextField("Playing style", text: $player.playingStyle, axis: .vertical)
+                        TextField("Coaching focus", text: $player.coachingFocus, axis: .vertical)
+                    }
+                    TextField("Notes", text: $player.profileNotes, axis: .vertical)
                 }
                 Section {
                     Button("Delete player", role: .destructive) {
@@ -113,6 +122,7 @@ struct PlayerEditorView: View {
                     .accessibilityIdentifier("deletePlayerButton")
                 }
             }
+            .tennisThemedList()
             .navigationTitle("Player Details")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -134,5 +144,19 @@ struct PlayerEditorView: View {
                 }
             }
         }
+    }
+
+    private var preferredMatchTypeBinding: Binding<String> {
+        Binding(
+            get: { player.preferredMatchType },
+            set: { player.preferredMatchType = $0 }
+        )
+    }
+
+    private var preferredSurfaceBinding: Binding<String> {
+        Binding(
+            get: { player.preferredSurface.isBlank ? CourtSurface.notSpecified.rawValue : player.preferredSurface },
+            set: { player.preferredSurface = $0 == CourtSurface.notSpecified.rawValue ? "" : $0 }
+        )
     }
 }

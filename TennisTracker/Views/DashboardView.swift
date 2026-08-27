@@ -7,66 +7,67 @@ struct DashboardView: View {
         TennisStatistics.build(matches: store.selectedMatches, training: store.selectedTraining, tournaments: store.selectedTournaments)
     }
 
+    private var nextTournament: TournamentRecord? {
+        store.selectedTournaments
+            .filter { !$0.isCompleted }
+            .sorted { $0.date < $1.date }
+            .first
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     SummaryRow(
-                        title: store.selectedPlayer.map { "Welcome back, \($0.displayName)" } ?? "Welcome to Tennis Tracker",
+                        title: "Welcome, \(store.selectedPlayer?.displayName ?? "player")",
                         value: stats.spokenSummary,
-                        hint: "A plain language summary of current tennis activity."
+                        hint: "Dashboard summary from your saved matches, training, and tournaments."
                     )
                 }
 
-                Section("Key Cards") {
-                    SummaryRow(title: "Matches", value: "\(stats.matchCount) recorded. \(stats.winCount) wins and \(stats.lossCount) losses.")
-                    SummaryRow(title: "Training", value: "\(stats.trainingCount) sessions. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
-                    SummaryRow(title: "Tiebreaks", value: "\(stats.tiebreakSetsLast30Days) tiebreak sets in the last 30 days.")
-                    SummaryRow(title: "Upcoming tournaments", value: "\(stats.upcomingTournamentCount) saved.")
+                Section("Current record") {
+                    SummaryRow(title: "Match record", value: stats.matchCount == 0 ? "No matches recorded yet." : "\(stats.winCount) wins, \(stats.lossCount) losses, \(Int((stats.winRate * 100).rounded())) percent win rate.")
                 }
 
-                if store.data.settings.showNeedsAttention {
-                    Section("Needs Attention") {
-                        ForEach(stats.needsAttention, id: \.self) { item in
-                            Text(item)
-                                .accessibilityLabel("Needs attention")
-                                .accessibilityValue(item)
-                        }
-                    }
-                }
-
-                Section("Next Focus") {
-                    Text(nextFocus)
-                        .accessibilityLabel("Next focus")
-                        .accessibilityValue(nextFocus)
-                }
-
-                Section("Tournaments") {
-                    NavigationLink("Open tournaments") {
-                        TournamentsView()
-                    }
-                    .accessibilityIdentifier("dashboardOpenTournamentsLink")
-                    if store.selectedTournaments.isEmpty {
-                        Text("No upcoming competitions.")
-                    } else if let next = store.selectedTournaments.filter({ $0.date >= Calendar.current.startOfDay(for: Date()) }).sorted(by: { $0.date < $1.date }).first {
-                        Text("Next tournament: \(next.name.fallback("unnamed tournament")), \(next.date.shortTennisDate).")
-                    }
-                }
-
-                if store.data.settings.showRecentActivity {
-                    Section("Recent Matches") {
-                        if store.selectedMatches.isEmpty {
-                            Text("No recent matches recorded.")
-                        } else {
-                            ForEach(store.selectedMatches.prefix(3)) { match in
-                                NavigationLink(matchLine(match)) {
-                                    MatchDetailView(match: match)
-                                }
+                Section("Recent matches") {
+                    if store.selectedMatches.isEmpty {
+                        Text("No recent matches recorded.")
+                    } else {
+                        ForEach(store.selectedMatches.prefix(3)) { match in
+                            NavigationLink(matchLine(match)) {
+                                MatchDetailView(match: match)
                             }
                         }
                     }
                 }
+
+                Section("Training activity") {
+                    SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
+                }
+
+                if store.data.settings.showUpcomingTournaments {
+                    Section("Upcoming tournaments") {
+                        if let nextTournament {
+                            SummaryRow(title: "Next tournament", value: "\(nextTournament.name.fallback("Unnamed tournament")), \(nextTournament.date.shortTennisDate), \(nextTournament.location.fallback("location not recorded")).")
+                        } else {
+                            Text("No upcoming tournaments recorded.")
+                        }
+                    }
+                }
+
+                if store.data.settings.showNeedsAttention && !stats.needsAttention.isEmpty {
+                    Section("Needs attention") {
+                        ForEach(stats.needsAttention, id: \.self) { item in
+                            Text(item)
+                        }
+                    }
+                }
+
+                Section("Next focus") {
+                    Text(nextFocus)
+                }
             }
+            .tennisThemedList()
             .navigationTitle("Dashboard")
         }
     }
@@ -78,7 +79,7 @@ struct DashboardView: View {
         if let training = store.selectedTraining.first, !training.focus.isBlank {
             return "Build from recent training focus: \(training.focus)."
         }
-        return "Add a training session or match to unlock a useful next focus."
+        return "Add a match, training session, or tournament when you are ready."
     }
 
     private func matchLine(_ match: MatchRecord) -> String {
