@@ -12,7 +12,6 @@ struct SettingsView: View {
                 if !savedMessage.isBlank {
                     Section("Status") {
                         Text(savedMessage)
-                            .accessibilityLabel("Settings status")
                     }
                 }
 
