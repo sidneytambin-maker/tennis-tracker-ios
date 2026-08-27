@@ -2,10 +2,11 @@
 DerivedData/
 build/
 artifacts/
+builds/
+sideloadlydaemon.log
 *.xcuserdata/
 *.xcuserstate
 *.ipa
 *.app
 *.xcarchive
 TennisTrackeriOS.xcodeproj/
-
