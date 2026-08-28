@@ -295,6 +295,7 @@ struct LiveMatchView: View {
                     } else {
                         Button("Start") { startScoring() }
                             .disabled(match == nil)
+                            .accessibilityIdentifier("startConfiguredLiveScoringButton")
                     }
                 }
             }
