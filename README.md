@@ -238,7 +238,7 @@ With Apple free personal development provisioning, the installed app expires aft
 
 ## VoiceOver refinement checklist
 
-Version `0.5.0` is the accessibility and real-use refinement build. It adds save-and-resume live scoring, singles and doubles setup, match status, manual tie-break controls, less disruptive VoiceOver score actions, notification planning, Apple Calendar export, deep-link routing, Siri/Shortcuts entry points, and a stronger Tennis visual theme. Live following and Dynamic Island/Live Activities remain documented as future architecture work because they need a more careful backend and extension-signing design than this free proof-of-concept should risk.
+Version `0.6.0` is the regression-recovery accessibility build. It repairs the most important physical-iPhone VoiceOver issues found in 0.5.0: main screen context now comes before primary Add/Save actions, training duration uses Hours and Minutes instead of repeated five-minute increments, matches and training support optional start times, tournaments support all-day or timed scheduling, notifications and Calendar use real timing data, delete confirmations include explicit Cancel actions, row rotor actions focus on useful secondary tasks, and the Tennis theme is more distinctive.
 
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 

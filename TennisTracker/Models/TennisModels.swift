@@ -237,6 +237,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var playerID: UUID
     var hasSessionDetails = true
     var date = Date()
+    var hasStartTime = true
     var durationMinutes = 60
     var trainingType: TrainingType = .general
     var location = ""
@@ -253,13 +254,44 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var placeText: String {
         [venue, location, surface == .notSpecified ? "" : surface.rawValue].filter { !$0.isBlank }.joined(separator: ", ").fallback("location not recorded")
     }
+
+    var expectedEndDate: Date {
+        date.addingTimeInterval(TimeInterval(max(1, durationMinutes) * 60))
+    }
+
+    init(playerID: UUID) {
+        self.playerID = playerID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        playerID = try container.decode(UUID.self, forKey: .playerID)
+        hasSessionDetails = try container.decodeIfPresent(Bool.self, forKey: .hasSessionDetails) ?? true
+        date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
+        durationMinutes = try container.decodeIfPresent(Int.self, forKey: .durationMinutes) ?? 60
+        trainingType = try container.decodeIfPresent(TrainingType.self, forKey: .trainingType) ?? .general
+        location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
+        venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
+        surface = try container.decodeIfPresent(CourtSurface.self, forKey: .surface) ?? .notSpecified
+        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "General practice"
+        effortLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .effortLevel) ?? .medium
+        confidenceLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .confidenceLevel) ?? .medium
+        sessionOutcome = try container.decodeIfPresent(String.self, forKey: .sessionOutcome) ?? ""
+        energyLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .energyLevel) ?? .medium
+        painLevel = try container.decodeIfPresent(PainLevel.self, forKey: .painLevel) ?? .none
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
 }
 
 struct MatchRecord: Identifiable, Codable, Equatable {
     var id = UUID()
     var playerID: UUID
     var date = Date()
+    var hasStartTime = false
     var expectedDurationMinutes = 90
+    var hasExpectedDuration = false
     var venue = ""
     var location = ""
     var status: MatchStatus = .completed
@@ -323,7 +355,9 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         playerID = try container.decode(UUID.self, forKey: .playerID)
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
         expectedDurationMinutes = try container.decodeIfPresent(Int.self, forKey: .expectedDurationMinutes) ?? 90
+        hasExpectedDuration = try container.decodeIfPresent(Bool.self, forKey: .hasExpectedDuration) ?? false
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         status = try container.decodeIfPresent(MatchStatus.self, forKey: .status) ?? .completed
@@ -373,6 +407,8 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
     var location = ""
     var date = Date()
     var endDate = Date()
+    var isAllDay = true
+    var hasStartTime = false
     var category = "B1"
     var finalResult: TournamentResult = .entered
     var matchesPlayed = 0
@@ -387,6 +423,29 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
 
     func outstandingMatches(linkedMatchCount: Int) -> Int {
         max(0, matchesPlayed - linkedMatchCount)
+    }
+
+    init(playerID: UUID) {
+        self.playerID = playerID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        playerID = try container.decode(UUID.self, forKey: .playerID)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
+        date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        endDate = try container.decodeIfPresent(Date.self, forKey: .endDate) ?? date
+        isAllDay = try container.decodeIfPresent(Bool.self, forKey: .isAllDay) ?? true
+        hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
+        category = try container.decodeIfPresent(String.self, forKey: .category) ?? "B1"
+        finalResult = try container.decodeIfPresent(TournamentResult.self, forKey: .finalResult) ?? .entered
+        matchesPlayed = try container.decodeIfPresent(Int.self, forKey: .matchesPlayed) ?? 0
+        format = try container.decodeIfPresent(TournamentFormat.self, forKey: .format) ?? .singleElimination
+        stageReached = try container.decodeIfPresent(TournamentStage.self, forKey: .stageReached) ?? .notStarted
+        goal = try container.decodeIfPresent(String.self, forKey: .goal) ?? ""
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
     }
 }
 
@@ -406,6 +465,7 @@ struct AppSettings: Codable, Equatable {
     var matchRemindersEnabled = false
     var tournamentRemindersEnabled = false
     var postSessionRemindersEnabled = false
+    var matchResultRemindersEnabled = false
     var weeklySummaryEnabled = false
     var reminderLeadMinutes = 60
     var postSessionDelayMinutes = 120
@@ -441,6 +501,7 @@ struct AppSettings: Codable, Equatable {
         matchRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .matchRemindersEnabled) ?? false
         tournamentRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .tournamentRemindersEnabled) ?? false
         postSessionRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .postSessionRemindersEnabled) ?? false
+        matchResultRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .matchResultRemindersEnabled) ?? false
         weeklySummaryEnabled = try container.decodeIfPresent(Bool.self, forKey: .weeklySummaryEnabled) ?? false
         reminderLeadMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderLeadMinutes) ?? 60
         postSessionDelayMinutes = try container.decodeIfPresent(Int.self, forKey: .postSessionDelayMinutes) ?? 120
@@ -449,7 +510,7 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 5
+    var dataVersion = 6
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []

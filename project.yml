@@ -17,8 +17,8 @@ targets:
       path: TennisTracker/Info.plist
       properties:
         CFBundleDisplayName: Tennis Tracker
-        CFBundleShortVersionString: "0.5.0"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.6.0"
+        CFBundleVersion: "6"
         CFBundleURLTypes:
           - CFBundleURLName: com.inclusophy.tennistracker.dev
             CFBundleURLSchemes:

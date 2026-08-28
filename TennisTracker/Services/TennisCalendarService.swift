@@ -8,6 +8,7 @@ struct CalendarEventDraft: Equatable {
     var endDate: Date
     var location: String
     var deepLink: URL
+    var isAllDay = false
 }
 
 enum TennisCalendarMapper {
@@ -16,7 +17,7 @@ enum TennisCalendarMapper {
             title: "Tennis match: \(match.opponentSummary.fallback("opponent not recorded"))",
             notes: "Tennis Tracker match. \(match.status.rawValue). \(match.setScores.fallback(match.notes))",
             startDate: match.date,
-            endDate: match.date.addingTimeInterval(TimeInterval(match.expectedDurationMinutes * 60)),
+            endDate: match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60)),
             location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),
             deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
         )
@@ -27,7 +28,7 @@ enum TennisCalendarMapper {
             title: "Tennis training: \(session.trainingType.rawValue)",
             notes: "Tennis Tracker training. Focus: \(session.focus). \(session.notes)",
             startDate: session.date,
-            endDate: session.date.addingTimeInterval(TimeInterval(session.durationMinutes * 60)),
+            endDate: session.expectedEndDate,
             location: session.placeText,
             deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
         )
@@ -38,9 +39,12 @@ enum TennisCalendarMapper {
             title: "Tennis tournament: \(tournament.name.fallback("Unnamed tournament"))",
             notes: "Tennis Tracker tournament. Goal: \(tournament.goal). \(tournament.notes)",
             startDate: tournament.date,
-            endDate: max(tournament.endDate, tournament.date.addingTimeInterval(60 * 60)),
+            endDate: tournament.isAllDay
+                ? Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: max(tournament.endDate, tournament.date))) ?? tournament.endDate
+                : max(tournament.endDate, tournament.date.addingTimeInterval(60 * 60)),
             location: tournament.location,
-            deepLink: URL(string: "tennistracker://tournament/\(tournament.id.uuidString)")!
+            deepLink: URL(string: "tennistracker://tournament/\(tournament.id.uuidString)")!,
+            isAllDay: tournament.isAllDay || !tournament.hasStartTime
         )
     }
 }
@@ -80,6 +84,7 @@ final class TennisCalendarService {
         event.startDate = draft.startDate
         event.endDate = draft.endDate
         event.location = draft.location
+        event.isAllDay = draft.isAllDay
 
         do {
             try store.save(event, span: .thisEvent)

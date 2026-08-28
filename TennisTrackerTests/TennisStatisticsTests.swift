@@ -16,13 +16,18 @@ final class TennisStatisticsTests: XCTestCase {
         loss.yourSetsWon = 1
         loss.opponentSetsWon = 2
         let matches = [win, loss]
-        let training = [
-            TrainingSession(playerID: playerID, date: now, durationMinutes: 75),
-            TrainingSession(playerID: playerID, date: now, durationMinutes: 45)
-        ]
-        let tournaments = [
-            TournamentRecord(playerID: playerID, date: now, matchesPlayed: 3)
-        ]
+        var firstTraining = TrainingSession(playerID: playerID)
+        firstTraining.date = now
+        firstTraining.durationMinutes = 75
+        var secondTraining = TrainingSession(playerID: playerID)
+        secondTraining.date = now
+        secondTraining.durationMinutes = 45
+        let training = [firstTraining, secondTraining]
+        var tournament = TournamentRecord(playerID: playerID)
+        tournament.date = now
+        tournament.endDate = now
+        tournament.matchesPlayed = 3
+        let tournaments = [tournament]
 
         let stats = TennisStatistics.build(matches: matches, training: training, tournaments: tournaments, today: now)
 

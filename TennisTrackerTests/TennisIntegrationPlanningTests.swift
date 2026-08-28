@@ -16,6 +16,7 @@ final class TennisIntegrationPlanningTests: XCTestCase {
         let playerID = player.id
         var match = MatchRecord(playerID: playerID)
         match.date = now.addingTimeInterval(3_600)
+        match.hasStartTime = true
         match.status = .scheduled
         match.playerName = "Sidney"
         match.opponentName = "Klaudia"
@@ -45,6 +46,7 @@ final class TennisIntegrationPlanningTests: XCTestCase {
         match.venue = "Indoor Centre"
         match.location = "London"
         match.expectedDurationMinutes = 75
+        match.hasExpectedDuration = true
         match.date = Date(timeIntervalSince1970: 1_800_000_000)
 
         let event = TennisCalendarMapper.event(for: match)

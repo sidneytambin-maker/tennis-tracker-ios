@@ -3,6 +3,10 @@ import SwiftUI
 struct TournamentsView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var showingNewTournament = false
+    @State private var tournamentToEdit: TournamentRecord?
+    @State private var tournamentToDelete: TournamentRecord?
+    @State private var matchTournament: TournamentRecord?
+    @State private var confirmDelete = false
 
     private var upcoming: [TournamentRecord] {
         store.selectedTournaments.filter { !$0.isCompleted }.sorted { $0.date < $1.date }
@@ -15,6 +19,12 @@ struct TournamentsView: View {
     var body: some View {
         NavigationStack {
             List {
+                ScreenIntro(title: "Tournaments", summary: "\(store.selectedTournaments.count) tournaments saved. Add tournaments as all-day events or with an optional start time.")
+                Section("Add") {
+                    Button("Add Tournament") { showingNewTournament = true }
+                        .accessibilityLabel("Add Tournament")
+                        .accessibilityIdentifier("addTournamentButton")
+                }
                 if store.selectedTournaments.isEmpty {
                     Section {
                         EmptyStateView(title: "No tournaments added yet", message: "Add an upcoming tournament, then link matches to it later.")
@@ -39,15 +49,27 @@ struct TournamentsView: View {
             }
             .tennisThemedList()
             .navigationTitle("Tournaments")
-            .toolbar {
-                Button("Add") { showingNewTournament = true }
-                    .accessibilityLabel("Add tournament")
-                    .accessibilityIdentifier("addTournamentButton")
-            }
             .sheet(isPresented: $showingNewTournament) {
                 if let tournament = store.makeDefaultTournament() {
                     TournamentEditorView(tournament: tournament)
                 }
+            }
+            .sheet(item: $tournamentToEdit) { tournament in
+                TournamentEditorView(tournament: tournament)
+            }
+            .sheet(item: $matchTournament) { tournament in
+                if let match = store.makeDefaultMatch(tournamentID: tournament.id) {
+                    MatchEditorView(match: match)
+                }
+            }
+            .confirmationDialog("Delete this tournament?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete Tournament", role: .destructive) {
+                    if let tournamentToDelete {
+                        store.deleteTournament(tournamentToDelete)
+                    }
+                    tournamentToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { tournamentToDelete = nil }
             }
         }
     }
@@ -65,6 +87,26 @@ struct TournamentsView: View {
         }
         .accessibilityLabel(tournament.name.fallback("Unnamed tournament"))
         .accessibilityValue("\(tournament.date.shortTennisDate), \(tournament.location.fallback("location not recorded")), \(tournament.finalResult.rawValue)")
+        .accessibilityAction(named: "Edit tournament") {
+            tournamentToEdit = tournament
+        }
+        .accessibilityAction(named: "Add match") {
+            matchTournament = tournament
+        }
+        .accessibilityAction(named: "Add to Calendar") {
+            addToCalendar(tournament)
+        }
+        .accessibilityAction(named: "Delete tournament") {
+            tournamentToDelete = tournament
+            confirmDelete = true
+        }
+    }
+
+    private func addToCalendar(_ tournament: TournamentRecord) {
+        Task {
+            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: tournament))
+            store.announce(success ? "Added tournament to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
+        }
     }
 }
 
@@ -116,9 +158,6 @@ struct TournamentDetailView: View {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
-                .accessibilityAction(named: "Add tournament to Apple Calendar") {
-                    addToCalendar()
-                }
                 if !calendarMessage.isBlank {
                     Text(calendarMessage)
                 }
@@ -142,9 +181,10 @@ struct TournamentDetailView: View {
             }
         }
         .confirmationDialog("Delete this tournament?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete tournament", role: .destructive) {
+            Button("Delete Tournament", role: .destructive) {
                 store.deleteTournament(tournament)
             }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -178,9 +218,17 @@ struct TournamentEditorView: View {
                         .accessibilityIdentifier("tournamentNameField")
                     TextField("Venue", text: $tournament.location)
                         .accessibilityIdentifier("tournamentVenueField")
-                    DateShortcutPicker(title: "Start date", date: $tournament.date)
+                    Toggle("All-day tournament", isOn: $tournament.isAllDay)
+                    AccessibleDateTimeEditor(
+                        dateTitle: "Start date",
+                        timeTitle: "Start time",
+                        date: $tournament.date,
+                        hasStartTime: $tournament.hasStartTime,
+                        allowsUnspecifiedTime: !tournament.isAllDay
+                    )
                         .accessibilityIdentifier("tournamentStartDatePicker")
-                    DateShortcutPicker(title: "End date", date: $tournament.endDate)
+                    DatePicker("End date", selection: $tournament.endDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
                         .accessibilityIdentifier("tournamentEndDatePicker")
                 }
 
@@ -215,6 +263,11 @@ struct TournamentEditorView: View {
             }
             .tennisThemedList()
             .navigationTitle("Tournament")
+            .onChange(of: tournament.isAllDay) { _, isAllDay in
+                if isAllDay {
+                    tournament.hasStartTime = false
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {

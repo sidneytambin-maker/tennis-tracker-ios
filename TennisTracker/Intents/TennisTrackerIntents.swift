@@ -1,4 +1,11 @@
 import AppIntents
+import Foundation
+
+enum TennisIntentRoute {
+    static func set(_ route: String) {
+        UserDefaults.standard.set(route, forKey: "pendingIntentRoute")
+    }
+}
 
 struct StartLiveScoringIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Live Scoring"
@@ -6,7 +13,8 @@ struct StartLiveScoringIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker for live scoring.")
+        TennisIntentRoute.set("matches")
+        return .result(dialog: "Opening Tennis Tracker for live scoring.")
     }
 }
 
@@ -16,7 +24,8 @@ struct AddMatchIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker to add a match.")
+        TennisIntentRoute.set("matches")
+        return .result(dialog: "Opening Tennis Tracker to add a match.")
     }
 }
 
@@ -26,7 +35,8 @@ struct AddTrainingSessionIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker to add training.")
+        TennisIntentRoute.set("training")
+        return .result(dialog: "Opening Tennis Tracker to add training.")
     }
 }
 
@@ -36,7 +46,8 @@ struct AddTournamentIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker to add a tournament.")
+        TennisIntentRoute.set("tournaments")
+        return .result(dialog: "Opening Tennis Tracker to add a tournament.")
     }
 }
 
@@ -46,7 +57,8 @@ struct ShowNextTournamentIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker tournaments.")
+        TennisIntentRoute.set("tournaments")
+        return .result(dialog: "Opening Tennis Tracker tournaments.")
     }
 }
 
@@ -56,7 +68,8 @@ struct ShowRecentRecordIntent: AppIntent {
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        .result(dialog: "Opening Tennis Tracker recent activity.")
+        TennisIntentRoute.set("dashboard")
+        return .result(dialog: "Opening Tennis Tracker recent activity.")
     }
 }
 

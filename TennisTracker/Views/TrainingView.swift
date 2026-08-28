@@ -1,12 +1,22 @@
 import SwiftUI
+import UIKit
 
 struct TrainingView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var showingNewTraining = false
+    @State private var sessionToEdit: TrainingSession?
+    @State private var sessionToDelete: TrainingSession?
+    @State private var confirmDelete = false
 
     var body: some View {
         NavigationStack {
             List {
+                ScreenIntro(title: "Training", summary: "\(store.selectedTraining.count) sessions saved. Add sessions with date, start time, duration, focus, and notes.")
+                Section("Add") {
+                    Button("Add Training Session") { showingNewTraining = true }
+                        .accessibilityLabel("Add Training Session")
+                        .accessibilityIdentifier("addTrainingButton")
+                }
                 Section("Training history") {
                     if store.selectedTraining.isEmpty {
                         EmptyStateView(title: "No training sessions recorded yet", message: "Use Add to save your first session.")
@@ -17,29 +27,56 @@ struct TrainingView: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("\(session.date.shortTennisDate): \(session.trainingType.rawValue)")
-                                    Text("\(session.durationMinutes) minutes. Focus: \(session.focus.fallback("not recorded")).")
+                                    Text("\(session.durationMinutes.durationText). Focus: \(session.focus.fallback("not recorded")).")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             .accessibilityLabel("Training session")
-                            .accessibilityValue("\(session.date.shortTennisDate), \(session.trainingType.rawValue), \(session.durationMinutes) minutes, focus \(session.focus.fallback("not recorded"))")
+                            .accessibilityValue("\(session.date.shortTennisDate), \(session.hasStartTime ? session.date.shortTennisTime : "time not specified"), \(session.trainingType.rawValue), \(session.durationMinutes.durationText), focus \(session.focus.fallback("not recorded"))")
+                            .accessibilityAction(named: "Edit session") {
+                                sessionToEdit = session
+                            }
+                            .accessibilityAction(named: session.notes.isBlank ? "Add notes" : "Edit notes") {
+                                sessionToEdit = session
+                            }
+                            .accessibilityAction(named: "Add to Calendar") {
+                                addToCalendar(session)
+                            }
+                            .accessibilityAction(named: "Delete session") {
+                                sessionToDelete = session
+                                confirmDelete = true
+                            }
                         }
                     }
                 }
             }
             .tennisThemedList()
             .navigationTitle("Training")
-            .toolbar {
-                Button("Add") { showingNewTraining = true }
-                    .accessibilityLabel("Add training session")
-                    .accessibilityIdentifier("addTrainingButton")
-            }
             .sheet(isPresented: $showingNewTraining) {
                 if let session = store.makeDefaultTraining() {
                     TrainingEditorView(session: session)
                 }
             }
+            .sheet(item: $sessionToEdit) { session in
+                TrainingEditorView(session: session)
+            }
+            .confirmationDialog("Delete this training session?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete Training Session", role: .destructive) {
+                    if let sessionToDelete {
+                        store.deleteTraining(sessionToDelete)
+                    }
+                    sessionToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { sessionToDelete = nil }
+            }
+        }
+    }
+
+    private func addToCalendar(_ session: TrainingSession) {
+        Task {
+            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: session))
+            store.announce(success ? "Added training to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
         }
     }
 }
@@ -54,7 +91,7 @@ struct TrainingDetailView: View {
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: session.trainingType.rawValue, value: "\(session.date.shortTennisDate). \(session.durationMinutes) minutes. \(session.placeText).")
+                SummaryRow(title: session.trainingType.rawValue, value: "\(session.date.shortTennisDate). \(session.hasStartTime ? "Starts \(session.date.shortTennisTime)." : "Start time not specified.") \(session.durationMinutes.durationText). Expected end \(session.hasStartTime ? session.expectedEndDate.shortTennisTime : "not available"). \(session.placeText).")
                 SummaryRow(title: "Focus", value: session.focus.fallback("not recorded"))
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
@@ -76,9 +113,6 @@ struct TrainingDetailView: View {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
-                .accessibilityAction(named: "Add training to Apple Calendar") {
-                    addToCalendar()
-                }
                 if !calendarMessage.isBlank {
                     Text(calendarMessage)
                 }
@@ -97,9 +131,10 @@ struct TrainingDetailView: View {
             TrainingEditorView(session: session)
         }
         .confirmationDialog("Delete this training session?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete training session", role: .destructive) {
+            Button("Delete Training Session", role: .destructive) {
                 store.deleteTraining(session)
             }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -116,18 +151,24 @@ struct TrainingEditorView: View {
     @EnvironmentObject private var store: TennisStore
     @Environment(\.dismiss) private var dismiss
     @State var session: TrainingSession
+    @State private var validationMessage = ""
 
     var body: some View {
         NavigationStack {
             Form {
+                if !validationMessage.isBlank {
+                    Section("Needs attention") {
+                        Text(validationMessage)
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                }
                 Section("Training") {
                     Picker("Session type", selection: $session.trainingType) {
                         ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .accessibilityIdentifier("trainingTypePicker")
-                    DateShortcutPicker(title: "Date", date: $session.date)
+                    AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $session.date, hasStartTime: $session.hasStartTime)
                         .accessibilityIdentifier("trainingDatePicker")
-                    Stepper("Duration \(session.durationMinutes) minutes", value: $session.durationMinutes, in: 0...480, step: 5)
                     TextField("Venue", text: $session.venue)
                     TextField("Location", text: $session.location)
                     Picker("Surface", selection: $session.surface) {
@@ -136,6 +177,8 @@ struct TrainingEditorView: View {
                     .accessibilityIdentifier("trainingSurfacePicker")
                     TextField("Focus", text: $session.focus)
                 }
+
+                DurationPicker(title: "Duration", minutes: $session.durationMinutes)
 
                 Section("Detail") {
                     Toggle("Include body ratings", isOn: $session.hasSessionDetails)
@@ -168,12 +211,21 @@ struct TrainingEditorView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        store.upsertTraining(session)
-                        dismiss()
+                        save()
                     }
                     .accessibilityIdentifier("saveTrainingButton")
                 }
             }
         }
+    }
+
+    private func save() {
+        guard session.durationMinutes > 0 else {
+            validationMessage = "Enter a training duration."
+            UIAccessibility.post(notification: .announcement, argument: validationMessage)
+            return
+        }
+        store.upsertTraining(session)
+        dismiss()
     }
 }

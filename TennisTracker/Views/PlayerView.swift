@@ -8,6 +8,7 @@ struct PlayerView: View {
     var body: some View {
         NavigationStack {
             List {
+                ScreenIntro(title: "Player", summary: "Manage the current player profile, classification, tracking mode, and tennis preferences.")
                 Section("Current player") {
                     if let player = store.selectedPlayer {
                         SummaryRow(title: player.displayName, value: "\(player.sightLevel.rawValue). \(player.trackingMode.rawValue) mode.")
@@ -36,16 +37,17 @@ struct PlayerView: View {
                         .accessibilityValue("\(player.sightLevel.rawValue). \(player.trackingMode.rawValue) mode.")
                     }
                 }
+
+                Section("Add") {
+                    Button("Add Player") {
+                        showingNewPlayer = true
+                    }
+                    .accessibilityLabel("Add Player")
+                    .accessibilityIdentifier("addPlayerButton")
+                }
             }
             .tennisThemedList()
             .navigationTitle("Player")
-            .toolbar {
-                Button("Add") {
-                    showingNewPlayer = true
-                }
-                .accessibilityLabel("Add player")
-                .accessibilityIdentifier("addPlayerButton")
-            }
             .sheet(item: $editingPlayer) { player in
                 PlayerEditorView(player: player)
             }
@@ -138,10 +140,11 @@ struct PlayerEditorView: View {
                 }
             }
             .confirmationDialog("Delete this player and their activity?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete player", role: .destructive) {
+                Button("Delete Player", role: .destructive) {
                     store.deletePlayer(player)
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }

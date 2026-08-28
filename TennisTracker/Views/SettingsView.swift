@@ -9,6 +9,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                ScreenIntro(title: "Settings", summary: "Choose tracking detail, theme, scoring announcements, reminders, Calendar, and dashboard preferences.")
                 if !savedMessage.isBlank {
                     Section("Status") {
                         Text(savedMessage)
@@ -61,6 +62,7 @@ struct SettingsView: View {
 
                 Section("Reminders") {
                     Toggle("Match reminders", isOn: $settings.matchRemindersEnabled)
+                    Toggle("Match result follow-ups", isOn: $settings.matchResultRemindersEnabled)
                     Toggle("Training reminders", isOn: $settings.trainingRemindersEnabled)
                     Toggle("Tournament reminders", isOn: $settings.tournamentRemindersEnabled)
                     Toggle("Post-session reflection", isOn: $settings.postSessionRemindersEnabled)
@@ -70,6 +72,7 @@ struct SettingsView: View {
                         Text("30 minutes").tag(30)
                         Text("1 hour").tag(60)
                         Text("2 hours").tag(120)
+                        Text("1 day").tag(1440)
                     }
                     Picker("Reflection delay", selection: $settings.postSessionDelayMinutes) {
                         Text("1 hour").tag(60)
@@ -107,8 +110,16 @@ struct SettingsView: View {
                 }
 
                 Section("Build") {
-                    SummaryRow(title: "Version", value: "0.5.0")
+                    SummaryRow(title: "Version", value: "0.6.0")
                     SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
+                }
+
+                Section("Save") {
+                    Button("Save Settings") {
+                        saveSettings(announce: true)
+                    }
+                    .accessibilityLabel("Save Settings")
+                    .accessibilityIdentifier("settingsToolbarSaveButton")
                 }
             }
             .tennisThemedList()
@@ -123,20 +134,13 @@ struct SettingsView: View {
             .onChange(of: settings.theme) { _, _ in
                 saveSettings(announce: false)
             }
-            .toolbar {
-                Button("Save") {
-                    saveSettings(announce: true)
-                }
-                .accessibilityLabel("Save settings")
-                .accessibilityIdentifier("settingsToolbarSaveButton")
-            }
         }
     }
 
     private var themeDescription: String {
         switch settings.theme {
         case .tennis:
-            return "Tennis uses light court surfaces with a restrained tennis-ball accent."
+            return "Tennis uses bright ball accents, deep court green, and high-contrast surfaces."
         case .classic:
             return "Classic uses a clean blue iOS style."
         case .highContrast:

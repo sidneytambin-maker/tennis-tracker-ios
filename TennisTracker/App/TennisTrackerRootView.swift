@@ -51,6 +51,14 @@ struct TennisTrackerRootView: View {
                     router.open(url)
                     store.announce("Opened \(router.selectedTab).")
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .tennisTrackerOpenURL)) { notification in
+                    guard let url = notification.object as? URL else { return }
+                    router.open(url)
+                    store.announce("Opened \(router.selectedTab).")
+                }
+                .onAppear {
+                    router.openPendingIntentRoute()
+                }
             }
         }
         .environmentObject(router)

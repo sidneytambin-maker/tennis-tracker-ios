@@ -158,7 +158,7 @@ final class TennisStore: ObservableObject {
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 5
+        data.dataVersion = 6
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -201,13 +201,13 @@ final class TennisStore: ObservableObject {
     private func migrateIfNeeded() {
         if data.dataVersion < 3 {
             data = AppData()
-            data.dataVersion = 5
+            data.dataVersion = 6
             lastAnnouncement = "Tennis Tracker is ready for first setup."
             save()
             return
         }
-        if data.dataVersion < 5 {
-            data.dataVersion = 5
+        if data.dataVersion < 6 {
+            data.dataVersion = 6
             save()
         }
     }

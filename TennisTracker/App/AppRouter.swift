@@ -26,4 +26,10 @@ final class AppRouter: ObservableObject {
             selectedTab = "dashboard"
         }
     }
+
+    func openPendingIntentRoute() {
+        guard let route = UserDefaults.standard.string(forKey: "pendingIntentRoute") else { return }
+        UserDefaults.standard.removeObject(forKey: "pendingIntentRoute")
+        selectedTab = route
+    }
 }

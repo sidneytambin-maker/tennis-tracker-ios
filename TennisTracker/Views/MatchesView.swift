@@ -6,10 +6,14 @@ struct MatchesView: View {
     @State private var showingNewMatch = false
     @State private var showingLiveScorer = false
     @State private var liveMatchToResume: MatchRecord?
+    @State private var matchToEdit: MatchRecord?
+    @State private var matchToDelete: MatchRecord?
+    @State private var confirmDelete = false
 
     var body: some View {
         NavigationStack {
             List {
+                ScreenIntro(title: "Matches", summary: "\(store.selectedMatches.count) matches saved. Use live scoring for in-progress play or Add for a finished result.")
                 Section("Live scorer") {
                     Button("Start live scoring") {
                         showingLiveScorer = true
@@ -26,6 +30,12 @@ struct MatchesView: View {
                     }
                 }
 
+                Section("Add") {
+                    Button("Add Match") { showingNewMatch = true }
+                        .accessibilityLabel("Add Match")
+                        .accessibilityIdentifier("addMatchButton")
+                }
+
                 Section("Match history") {
                     if store.selectedMatches.isEmpty {
                         EmptyStateView(title: "No matches recorded yet", message: "Use Add to record a match or start live scoring.")
@@ -35,7 +45,7 @@ struct MatchesView: View {
                                 MatchDetailView(match: match)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(match.date.shortTennisDate): \(match.result.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))")
+                                    Text("\(match.date.shortTennisDate): \(match.status.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))")
                                     Text(scoreSummary(match))
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
@@ -43,11 +53,21 @@ struct MatchesView: View {
                             }
                             .accessibilityLabel("Match")
                             .accessibilityValue("\(match.date.shortTennisDate), \(match.matchType.rawValue), \(match.status.rawValue), \(match.result.rawValue), \(scoreSummary(match))")
+                            .accessibilityAction(named: "Edit match") {
+                                matchToEdit = match
+                            }
                             .accessibilityAction(named: "Resume live score") {
                                 if match.status == .inProgress {
                                     liveMatchToResume = match
                                     showingLiveScorer = true
                                 }
+                            }
+                            .accessibilityAction(named: "Add to Calendar") {
+                                addToCalendar(match)
+                            }
+                            .accessibilityAction(named: "Delete match") {
+                                matchToDelete = match
+                                confirmDelete = true
                             }
                         }
                     }
@@ -55,20 +75,34 @@ struct MatchesView: View {
             }
             .tennisThemedList()
             .navigationTitle("Matches")
-            .toolbar {
-                Button("Add") { showingNewMatch = true }
-                    .accessibilityLabel("Add match")
-                    .accessibilityIdentifier("addMatchButton")
-            }
             .sheet(isPresented: $showingNewMatch) {
                 if let match = store.makeDefaultMatch() {
                     MatchEditorView(match: match)
                 }
             }
+            .sheet(item: $matchToEdit) { match in
+                MatchEditorView(match: match)
+            }
             .sheet(isPresented: $showingLiveScorer) {
                 LiveMatchView(existingMatch: liveMatchToResume)
                     .onDisappear { liveMatchToResume = nil }
             }
+            .confirmationDialog("Delete this match?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete Match", role: .destructive) {
+                    if let matchToDelete {
+                        store.deleteMatch(matchToDelete)
+                    }
+                    matchToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { matchToDelete = nil }
+            }
+        }
+    }
+
+    private func addToCalendar(_ match: MatchRecord) {
+        Task {
+            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: match))
+            store.announce(success ? "Added match to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
         }
     }
 
@@ -130,9 +164,10 @@ struct MatchDetailView: View {
             MatchEditorView(match: match)
         }
         .confirmationDialog("Delete this match?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete match", role: .destructive) {
+            Button("Delete Match", role: .destructive) {
                 store.deleteMatch(match)
             }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -154,8 +189,12 @@ struct MatchEditorView: View {
         NavigationStack {
             Form {
                 Section("Match") {
-                    DateShortcutPicker(title: "Date", date: $match.date)
+                    AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $match.date, hasStartTime: $match.hasStartTime)
                         .accessibilityIdentifier("matchDatePicker")
+                    Toggle("Expected duration known", isOn: $match.hasExpectedDuration)
+                    if match.hasExpectedDuration {
+                        DurationFields(minutes: $match.expectedDurationMinutes, minimumMinutes: 15)
+                    }
                     Picker("Status", selection: $match.status) {
                         ForEach(MatchStatus.allCases) { status in Text(status.rawValue).tag(status) }
                     }
@@ -268,6 +307,7 @@ struct LiveMatchView: View {
     @State private var match: MatchRecord?
     @State private var scorer = TennisScoringEngine()
     @State private var isScoring = false
+    @State private var confirmDiscard = false
 
     var body: some View {
         NavigationStack {
@@ -286,7 +326,13 @@ struct LiveMatchView: View {
             .navigationTitle(isScoring ? "Live score" : "Match setup")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(isScoring ? "Close" : "Cancel") {
+                        if isScoring {
+                            saveProgress(dismissAfterSave: true, quiet: true)
+                        } else {
+                            confirmDiscard = true
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isScoring {
@@ -300,6 +346,10 @@ struct LiveMatchView: View {
                 }
             }
             .onAppear(perform: configure)
+            .confirmationDialog("Discard this live match setup?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+                Button("Discard Setup", role: .destructive) { dismiss() }
+                Button("Cancel", role: .cancel) {}
+            }
         }
     }
 
@@ -309,8 +359,11 @@ struct LiveMatchView: View {
             Picker("Match type", selection: binding(\.matchType)) {
                 ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
             }
-            DateShortcutPicker(title: "Date", date: binding(\.date))
-            Stepper("Expected duration \(match.expectedDurationMinutes) minutes", value: binding(\.expectedDurationMinutes), in: 15...360, step: 15)
+            AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: binding(\.date), hasStartTime: binding(\.hasStartTime))
+            Toggle("Expected duration known", isOn: binding(\.hasExpectedDuration))
+            if match.hasExpectedDuration {
+                DurationFields(minutes: binding(\.expectedDurationMinutes), minimumMinutes: 15)
+            }
         }
 
         Section("Players") {
@@ -390,6 +443,15 @@ struct LiveMatchView: View {
                 .accessibilityAction(named: "Undo last point") {
                     announce(scorer.undo(), force: store.data.settings.scoreAnnouncementMode != .off)
                 }
+                .accessibilityAction(named: "Save progress") {
+                    saveProgress(dismissAfterSave: false)
+                }
+                .accessibilityAction(named: "Start tie-break") {
+                    startTieBreak()
+                }
+                .accessibilityAction(named: "End match") {
+                    endMatch(winner: scorer.state.playerSets >= scorer.state.opponentSets ? .player : .opponent)
+                }
         }
 
         Section(match.matchType == .doubles ? "Team points" : "Points") {
@@ -410,19 +472,16 @@ struct LiveMatchView: View {
 
         Section("Tie-break") {
             Button("Start tie-break now") {
-                announce(scorer.startTieBreak(), force: true)
-                saveProgress(dismissAfterSave: false, quiet: true)
+                startTieBreak()
             }
             .disabled(scorer.state.isTiebreak || scorer.state.isMatchComplete)
 
             if scorer.state.isTiebreak && match.tieBreakRule == .manual {
                 Button("Finish tie-break for \(teamName(for: .player, match: match))") {
-                    announce(scorer.finishTieBreak(winner: .player), force: true)
-                    saveProgress(dismissAfterSave: false, quiet: true)
+                    finishTieBreak(winner: .player)
                 }
                 Button("Finish tie-break for \(teamName(for: .opponent, match: match))") {
-                    announce(scorer.finishTieBreak(winner: .opponent), force: true)
-                    saveProgress(dismissAfterSave: false, quiet: true)
+                    finishTieBreak(winner: .opponent)
                 }
             }
         }
@@ -450,6 +509,12 @@ struct LiveMatchView: View {
                 saveProgress(dismissAfterSave: false, quiet: true)
             }
             .accessibilityIdentifier("resetScoreButton")
+            Button("End match for \(teamName(for: .player, match: match))") {
+                endMatch(winner: .player)
+            }
+            Button("End match for \(teamName(for: .opponent, match: match))") {
+                endMatch(winner: .opponent)
+            }
         }
     }
 
@@ -509,6 +574,27 @@ struct LiveMatchView: View {
         if force {
             UIAccessibility.post(notification: .announcement, argument: message)
         }
+    }
+
+    private func startTieBreak() {
+        announce(scorer.startTieBreak(), force: true)
+        saveProgress(dismissAfterSave: false, quiet: true)
+    }
+
+    private func finishTieBreak(winner: PointWinner) {
+        announce(scorer.finishTieBreak(winner: winner), force: true)
+        saveProgress(dismissAfterSave: false, quiet: true)
+    }
+
+    private func endMatch(winner: PointWinner) {
+        if scorer.state.isTiebreak {
+            _ = scorer.finishTieBreak(winner: winner)
+        }
+        while !scorer.state.isMatchComplete {
+            _ = scorer.awardPoint(to: winner)
+        }
+        saveProgress(dismissAfterSave: false)
+        announce("Match ended. \(scorer.fullScore)", force: true)
     }
 
     private func saveProgress(dismissAfterSave: Bool, quiet: Bool = false) {

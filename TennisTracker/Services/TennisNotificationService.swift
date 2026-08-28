@@ -16,11 +16,11 @@ enum TennisNotificationPlanner {
         var requests: [PlannedNotification] = []
 
         if settings.matchRemindersEnabled {
-            for match in data.matches where match.date > now && match.status != .completed {
+            for match in data.matches where match.hasStartTime && match.date > now && match.status != .completed {
                 requests.append(PlannedNotification(
                     identifier: "match-\(match.id)",
                     title: "Upcoming match",
-                    body: "\(match.playerName.fallback("Player")) against \(match.opponentSummary.fallback("opponent not recorded"))",
+                    body: "Match against \(match.opponentSummary.fallback("opponent")) starts at \(match.date.shortTennisTime).",
                     fireDate: max(now.addingTimeInterval(60), match.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
                 ))
@@ -28,11 +28,12 @@ enum TennisNotificationPlanner {
         }
 
         if settings.trainingRemindersEnabled {
-            for session in data.trainingSessions where session.date > now {
+            for session in data.trainingSessions where session.hasStartTime && session.date > now {
+                let player = data.players.first { $0.id == session.playerID }
                 requests.append(PlannedNotification(
                     identifier: "training-\(session.id)",
                     title: "Upcoming training",
-                    body: "\(session.trainingType.rawValue) at \(session.placeText)",
+                    body: "Training starts in \(settings.reminderLeadMinutes.durationText)\(player.map { ", \($0.displayName)" } ?? "").",
                     fireDate: max(now.addingTimeInterval(60), session.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))
@@ -41,10 +42,13 @@ enum TennisNotificationPlanner {
 
         if settings.tournamentRemindersEnabled {
             for tournament in data.tournaments where tournament.date > now && !tournament.isCompleted {
+                let body = tournament.isAllDay || !tournament.hasStartTime
+                    ? "\(tournament.name.fallback("Tournament")) is on \(tournament.date.fullTennisDate)."
+                    : "\(tournament.name.fallback("Tournament")) starts at \(tournament.date.shortTennisTime)."
                 requests.append(PlannedNotification(
                     identifier: "tournament-\(tournament.id)",
                     title: "Upcoming tournament",
-                    body: "\(tournament.name.fallback("Tournament")) at \(tournament.location.fallback("location not recorded"))",
+                    body: body,
                     fireDate: max(now.addingTimeInterval(60), tournament.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://tournament/\(tournament.id.uuidString)")!
                 ))
@@ -53,15 +57,42 @@ enum TennisNotificationPlanner {
 
         if settings.postSessionRemindersEnabled {
             let delay = TimeInterval(settings.postSessionDelayMinutes * 60)
-            for session in data.trainingSessions where session.date <= now && session.date.addingTimeInterval(delay) > now {
+            for session in data.trainingSessions where session.hasStartTime && session.expectedEndDate <= now && session.expectedEndDate.addingTimeInterval(delay) > now {
                 requests.append(PlannedNotification(
                     identifier: "training-reflection-\(session.id)",
                     title: "Training reflection",
-                    body: "Add a short note while the session is still fresh.",
-                    fireDate: session.date.addingTimeInterval(delay),
+                    body: "Your training session finished \(settings.postSessionDelayMinutes.durationText) ago. Add your notes?",
+                    fireDate: session.expectedEndDate.addingTimeInterval(delay),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))
             }
+        }
+
+        if settings.matchResultRemindersEnabled {
+            for match in data.matches where match.hasStartTime && match.status != .completed {
+                let expectedEnd = match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 120) * 60))
+                let fireDate = expectedEnd.addingTimeInterval(TimeInterval(settings.postSessionDelayMinutes * 60))
+                if expectedEnd <= now && fireDate > now {
+                    requests.append(PlannedNotification(
+                        identifier: "match-result-\(match.id)",
+                        title: "Match result",
+                        body: "How did your match against \(match.opponentSummary.fallback("your opponent")) go? Add the result.",
+                        fireDate: fireDate,
+                        deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
+                    ))
+                }
+            }
+        }
+
+        if settings.weeklySummaryEnabled {
+            let nextWeek = Calendar.current.nextDate(after: now, matching: DateComponents(weekday: 2, hour: 9, minute: 0), matchingPolicy: .nextTime) ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+            requests.append(PlannedNotification(
+                identifier: "weekly-summary",
+                title: "Tennis weekly summary",
+                body: "Review your recent matches, training, and tournaments.",
+                fireDate: nextWeek,
+                deepLink: URL(string: "tennistracker://dashboard")!
+            ))
         }
 
         return requests.sorted { $0.fireDate < $1.fireDate }
