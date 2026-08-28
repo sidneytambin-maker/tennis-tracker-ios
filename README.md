@@ -240,6 +240,8 @@ With Apple free personal development provisioning, the installed app expires aft
 
 Version `0.7.0` is the product-coherence accessibility build. It fixes tournament-created matches using today’s date, keeps tournament and match links on stable IDs, shows real linked matches inside tournament detail, adds explicit tournament deletion choices for linked matches, moves manual time entry to five-minute steps, keeps Training in the primary tab order, and simplifies match entry around details, format, and result.
 
+Version `0.7.1` begins the Apple Watch feasibility sprint. It preserves the iPhone app and adds the first minimum companion Watch target so the free cloud build and Sideloadly signing path can be tested before deeper Watch features are built.
+
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
 Manual test priority:
