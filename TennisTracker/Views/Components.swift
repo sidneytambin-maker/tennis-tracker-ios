@@ -253,7 +253,7 @@ extension Calendar {
 
 extension Int {
     var durationText: String {
-        let total = max(0, self)
+        let total = Swift.max(0, self)
         let hours = total / 60
         let minutes = total % 60
         var parts: [String] = []
