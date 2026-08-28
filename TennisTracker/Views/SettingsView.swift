@@ -10,6 +10,13 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 ScreenIntro(title: "Settings", summary: "Choose tracking detail, theme, scoring announcements, reminders, Calendar, and dashboard preferences.")
+                Section("Save") {
+                    Button("Save Settings") {
+                        saveSettings(announce: true)
+                    }
+                    .accessibilityLabel("Save Settings")
+                    .accessibilityIdentifier("settingsToolbarSaveButton")
+                }
                 if !savedMessage.isBlank {
                     Section("Status") {
                         Text(savedMessage)
@@ -114,13 +121,6 @@ struct SettingsView: View {
                     SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
                 }
 
-                Section("Save") {
-                    Button("Save Settings") {
-                        saveSettings(announce: true)
-                    }
-                    .accessibilityLabel("Save Settings")
-                    .accessibilityIdentifier("settingsToolbarSaveButton")
-                }
             }
             .tennisThemedList()
             .navigationTitle("Settings")
