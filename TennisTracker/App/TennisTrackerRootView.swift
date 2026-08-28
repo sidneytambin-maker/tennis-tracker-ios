@@ -16,12 +16,6 @@ struct TennisTrackerRootView: View {
                         }
                         .tag("dashboard")
 
-                    PlayerView()
-                        .tabItem {
-                            Label("Player", systemImage: "person.crop.circle")
-                        }
-                        .tag("player")
-
                     MatchesView()
                         .tabItem {
                             Label("Matches", systemImage: "list.bullet.rectangle")
@@ -39,6 +33,12 @@ struct TennisTrackerRootView: View {
                             Label("Training", systemImage: "figure.tennis")
                         }
                         .tag("training")
+
+                    PlayerView()
+                        .tabItem {
+                            Label("Player", systemImage: "person.crop.circle")
+                        }
+                        .tag("player")
 
                     SettingsView()
                         .tabItem {

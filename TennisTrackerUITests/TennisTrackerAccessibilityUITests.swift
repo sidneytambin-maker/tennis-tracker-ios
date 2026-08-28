@@ -24,7 +24,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         finishOnboarding()
 
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
-        for destination in ["Player", "Matches", "Tournaments", "Training", "Settings", "Dashboard"] {
+        for destination in ["Matches", "Tournaments", "Training", "Player", "Dashboard"] {
             openDestination(destination)
             XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5), "Missing destination \(destination)")
         }
@@ -102,9 +102,19 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         let more = app.tabBars.buttons["More"]
         XCTAssertTrue(more.waitForExistence(timeout: 5), "Missing More tab for \(name)")
         more.tap()
-        let row = app.tables.staticTexts[name]
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "Missing More row for \(name)")
-        row.tap()
+        let rowText = app.tables.staticTexts[name]
+        if rowText.waitForExistence(timeout: 2) {
+            rowText.tap()
+            return
+        }
+        let rowButton = app.tables.buttons[name]
+        if rowButton.waitForExistence(timeout: 2) {
+            rowButton.tap()
+            return
+        }
+        let rowCell = app.tables.cells.containing(.staticText, identifier: name).firstMatch
+        XCTAssertTrue(rowCell.waitForExistence(timeout: 5), "Missing More row for \(name)")
+        rowCell.tap()
     }
 
     private func tapPossiblyScrolledButton(_ identifier: String) {

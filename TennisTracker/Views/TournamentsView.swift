@@ -63,11 +63,22 @@ struct TournamentsView: View {
                 }
             }
             .confirmationDialog("Delete this tournament?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete Tournament", role: .destructive) {
-                    if let tournamentToDelete {
-                        store.deleteTournament(tournamentToDelete)
+                if let selectedTournament = tournamentToDelete, !store.linkedMatches(for: selectedTournament).isEmpty {
+                    Button("Delete Tournament Only, Keep Matches", role: .destructive) {
+                        store.deleteTournamentKeepingMatches(selectedTournament)
+                        tournamentToDelete = nil
                     }
-                    tournamentToDelete = nil
+                    Button("Delete Tournament and Linked Matches", role: .destructive) {
+                        store.deleteTournamentAndLinkedMatches(selectedTournament)
+                        tournamentToDelete = nil
+                    }
+                } else {
+                    Button("Delete Tournament", role: .destructive) {
+                        if let selectedTournament = tournamentToDelete {
+                            store.deleteTournamentKeepingMatches(selectedTournament)
+                        }
+                        tournamentToDelete = nil
+                    }
                 }
                 Button("Cancel", role: .cancel) { tournamentToDelete = nil }
             }
@@ -119,7 +130,7 @@ struct TournamentDetailView: View {
     @State private var calendarMessage = ""
 
     private var linkedMatches: [MatchRecord] {
-        store.selectedMatches.filter { $0.tournamentID == tournament.id }.sorted { $0.date > $1.date }
+        store.linkedMatches(for: tournament)
     }
 
     var body: some View {
@@ -137,9 +148,18 @@ struct TournamentDetailView: View {
                     Text("Tournament matches will appear here after they are saved.")
                 } else {
                     ForEach(linkedMatches) { match in
-                        NavigationLink("\(match.result.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))") {
+                        NavigationLink {
                             MatchDetailView(match: match)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(match.matchPosition.rawValue): \(match.opponentSummary.fallback("opponent not recorded"))")
+                                Text("\(match.date.shortTennisDate). \(match.status.rawValue). \(match.result.rawValue). \(scoreSummary(match)).")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .accessibilityLabel("Tournament match")
+                        .accessibilityValue("\(match.matchPosition.rawValue), against \(match.opponentSummary.fallback("opponent not recorded")), \(match.date.shortTennisDate), \(match.status.rawValue), \(match.result.rawValue), \(scoreSummary(match))")
                     }
                 }
             }
@@ -181,8 +201,17 @@ struct TournamentDetailView: View {
             }
         }
         .confirmationDialog("Delete this tournament?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete Tournament", role: .destructive) {
-                store.deleteTournament(tournament)
+            if linkedMatches.isEmpty {
+                Button("Delete Tournament", role: .destructive) {
+                    store.deleteTournamentKeepingMatches(tournament)
+                }
+            } else {
+                Button("Delete Tournament Only, Keep Matches", role: .destructive) {
+                    store.deleteTournamentKeepingMatches(tournament)
+                }
+                Button("Delete Tournament and Linked Matches", role: .destructive) {
+                    store.deleteTournamentAndLinkedMatches(tournament)
+                }
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -202,6 +231,11 @@ struct TournamentDetailView: View {
             return base
         }
         return "\(tournament.date.shortTennisDate) to \(tournament.endDate.shortTennisDate), \(tournament.location.fallback("location not recorded"))."
+    }
+
+    private func scoreSummary(_ match: MatchRecord) -> String {
+        let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
+        return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
     }
 }
 

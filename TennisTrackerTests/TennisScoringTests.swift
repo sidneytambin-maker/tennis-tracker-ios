@@ -74,6 +74,26 @@ final class TennisScoringTests: XCTestCase {
         XCTAssertEqual(scorer.awardPoint(to: .opponent), "Match is already complete. Match complete. Player wins. Final score, 6-0, 6-0.")
     }
 
+    func testOneSetMatchCompletesAfterOneSet() {
+        var scorer = TennisScoringEngine(setsNeededToWin: 1)
+
+        winGames(6, for: .player, scorer: &scorer)
+
+        XCTAssertTrue(scorer.state.isMatchComplete)
+        XCTAssertEqual(scorer.state.completedSetScores, ["6-0"])
+    }
+
+    func testNoAutomaticTieBreakDoesNotStartAtSixAll() {
+        var scorer = TennisScoringEngine(tieBreakRule: .noAutomatic)
+
+        winGames(6, for: .player, scorer: &scorer)
+        winGames(6, for: .opponent, scorer: &scorer)
+        _ = scorer.awardPoint(to: .player)
+
+        XCTAssertFalse(scorer.state.isTiebreak)
+        XCTAssertEqual(scorer.state.pointScore, "15-Love")
+    }
+
     func testUndoRestoresPreviousState() {
         var scorer = TennisScoringEngine()
 

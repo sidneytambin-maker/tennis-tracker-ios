@@ -108,7 +108,13 @@ final class TennisStore: ObservableObject {
         saveAndAnnounce("Saved tournament \(tournament.name.fallback("unnamed tournament")).")
     }
 
-    func deleteTournament(_ tournament: TournamentRecord) {
+    func linkedMatches(for tournament: TournamentRecord) -> [MatchRecord] {
+        data.matches
+            .filter { $0.playerID == tournament.playerID && $0.tournamentID == tournament.id }
+            .sorted { $0.date > $1.date }
+    }
+
+    func deleteTournamentKeepingMatches(_ tournament: TournamentRecord) {
         data.tournaments.removeAll { $0.id == tournament.id }
         data.matches = data.matches.map { match in
             var copy = match
@@ -117,7 +123,17 @@ final class TennisStore: ObservableObject {
             }
             return copy
         }
-        saveAndAnnounce("Deleted tournament.")
+        saveAndAnnounce("Deleted tournament and kept linked matches.")
+    }
+
+    func deleteTournamentAndLinkedMatches(_ tournament: TournamentRecord) {
+        data.tournaments.removeAll { $0.id == tournament.id }
+        data.matches.removeAll { $0.tournamentID == tournament.id }
+        saveAndAnnounce("Deleted tournament and linked matches.")
+    }
+
+    func deleteTournament(_ tournament: TournamentRecord) {
+        deleteTournamentKeepingMatches(tournament)
     }
 
     func updateSettings(_ settings: AppSettings) {
@@ -136,6 +152,14 @@ final class TennisStore: ObservableObject {
         match.allowedBounces = player.sightLevel.allowedBounces
         match.suddenDeathDeuce = player.playerMode == .blindTennis
         match.tournamentID = tournamentID
+        if let tournamentID, let tournament = data.tournaments.first(where: { $0.id == tournamentID }) {
+            match.date = tournament.date
+            match.hasStartTime = tournament.hasStartTime && !tournament.isAllDay
+            match.venue = tournament.location
+            match.sightLevel = sightLevel(from: tournament.category) ?? player.sightLevel
+            match.allowedBounces = match.sightLevel.allowedBounces
+            match.matchPosition = tournament.format == .roundRobin ? .roundRobin : .notSpecified
+        }
         match.courtSurface = player.preferredSurface.isBlank ? .notSpecified : CourtSurface(rawValue: player.preferredSurface) ?? .notSpecified
         return match
     }
@@ -158,7 +182,7 @@ final class TennisStore: ObservableObject {
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 6
+        data.dataVersion = 7
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -198,16 +222,22 @@ final class TennisStore: ObservableObject {
         }
     }
 
+    private func sightLevel(from category: String) -> SightLevel? {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return nil }
+        return SightLevel.allCases.first { $0.rawValue.uppercased().hasPrefix(normalized) }
+    }
+
     private func migrateIfNeeded() {
         if data.dataVersion < 3 {
             data = AppData()
-            data.dataVersion = 6
+            data.dataVersion = 7
             lastAnnouncement = "Tennis Tracker is ready for first setup."
             save()
             return
         }
-        if data.dataVersion < 6 {
-            data.dataVersion = 6
+        if data.dataVersion < 7 {
+            data.dataVersion = 7
             save()
         }
     }

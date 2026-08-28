@@ -8,7 +8,7 @@ The first phone installation proved the pipeline from Windows source files to a 
 
 The app contains:
 
-- A native five-item iPhone tab bar for Dashboard, Player, Matches, Training, and Settings.
+- A native iPhone tab bar prioritising Dashboard, Matches, Tournaments, Training, and Player, with Settings lower priority when iOS shows More.
 - Player profiles with blind-tennis sight categories and allowed-bounce wording.
 - Match history, match detail, match editing, performance notes, set scores, and tiebreak notes.
 - Live best-of-three scoring with love, 15, 30, 40, deuce, advantage, games, sets, tiebreaks, undo, haptics, and VoiceOver announcements.
@@ -238,7 +238,7 @@ With Apple free personal development provisioning, the installed app expires aft
 
 ## VoiceOver refinement checklist
 
-Version `0.6.0` is the regression-recovery accessibility build. It repairs the most important physical-iPhone VoiceOver issues found in 0.5.0: main screen context now comes before primary Add/Save actions, training duration uses Hours and Minutes instead of repeated five-minute increments, matches and training support optional start times, tournaments support all-day or timed scheduling, notifications and Calendar use real timing data, delete confirmations include explicit Cancel actions, row rotor actions focus on useful secondary tasks, and the Tennis theme is more distinctive.
+Version `0.7.0` is the product-coherence accessibility build. It fixes tournament-created matches using today’s date, keeps tournament and match links on stable IDs, shows real linked matches inside tournament detail, adds explicit tournament deletion choices for linked matches, moves manual time entry to five-minute steps, keeps Training in the primary tab order, and simplifies match entry around details, format, and result.
 
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 

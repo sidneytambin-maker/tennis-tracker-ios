@@ -27,11 +27,12 @@ struct TennisScoreState: Codable, Equatable {
     var opponentSets = 0
     var completedSetScores: [String] = []
     var manualTiebreakActive = false
+    var automaticTiebreakActive = false
     var isMatchComplete = false
     var lastWinner: PointWinner?
 
     var isTiebreak: Bool {
-        manualTiebreakActive || (playerGames == 6 && opponentGames == 6)
+        manualTiebreakActive || automaticTiebreakActive
     }
 
     var snapshot: TennisScoreSnapshot {
@@ -60,6 +61,7 @@ struct TennisScoreState: Codable, Equatable {
         opponentSets = snapshot.opponentSets
         completedSetScores = snapshot.completedSetScores
         manualTiebreakActive = snapshot.isTiebreak
+        automaticTiebreakActive = false
         isMatchComplete = snapshot.isMatchComplete
         lastWinner = snapshot.lastWinner
     }
@@ -110,6 +112,7 @@ struct TennisScoringEngine {
     var tieBreakRule: TieBreakRule = .standardAtSixAll
     var tieBreakTarget = 7
     var tieBreakWinByTwo = true
+    var setsNeededToWin = 2
 
     init(
         playerName: String = "Player",
@@ -118,6 +121,7 @@ struct TennisScoringEngine {
         tieBreakRule: TieBreakRule = .standardAtSixAll,
         tieBreakTarget: Int = 7,
         tieBreakWinByTwo: Bool = true,
+        setsNeededToWin: Int = 2,
         snapshot: TennisScoreSnapshot? = nil
     ) {
         self.playerName = playerName.fallback("Player")
@@ -126,6 +130,7 @@ struct TennisScoringEngine {
         self.tieBreakRule = tieBreakRule
         self.tieBreakTarget = max(1, tieBreakTarget)
         self.tieBreakWinByTwo = tieBreakWinByTwo
+        self.setsNeededToWin = max(1, setsNeededToWin)
         if let snapshot {
             self.state = TennisScoreState(snapshot: snapshot)
         }
@@ -135,6 +140,7 @@ struct TennisScoringEngine {
         guard !state.isMatchComplete else { return "Match is already complete. \(fullScore)" }
         history.append(state)
         state.lastWinner = winner
+        prepareAutomaticTieBreakIfNeeded()
         switch winner {
         case .player:
             state.playerPoints += 1
@@ -211,6 +217,7 @@ struct TennisScoringEngine {
             state.opponentGames += 1
         }
         state.manualTiebreakActive = false
+        state.automaticTiebreakActive = false
         state.playerPoints = 0
         state.opponentPoints = 0
         if setIsComplete {
@@ -228,6 +235,21 @@ struct TennisScoringEngine {
         return false
     }
 
+    private mutating func prepareAutomaticTieBreakIfNeeded() {
+        guard !state.manualTiebreakActive else { return }
+        guard state.playerGames == 6 && state.opponentGames == 6 else { return }
+        switch tieBreakRule {
+        case .standardAtSixAll:
+            state.automaticTiebreakActive = true
+            tieBreakTarget = 7
+        case .tenPoint:
+            state.automaticTiebreakActive = true
+            tieBreakTarget = 10
+        case .manual, .noAutomatic:
+            state.automaticTiebreakActive = false
+        }
+    }
+
     private mutating func finishSet() {
         state.completedSetScores.append("\(state.playerGames)-\(state.opponentGames)")
         if state.playerGames > state.opponentGames {
@@ -237,7 +259,7 @@ struct TennisScoringEngine {
         }
         state.playerGames = 0
         state.opponentGames = 0
-        if state.playerSets == 2 || state.opponentSets == 2 {
+        if state.playerSets == setsNeededToWin || state.opponentSets == setsNeededToWin {
             state.isMatchComplete = true
         }
     }

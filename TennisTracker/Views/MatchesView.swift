@@ -56,12 +56,6 @@ struct MatchesView: View {
                             .accessibilityAction(named: "Edit match") {
                                 matchToEdit = match
                             }
-                            .accessibilityAction(named: "Resume live score") {
-                                if match.status == .inProgress {
-                                    liveMatchToResume = match
-                                    showingLiveScorer = true
-                                }
-                            }
                             .accessibilityAction(named: "Add to Calendar") {
                                 addToCalendar(match)
                             }
@@ -69,6 +63,10 @@ struct MatchesView: View {
                                 matchToDelete = match
                                 confirmDelete = true
                             }
+                            .modifier(MatchResumeAction(match: match, resume: {
+                                liveMatchToResume = match
+                                showingLiveScorer = true
+                            }))
                         }
                     }
                 }
@@ -109,6 +107,20 @@ struct MatchesView: View {
     private func scoreSummary(_ match: MatchRecord) -> String {
         let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
         return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
+    }
+}
+
+private struct MatchResumeAction: ViewModifier {
+    let match: MatchRecord
+    let resume: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if match.status == .inProgress && match.liveScore != nil {
+            content.accessibilityAction(named: "Resume live score") { resume() }
+        } else {
+            content
+        }
     }
 }
 
@@ -184,11 +196,15 @@ struct MatchEditorView: View {
     @EnvironmentObject private var store: TennisStore
     @Environment(\.dismiss) private var dismiss
     @State var match: MatchRecord
+    @State private var setCount = 0
+    @State private var playerGames = Array(repeating: 0, count: 5)
+    @State private var opponentGames = Array(repeating: 0, count: 5)
+    @State private var tiebreakSets = Set<Int>()
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Match") {
+                Section("Match details") {
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $match.date, hasStartTime: $match.hasStartTime)
                         .accessibilityIdentifier("matchDatePicker")
                     Toggle("Expected duration known", isOn: $match.hasExpectedDuration)
@@ -200,9 +216,6 @@ struct MatchEditorView: View {
                     }
                     Picker("Match type", selection: $match.matchType) {
                         ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
-                    }
-                    Picker("Result", selection: $match.result) {
-                        ForEach(MatchResult.allCases) { result in Text(result.rawValue).tag(result) }
                     }
                 }
 
@@ -217,7 +230,14 @@ struct MatchEditorView: View {
                     }
                 }
 
-                Section("Rules") {
+                Section("Format") {
+                    Picker("Match format", selection: $match.matchFormat) {
+                        ForEach(MatchFormat.allCases) { format in Text(format.rawValue).tag(format) }
+                    }
+                    .accessibilityIdentifier("matchFormatPicker")
+                    .onChange(of: match.matchFormat) { _, newValue in
+                        setCount = min(max(setCount, newValue.defaultSetsToEnter), newValue.maximumSetsToEnter)
+                    }
                     Picker("Sight level", selection: $match.sightLevel) {
                         ForEach(SightLevel.allCases) { level in Text(level.rawValue).tag(level) }
                     }
@@ -231,6 +251,10 @@ struct MatchEditorView: View {
                     Picker("Tie-break rule", selection: $match.tieBreakRule) {
                         ForEach(TieBreakRule.allCases) { rule in Text(rule.rawValue).tag(rule) }
                     }
+                    if match.tieBreakRule == .manual {
+                        Stepper("Tie-break target \(match.tieBreakTarget)", value: $match.tieBreakTarget, in: 1...21)
+                        Toggle("Win tie-break by two", isOn: $match.tieBreakWinByTwo)
+                    }
                 }
 
                 if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
@@ -242,6 +266,12 @@ struct MatchEditorView: View {
                             }
                         }
                         .accessibilityIdentifier("matchTournamentPicker")
+                        .onChange(of: match.tournamentID) { _, _ in
+                            applyTournamentDefaults()
+                        }
+                        if let tournament = linkedTournament {
+                            SummaryRow(title: "Tournament date range", value: tournamentDateRange(tournament))
+                        }
 
                         Picker("Training session", selection: $match.trainingSessionID) {
                             Text("No training session").tag(Optional<UUID>.none)
@@ -253,13 +283,39 @@ struct MatchEditorView: View {
                     }
                 }
 
-                Section("Score") {
-                    Stepper("Player sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
-                    Stepper("Opponent sets won \(match.opponentSetsWon)", value: $match.opponentSetsWon, in: 0...5)
-                    TextField("Set scores", text: $match.setScores)
-                    Toggle("Had tiebreak", isOn: $match.hadTiebreak)
-                    if match.hadTiebreak {
-                        TextField("Tiebreak score", text: $match.tiebreakScore)
+                Section("Result") {
+                    if match.status == .completed {
+                        if match.matchFormat == .custom {
+                            Picker("Result", selection: $match.result) {
+                                ForEach(MatchResult.allCases) { result in Text(result.rawValue).tag(result) }
+                            }
+                            Stepper("Player sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
+                            Stepper("Opponent sets won \(match.opponentSetsWon)", value: $match.opponentSetsWon, in: 0...5)
+                            TextField("Set scores", text: $match.setScores)
+                        } else {
+                            Picker("Sets played", selection: $setCount) {
+                                ForEach(1...match.matchFormat.maximumSetsToEnter, id: \.self) { count in
+                                    Text(count == 1 ? "1 set" : "\(count) sets").tag(count)
+                                }
+                            }
+                            ForEach(0..<setCount, id: \.self) { index in
+                                SetScoreEntryRow(
+                                    setNumber: index + 1,
+                                    playerGames: binding($playerGames, index: index),
+                                    opponentGames: binding($opponentGames, index: index),
+                                    hadTiebreak: tiebreakBinding(index)
+                                )
+                            }
+                            SummaryRow(title: "Calculated result", value: calculatedResultSummary)
+                        }
+                        if match.matchFormat == .custom || !tiebreakSets.isEmpty || match.hadTiebreak {
+                            TextField("Tie-break notes", text: $match.tiebreakScore)
+                        }
+                    } else if match.status == .inProgress {
+                        SummaryRow(title: "In-progress score", value: match.liveScore == nil ? "No live score saved yet." : liveScoreSummary)
+                    } else {
+                        Text("No result needed for a scheduled match.")
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -285,10 +341,13 @@ struct MatchEditorView: View {
             }
             .tennisThemedList()
             .navigationTitle("Match")
+            .onAppear(perform: loadScoreRows)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        keepDateInsideLinkedTournament()
+                        applyCalculatedScoreIfNeeded()
                         store.upsertMatch(match)
                         dismiss()
                     }
@@ -296,6 +355,160 @@ struct MatchEditorView: View {
                 }
             }
         }
+    }
+
+    private var calculatedResultSummary: String {
+        let score = calculatedScore()
+        let result = score.playerSets > score.opponentSets ? "Win" : score.opponentSets > score.playerSets ? "Loss" : "Draw"
+        let setText = score.setScores.isBlank ? "no completed sets entered" : score.setScores
+        return "\(result), sets \(score.playerSets)-\(score.opponentSets), \(setText)."
+    }
+
+    private var liveScoreSummary: String {
+        guard let liveScore = match.liveScore else { return "No live score saved yet." }
+        let sets = "sets \(liveScore.playerSets)-\(liveScore.opponentSets)"
+        let games = "games \(liveScore.playerGames)-\(liveScore.opponentGames)"
+        return "\(games), \(sets)."
+    }
+
+    private var linkedTournament: TournamentRecord? {
+        guard let tournamentID = match.tournamentID else { return nil }
+        return store.selectedTournaments.first { $0.id == tournamentID }
+    }
+
+    private func applyTournamentDefaults() {
+        guard let tournament = linkedTournament else { return }
+        match.date = tournament.date
+        match.hasStartTime = tournament.hasStartTime && !tournament.isAllDay
+        match.venue = tournament.location
+        match.sightLevel = sightLevel(from: tournament.category) ?? match.sightLevel
+        match.allowedBounces = match.sightLevel.allowedBounces
+        if tournament.format == .roundRobin {
+            match.matchPosition = .roundRobin
+        }
+    }
+
+    private func keepDateInsideLinkedTournament() {
+        guard let tournament = linkedTournament else { return }
+        let calendar = Calendar.current
+        let matchDay = calendar.startOfDay(for: match.date)
+        let startDay = calendar.startOfDay(for: tournament.date)
+        let endDay = calendar.startOfDay(for: tournament.endDate)
+        if matchDay < startDay {
+            match.date = calendar.dateByKeepingTime(from: match.date, on: tournament.date)
+        } else if matchDay > endDay {
+            match.date = calendar.dateByKeepingTime(from: match.date, on: tournament.endDate)
+        }
+    }
+
+    private func tournamentDateRange(_ tournament: TournamentRecord) -> String {
+        if Calendar.current.isDate(tournament.date, inSameDayAs: tournament.endDate) {
+            return tournament.date.shortTennisDate
+        }
+        return "\(tournament.date.shortTennisDate) to \(tournament.endDate.shortTennisDate)"
+    }
+
+    private func sightLevel(from category: String) -> SightLevel? {
+        let normalized = category.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return nil }
+        return SightLevel.allCases.first { $0.rawValue.uppercased().hasPrefix(normalized) }
+    }
+
+    private func loadScoreRows() {
+        guard setCount == 0 else { return }
+        setCount = min(max(match.setsPlayed, match.matchFormat.defaultSetsToEnter), match.matchFormat.maximumSetsToEnter)
+        let parsed = match.setScores
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        for (index, score) in parsed.prefix(5).enumerated() {
+            let parts = score.split(separator: "-").compactMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            guard parts.count == 2 else { continue }
+            playerGames[index] = parts[0]
+            opponentGames[index] = parts[1]
+            if abs(parts[0] - parts[1]) == 1 && max(parts[0], parts[1]) >= 7 {
+                tiebreakSets.insert(index)
+            }
+        }
+        if match.hadTiebreak && tiebreakSets.isEmpty {
+            tiebreakSets.insert(0)
+        }
+    }
+
+    private func calculatedScore() -> (playerSets: Int, opponentSets: Int, setScores: String, hadTiebreak: Bool) {
+        var playerSets = 0
+        var opponentSets = 0
+        var entered: [String] = []
+        var hadTiebreak = false
+        for index in 0..<setCount {
+            let player = playerGames[index]
+            let opponent = opponentGames[index]
+            guard player > 0 || opponent > 0 else { continue }
+            entered.append("\(player)-\(opponent)")
+            if player > opponent { playerSets += 1 }
+            if opponent > player { opponentSets += 1 }
+            if tiebreakSets.contains(index) || (abs(player - opponent) == 1 && max(player, opponent) >= 7) {
+                hadTiebreak = true
+            }
+        }
+        return (playerSets, opponentSets, entered.joined(separator: ", "), hadTiebreak)
+    }
+
+    private func applyCalculatedScoreIfNeeded() {
+        guard match.status == .completed, match.matchFormat != .custom else { return }
+        let score = calculatedScore()
+        match.yourSetsWon = score.playerSets
+        match.opponentSetsWon = score.opponentSets
+        match.setScores = score.setScores
+        match.hadTiebreak = score.hadTiebreak
+        if score.playerSets > score.opponentSets {
+            match.result = .win
+        } else if score.opponentSets > score.playerSets {
+            match.result = .loss
+        } else {
+            match.result = .draw
+        }
+    }
+
+    private func binding(_ values: Binding<[Int]>, index: Int) -> Binding<Int> {
+        Binding(
+            get: { values.wrappedValue[index] },
+            set: {
+                var copy = values.wrappedValue
+                copy[index] = $0
+                values.wrappedValue = copy
+            }
+        )
+    }
+
+    private func tiebreakBinding(_ index: Int) -> Binding<Bool> {
+        Binding(
+            get: { tiebreakSets.contains(index) },
+            set: { isOn in
+                if isOn {
+                    tiebreakSets.insert(index)
+                } else {
+                    tiebreakSets.remove(index)
+                }
+            }
+        )
+    }
+}
+
+struct SetScoreEntryRow: View {
+    let setNumber: Int
+    @Binding var playerGames: Int
+    @Binding var opponentGames: Int
+    @Binding var hadTiebreak: Bool
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Set \(setNumber)")
+                .font(.headline)
+            Stepper("Player games \(playerGames)", value: $playerGames, in: 0...10)
+            Stepper("Opponent games \(opponentGames)", value: $opponentGames, in: 0...10)
+            Toggle("Set decided by tie-break", isOn: $hadTiebreak)
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -356,6 +569,9 @@ struct LiveMatchView: View {
     @ViewBuilder
     private func setupSections(match: MatchRecord) -> some View {
         Section("Format") {
+            Picker("Match format", selection: binding(\.matchFormat)) {
+                ForEach(MatchFormat.allCases) { format in Text(format.rawValue).tag(format) }
+            }
             Picker("Match type", selection: binding(\.matchType)) {
                 ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
             }
@@ -398,7 +614,7 @@ struct LiveMatchView: View {
             Picker("Tie-break rule", selection: binding(\.tieBreakRule)) {
                 ForEach(TieBreakRule.allCases) { rule in Text(rule.rawValue).tag(rule) }
             }
-            if match.tieBreakRule != .standardAtSixAll {
+            if match.tieBreakRule == .manual {
                 Stepper("Tie-break target \(match.tieBreakTarget)", value: binding(\.tieBreakTarget), in: 1...21)
                 Toggle("Win tie-break by two", isOn: binding(\.tieBreakWinByTwo))
             }
@@ -529,6 +745,7 @@ struct LiveMatchView: View {
                 tieBreakRule: existingMatch.tieBreakRule,
                 tieBreakTarget: existingMatch.tieBreakTarget,
                 tieBreakWinByTwo: existingMatch.tieBreakWinByTwo,
+                setsNeededToWin: existingMatch.matchFormat.setsNeededToWin,
                 snapshot: existingMatch.liveScore
             )
             isScoring = true
@@ -546,6 +763,7 @@ struct LiveMatchView: View {
             tieBreakRule: match.tieBreakRule,
             tieBreakTarget: match.tieBreakTarget,
             tieBreakWinByTwo: match.tieBreakWinByTwo,
+            setsNeededToWin: match.matchFormat.setsNeededToWin,
             snapshot: match.liveScore
         )
         isScoring = true

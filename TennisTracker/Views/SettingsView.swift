@@ -117,7 +117,7 @@ struct SettingsView: View {
                 }
 
                 Section("Build") {
-                    SummaryRow(title: "Version", value: "0.6.0")
+                    SummaryRow(title: "Version", value: "0.7.0")
                     SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
                 }
 

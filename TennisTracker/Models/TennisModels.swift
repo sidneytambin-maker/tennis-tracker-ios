@@ -107,12 +107,71 @@ enum MatchStatus: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum TieBreakRule: String, Codable, CaseIterable, Identifiable {
-    case standardAtSixAll = "Automatic at 6-6"
-    case manual = "Manual start and finish"
-    case tenPoint = "10 point match tie-break"
+enum MatchFormat: String, Codable, CaseIterable, Identifiable {
+    case oneSet = "1 set"
+    case bestOfThree = "Best of 3"
+    case bestOfFive = "Best of 5"
+    case custom = "Custom"
 
     var id: String { rawValue }
+
+    var defaultSetsToEnter: Int {
+        switch self {
+        case .oneSet: return 1
+        case .bestOfThree: return 2
+        case .bestOfFive: return 3
+        case .custom: return 1
+        }
+    }
+
+    var maximumSetsToEnter: Int {
+        switch self {
+        case .oneSet: return 1
+        case .bestOfThree: return 3
+        case .bestOfFive: return 5
+        case .custom: return 5
+        }
+    }
+
+    var setsNeededToWin: Int {
+        switch self {
+        case .oneSet: return 1
+        case .bestOfThree: return 2
+        case .bestOfFive: return 3
+        case .custom: return 2
+        }
+    }
+}
+
+enum TieBreakRule: String, Codable, CaseIterable, Identifiable {
+    case standardAtSixAll = "Standard at 6-6"
+    case tenPoint = "Match tie-break"
+    case manual = "Manual or custom"
+    case noAutomatic = "No automatic tie-break"
+
+    var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        switch value {
+        case "Automatic at 6-6", "Standard at 6-6":
+            self = .standardAtSixAll
+        case "10 point match tie-break", "Match tie-break":
+            self = .tenPoint
+        case "Manual start and finish", "Manual or custom":
+            self = .manual
+        case "No automatic tie-break":
+            self = .noAutomatic
+        default:
+            self = .standardAtSixAll
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 enum TrainingType: String, Codable, CaseIterable, Identifiable {
@@ -296,6 +355,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var location = ""
     var status: MatchStatus = .completed
     var matchType: MatchKind = .singles
+    var matchFormat: MatchFormat = .bestOfThree
     var playerName = ""
     var opponentName = ""
     var partnerName = ""
@@ -362,6 +422,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         status = try container.decodeIfPresent(MatchStatus.self, forKey: .status) ?? .completed
         matchType = try container.decodeIfPresent(MatchKind.self, forKey: .matchType) ?? .singles
+        matchFormat = try container.decodeIfPresent(MatchFormat.self, forKey: .matchFormat) ?? .bestOfThree
         playerName = try container.decodeIfPresent(String.self, forKey: .playerName) ?? ""
         opponentName = try container.decodeIfPresent(String.self, forKey: .opponentName) ?? ""
         partnerName = try container.decodeIfPresent(String.self, forKey: .partnerName) ?? ""
@@ -510,7 +571,7 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 6
+    var dataVersion = 7
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []
