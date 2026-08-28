@@ -85,7 +85,7 @@ enum TennisNotificationPlanner {
         }
 
         if settings.weeklySummaryEnabled {
-            let nextWeek = Calendar.current.nextDate(after: now, matching: DateComponents(weekday: 2, hour: 9, minute: 0), matchingPolicy: .nextTime) ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+            let nextWeek = Calendar.current.nextDate(after: now, matching: DateComponents(hour: 9, minute: 0, weekday: 2), matchingPolicy: .nextTime) ?? now.addingTimeInterval(7 * 24 * 60 * 60)
             requests.append(PlannedNotification(
                 identifier: "weekly-summary",
                 title: "Tennis weekly summary",
