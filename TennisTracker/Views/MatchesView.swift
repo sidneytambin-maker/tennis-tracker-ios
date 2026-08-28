@@ -518,7 +518,6 @@ struct LiveMatchView: View {
         saved.opponentSetsWon = scorer.state.opponentSets
         saved.setScores = scorer.state.completedSetScores.joined(separator: ", ")
         saved.hadTiebreak = saved.setScores.contains("7-6") || saved.setScores.contains("6-7") || scorer.state.isTiebreak
-        saved.suddenDeathDeuce = saved.suddenDeathDeuce
         if scorer.state.isMatchComplete {
             saved.liveScore = nil
             saved.result = scorer.state.playerSets > scorer.state.opponentSets ? .win : .loss
