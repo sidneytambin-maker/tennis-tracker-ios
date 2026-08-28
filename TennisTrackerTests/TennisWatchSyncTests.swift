@@ -74,4 +74,40 @@ final class TennisWatchSyncTests: XCTestCase {
         XCTAssertTrue(snapshot.matches[0].needsDetails)
         XCTAssertTrue(snapshot.trainingSessions[0].needsDetails)
     }
+
+    func testOneSetMatchSummaryUsesActualScoreAcrossSurfaces() {
+        var player = PlayerProfile()
+        player.name = "Sidney"
+        var tournament = TournamentRecord(playerID: player.id)
+        tournament.name = "Yorkshire League"
+        var match = MatchRecord(playerID: player.id)
+        match.playerName = "Sidney"
+        match.opponentName = "Anthony Harrison"
+        match.matchFormat = .oneSet
+        match.status = .completed
+        match.result = .win
+        match.yourSetsWon = 1
+        match.opponentSetsWon = 0
+        match.setScores = "6-4"
+        match.tournamentID = tournament.id
+        match.date = date(day: 21, month: 8, year: 2026)
+
+        XCTAssertEqual(
+            TennisSummaryFormatter.match(match, tournaments: [tournament], style: .long),
+            "Win against Anthony Harrison, 6-4, Yorkshire League, 21 August 2026."
+        )
+        XCTAssertEqual(
+            TennisSummaryFormatter.match(match, tournaments: [tournament], style: .short),
+            "Win against Anthony Harrison, 6-4, Yorkshire League."
+        )
+    }
+
+    private func date(day: Int, month: Int, year: Int) -> Date {
+        var components = DateComponents()
+        components.day = day
+        components.month = month
+        components.year = year
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        return Calendar(identifier: .gregorian).date(from: components)!
+    }
 }

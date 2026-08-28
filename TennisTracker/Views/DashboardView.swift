@@ -49,7 +49,7 @@ struct DashboardView: View {
                         Text("No recent matches recorded.")
                     } else {
                         ForEach(store.selectedMatches.prefix(3)) { match in
-                            NavigationLink(matchLine(match)) {
+                            NavigationLink(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .long)) {
                                 MatchDetailView(match: match)
                             }
                             .accessibilityAction(named: "Edit match") {
@@ -181,7 +181,7 @@ struct DashboardView: View {
     }
 
     private func matchLine(_ match: MatchRecord) -> String {
-        "\(match.date.shortTennisDate): \(match.matchType.rawValue) \(match.result.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))"
+        TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .long)
     }
 
     private func addMatchToCalendar(_ match: MatchRecord) {

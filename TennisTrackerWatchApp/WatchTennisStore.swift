@@ -44,8 +44,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     var recentSummary: [String] {
-        let matches = snapshot.matches.prefix(3).map { "Match, \($0.status.rawValue), \($0.opponentSummary.fallback("opponent not recorded"))" }
-        let training = snapshot.trainingSessions.prefix(3).map { "Training, \($0.durationMinutes.durationText), \($0.focus.fallback("focus not recorded"))" }
+        let matches = snapshot.matches.prefix(3).map { TennisSummaryFormatter.match($0, tournaments: snapshot.tournaments, style: .short) }
+        let training = snapshot.trainingSessions.prefix(3).map { TennisSummaryFormatter.training($0, style: .short) }
         return Array((matches + training).prefix(5))
     }
 

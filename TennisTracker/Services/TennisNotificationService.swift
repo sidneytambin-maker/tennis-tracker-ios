@@ -20,7 +20,7 @@ enum TennisNotificationPlanner {
                 requests.append(PlannedNotification(
                     identifier: "match-\(match.id)",
                     title: "Upcoming match",
-                    body: "Match against \(match.opponentSummary.fallback("opponent")) starts at \(match.date.shortTennisTime).",
+                    body: "\(TennisSummaryFormatter.match(match, tournaments: data.tournaments, style: .short)) Starts at \(match.date.shortTennisTime).",
                     fireDate: max(now.addingTimeInterval(60), match.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
                 ))
@@ -76,7 +76,7 @@ enum TennisNotificationPlanner {
                     requests.append(PlannedNotification(
                         identifier: "match-result-\(match.id)",
                         title: "Match result",
-                        body: "How did your match against \(match.opponentSummary.fallback("your opponent")) go? Add the result.",
+                    body: "Record Result for \(TennisSummaryFormatter.match(match, tournaments: data.tournaments, style: .short))",
                         fireDate: fireDate,
                         deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
                     ))

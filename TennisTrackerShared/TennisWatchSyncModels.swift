@@ -156,6 +156,13 @@ extension Date {
     var shortTennisTime: String {
         formatted(date: .omitted, time: .shortened)
     }
+
+    var tennisSummaryDate: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_GB")
+        formatter.dateFormat = "d MMMM yyyy"
+        return formatter.string(from: self)
+    }
 }
 
 extension Calendar {

@@ -246,6 +246,8 @@ Version `0.7.1` proved the Apple Watch feasibility path. It preserved the iPhone
 
 Version `0.8.0` is the first useful Apple Watch companion build. It adds native Watch pages for Today, Track, Live, and Recent; quick Watch creation of training sessions, matches, and tournaments; large VoiceOver-friendly point buttons; match progress save/resume using stable record IDs; Watch-to-iPhone sync commands; queued offline Watch changes; needs-details handoff back to iPhone; and deterministic revision/date conflict handling.
 
+Version `0.8.1` is the iPhone and Apple Watch unification sprint. It adds the shared accessibility standard, shared match/training/tournament summaries, consistent one-set match result wording across iPhone and Watch, shared score announcement phrasing, reduced repeated stepper controls in match entry, and clearer needs-details handoff language.
+
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
 Manual test priority:

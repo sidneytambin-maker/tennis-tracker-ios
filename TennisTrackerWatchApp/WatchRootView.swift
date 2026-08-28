@@ -33,6 +33,11 @@ private struct WatchTodayView: View {
                 Text(activeText)
                     .font(.headline)
                     .foregroundStyle(.green)
+                if let latestMatch = store.snapshot.matches.first {
+                    WatchSummaryLine(title: "Recent", value: TennisSummaryFormatter.match(latestMatch, tournaments: store.snapshot.tournaments, style: .short))
+                } else if let latestTraining = store.snapshot.trainingSessions.first {
+                    WatchSummaryLine(title: "Recent", value: TennisSummaryFormatter.training(latestTraining, style: .short))
+                }
                 if let tournament = store.upcomingTournament {
                     WatchSummaryLine(title: "Next", value: "\(tournament.name.fallback("Tournament")), \(tournament.date.shortTennisDate)")
                 }
@@ -47,8 +52,12 @@ private struct WatchTodayView: View {
     }
 
     private var activeText: String {
-        if store.activeMatch != nil { return "Match in progress" }
-        if store.activeTraining != nil { return "Training in progress" }
+        if let match = store.activeMatch {
+            return TennisSummaryFormatter.match(match, tournaments: store.snapshot.tournaments, style: .short)
+        }
+        if let training = store.activeTraining {
+            return TennisSummaryFormatter.training(training, style: .short)
+        }
         return "Ready to track"
     }
 }
@@ -168,6 +177,11 @@ private struct WatchLiveView: View {
                         .accessibilityLabel("Score")
                         .accessibilityValue(scoreText)
                         .accessibilityAddTraits(.updatesFrequently)
+                        .accessibilityAction(named: "Undo Last Point") { store.undoLastPoint() }
+                        .accessibilityAction(named: "Save Match Progress") { store.saveMatchProgress() }
+                        .accessibilityAction(named: "Hear Full Score") { store.lastAnnouncement = scoreText }
+                        .accessibilityAction(named: "Start Tie-break") { store.startTieBreak() }
+                        .accessibilityAction(named: "Finish Match") { store.finishMatch() }
 
                     Button("Record Point for \(teamName(.player, match: match))") {
                         store.recordPoint(.player)

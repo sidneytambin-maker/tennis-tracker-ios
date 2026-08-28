@@ -121,7 +121,7 @@ final class TennisScoringTests: XCTestCase {
         let message = scorer.awardPoint(to: .player)
 
         XCTAssertTrue(message.contains("Point to Sidney"))
-        XCTAssertTrue(message.contains("Sidney against Klaudia"))
+        XCTAssertTrue(message.contains("15-Love"))
     }
 
     func testManualTieBreakCanStartAndFinish() {

@@ -45,14 +45,14 @@ struct MatchesView: View {
                                 MatchDetailView(match: match)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(match.date.shortTennisDate): \(match.status.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))")
-                                    Text(scoreSummary(match))
+                                    Text(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .long))
+                                    Text(match.matchType.rawValue)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                             .accessibilityLabel("Match")
-                            .accessibilityValue("\(match.date.shortTennisDate), \(match.matchType.rawValue), \(match.status.rawValue), \(match.result.rawValue), \(scoreSummary(match))")
+                            .accessibilityValue(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .accessibility))
                             .accessibilityAction(named: "Edit match") {
                                 matchToEdit = match
                             }
@@ -105,8 +105,7 @@ struct MatchesView: View {
     }
 
     private func scoreSummary(_ match: MatchRecord) -> String {
-        let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
-        return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
+        TennisSummaryFormatter.matchSummary(match, tournaments: store.selectedTournaments).scoreText
     }
 }
 
@@ -134,7 +133,7 @@ struct MatchDetailView: View {
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: "\(match.status.rawValue) against \(match.opponentSummary.fallback("opponent not recorded"))", value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
+                SummaryRow(title: TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .short), value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
                 SummaryRow(title: "Players", value: "\(match.playerName.fallback("Player")) against \(match.opponentSummary.fallback("opponent not recorded")).")
                 SummaryRow(title: "Score", value: "\(match.yourSetsWon)-\(match.opponentSetsWon) sets. \(match.setScores.fallback("set scores not recorded")).")
                 SummaryRow(title: "Rules", value: "\(match.sightLevel.rawValue). \(match.allowedBounces) bounces. Sudden-death deuce \(match.suddenDeathDeuce ? "on" : "off").")
@@ -245,14 +244,24 @@ struct MatchEditorView: View {
                         match.allowedBounces = newValue.allowedBounces
                         match.suddenDeathDeuce = newValue != .fullySighted
                     }
-                    Stepper("Allowed bounces \(match.allowedBounces)", value: $match.allowedBounces, in: 1...3)
+                    Picker("Allowed bounces", selection: $match.allowedBounces) {
+                        Text("1").tag(1)
+                        Text("2").tag(2)
+                        Text("3").tag(3)
+                    }
+                    .accessibilityValue("\(match.allowedBounces)")
                     Toggle("Sudden-death deuce", isOn: $match.suddenDeathDeuce)
                         .accessibilityIdentifier("matchSuddenDeathToggle")
                     Picker("Tie-break rule", selection: $match.tieBreakRule) {
                         ForEach(TieBreakRule.allCases) { rule in Text(rule.rawValue).tag(rule) }
                     }
                     if match.tieBreakRule == .manual {
-                        Stepper("Tie-break target \(match.tieBreakTarget)", value: $match.tieBreakTarget, in: 1...21)
+                        Picker("Tie-break target", selection: $match.tieBreakTarget) {
+                            ForEach([7, 10, 12, 21], id: \.self) { target in
+                                Text("\(target)").tag(target)
+                            }
+                        }
+                        .accessibilityValue("\(match.tieBreakTarget)")
                         Toggle("Win tie-break by two", isOn: $match.tieBreakWinByTwo)
                     }
                 }
@@ -361,7 +370,7 @@ struct MatchEditorView: View {
         let score = calculatedScore()
         let result = score.playerSets > score.opponentSets ? "Win" : score.opponentSets > score.playerSets ? "Loss" : "Draw"
         let setText = score.setScores.isBlank ? "no completed sets entered" : score.setScores
-        return "\(result), sets \(score.playerSets)-\(score.opponentSets), \(setText)."
+        return "\(result), \(setText)."
     }
 
     private var liveScoreSummary: String {
@@ -504,8 +513,18 @@ struct SetScoreEntryRow: View {
         VStack(alignment: .leading) {
             Text("Set \(setNumber)")
                 .font(.headline)
-            Stepper("Player games \(playerGames)", value: $playerGames, in: 0...10)
-            Stepper("Opponent games \(opponentGames)", value: $opponentGames, in: 0...10)
+            Picker("Player games", selection: $playerGames) {
+                ForEach(0...10, id: \.self) { games in
+                    Text("\(games)").tag(games)
+                }
+            }
+            .accessibilityValue("\(playerGames)")
+            Picker("Opponent games", selection: $opponentGames) {
+                ForEach(0...10, id: \.self) { games in
+                    Text("\(games)").tag(games)
+                }
+            }
+            .accessibilityValue("\(opponentGames)")
             Toggle("Set decided by tie-break", isOn: $hadTiebreak)
         }
         .accessibilityElement(children: .contain)
@@ -608,14 +627,24 @@ struct LiveMatchView: View {
                 self.match?.allowedBounces = newValue.allowedBounces
                 self.match?.suddenDeathDeuce = newValue != .fullySighted
             }
-            Stepper("Allowed bounces \(match.allowedBounces)", value: binding(\.allowedBounces), in: 1...3)
+            Picker("Allowed bounces", selection: binding(\.allowedBounces)) {
+                Text("1").tag(1)
+                Text("2").tag(2)
+                Text("3").tag(3)
+            }
+            .accessibilityValue("\(match.allowedBounces)")
             Toggle("Sudden-death deuce", isOn: binding(\.suddenDeathDeuce))
                 .accessibilityIdentifier("liveSuddenDeathToggle")
             Picker("Tie-break rule", selection: binding(\.tieBreakRule)) {
                 ForEach(TieBreakRule.allCases) { rule in Text(rule.rawValue).tag(rule) }
             }
             if match.tieBreakRule == .manual {
-                Stepper("Tie-break target \(match.tieBreakTarget)", value: binding(\.tieBreakTarget), in: 1...21)
+                Picker("Tie-break target", selection: binding(\.tieBreakTarget)) {
+                    ForEach([7, 10, 12, 21], id: \.self) { target in
+                        Text("\(target)").tag(target)
+                    }
+                }
+                .accessibilityValue("\(match.tieBreakTarget)")
                 Toggle("Win tie-break by two", isOn: binding(\.tieBreakWinByTwo))
             }
         }
@@ -781,7 +810,7 @@ struct LiveMatchView: View {
             announce(message, force: true)
         case .reduced:
             let name = winner == .player ? teamName(for: .player, match: match) : teamName(for: .opponent, match: match)
-            announce("Point to \(name). \(scorer.state.pointScore(suddenDeathDeuce: match?.suddenDeathDeuce ?? false)).", force: true)
+            announce("\(TennisSummaryFormatter.scoreAnnouncement(state: scorer.state, playerName: teamName(for: .player, match: match), opponentName: teamName(for: .opponent, match: match), suddenDeathDeuce: match?.suddenDeathDeuce ?? false)) Point to \(name).", force: true)
         case .off:
             store.announce(message)
         }

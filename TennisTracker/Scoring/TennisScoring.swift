@@ -149,7 +149,13 @@ struct TennisScoringEngine {
         }
         resolvePoint()
         let name = winner == .player ? playerName : opponentName
-        return "\(scorePhrase). Point to \(name)."
+        let announcement = TennisSummaryFormatter.scoreAnnouncement(
+            state: state,
+            playerName: playerName,
+            opponentName: opponentName,
+            suddenDeathDeuce: suddenDeathDeuce
+        )
+        return "\(announcement) Point to \(name)."
     }
 
     mutating func startTieBreak() -> String {

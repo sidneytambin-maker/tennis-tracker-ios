@@ -15,7 +15,7 @@ enum TennisCalendarMapper {
     static func event(for match: MatchRecord) -> CalendarEventDraft {
         CalendarEventDraft(
             title: "Tennis match: \(match.opponentSummary.fallback("opponent not recorded"))",
-            notes: "Tennis Tracker match. \(match.status.rawValue). \(match.setScores.fallback(match.notes))",
+            notes: "Tennis Tracker match. \(TennisSummaryFormatter.match(match, style: .long)) \(match.notes)",
             startDate: match.date,
             endDate: match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60)),
             location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),

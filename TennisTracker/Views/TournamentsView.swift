@@ -91,7 +91,7 @@ struct TournamentsView: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(tournament.date.shortTennisDate): \(tournament.name.fallback("Unnamed tournament"))")
-                Text("\(tournament.location.fallback("location not recorded")). \(tournament.finalResult.rawValue).")
+                Text(TennisSummaryFormatter.tournament(tournament, linkedMatchCount: store.linkedMatches(for: tournament).count, style: .short))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -152,14 +152,14 @@ struct TournamentDetailView: View {
                             MatchDetailView(match: match)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(match.matchPosition.rawValue): \(match.opponentSummary.fallback("opponent not recorded"))")
-                                Text("\(match.date.shortTennisDate). \(match.status.rawValue). \(match.result.rawValue). \(scoreSummary(match)).")
+                                Text(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .short))
+                                Text(match.matchPosition.rawValue)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                         }
                         .accessibilityLabel("Tournament match")
-                        .accessibilityValue("\(match.matchPosition.rawValue), against \(match.opponentSummary.fallback("opponent not recorded")), \(match.date.shortTennisDate), \(match.status.rawValue), \(match.result.rawValue), \(scoreSummary(match))")
+                        .accessibilityValue(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .accessibility))
                     }
                 }
             }
@@ -234,8 +234,7 @@ struct TournamentDetailView: View {
     }
 
     private func scoreSummary(_ match: MatchRecord) -> String {
-        let sets = match.yourSetsWon + match.opponentSetsWon > 0 ? "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" : "sets not recorded"
-        return match.setScores.isBlank ? sets : "\(sets), \(match.setScores)"
+        TennisSummaryFormatter.matchSummary(match, tournaments: store.selectedTournaments).scoreText
     }
 }
 
