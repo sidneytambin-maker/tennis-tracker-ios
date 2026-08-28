@@ -42,7 +42,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     func testImportantLiveScoringControlsActivate() throws {
         completeOnboarding()
         openDestination("Matches")
-        app.buttons["Start live scoring"].tap()
+        app.buttons["Track Match Scoring"].tap()
         XCTAssertTrue(app.buttons["startConfiguredLiveScoringButton"].waitForExistence(timeout: 5))
         app.buttons["startConfiguredLiveScoringButton"].tap()
         XCTAssertTrue(app.buttons["playerWinsPointButton"].waitForExistence(timeout: 5))

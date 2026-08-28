@@ -23,6 +23,12 @@ struct DashboardView: View {
             .first
     }
 
+    private var needsDetailsCount: Int {
+        store.selectedMatches.filter(\.needsDetails).count
+        + store.selectedTraining.filter(\.needsDetails).count
+        + store.selectedTournaments.filter(\.needsDetails).count
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -49,7 +55,7 @@ struct DashboardView: View {
                             .accessibilityAction(named: "Edit match") {
                                 matchToEdit = match
                             }
-                            .accessibilityAction(named: "Add match to Calendar") {
+                            .accessibilityAction(named: "Add Match to Calendar") {
                                 addMatchToCalendar(match)
                             }
                             .accessibilityAction(named: "Delete match") {
@@ -66,10 +72,10 @@ struct DashboardView: View {
 
                 Section("Training activity") {
                     SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
-                        .accessibilityAction(named: "Add training session") {
+                        .accessibilityAction(named: "Track Training Session") {
                             showingNewTraining = true
                         }
-                        .accessibilityAction(named: "Edit latest training session") {
+                        .accessibilityAction(named: "Complete Training Details") {
                             trainingToEdit = store.selectedTraining.first
                         }
                 }
@@ -81,7 +87,7 @@ struct DashboardView: View {
                                 .accessibilityAction(named: "Edit tournament") {
                                     tournamentToEdit = nextTournament
                                 }
-                                .accessibilityAction(named: "Add match to tournament") {
+                                .accessibilityAction(named: "Add Match to Tournament") {
                                     matchTournament = nextTournament
                                 }
                                 .accessibilityAction(named: "Add tournament to Calendar") {
@@ -97,6 +103,28 @@ struct DashboardView: View {
                     Section("Needs attention") {
                         ForEach(stats.needsAttention, id: \.self) { item in
                             Text(item)
+                        }
+                    }
+                }
+
+                if store.data.settings.showNeedsAttention && needsDetailsCount > 0 {
+                    Section("Activities Need Details") {
+                        Text("\(needsDetailsCount) activities need details.")
+                        if let training = store.selectedTraining.first(where: \.needsDetails) {
+                            Button("Complete Training Details") {
+                                trainingToEdit = training
+                            }
+                            Button("Mark Complete") {
+                                store.completeTrainingDetails(training.id)
+                            }
+                        }
+                        if let match = store.selectedMatches.first(where: \.needsDetails) {
+                            Button("Complete Match Details") {
+                                matchToEdit = match
+                            }
+                            Button("Mark Match Complete") {
+                                store.completeMatchDetails(match.id)
+                            }
                         }
                     }
                 }
@@ -178,7 +206,7 @@ private struct ResumeLiveScoreAction: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if match.status == .inProgress && match.liveScore != nil {
-            content.accessibilityAction(named: "Resume live score") { resume() }
+            content.accessibilityAction(named: "Resume Match Scoring") { resume() }
         } else {
             content
         }

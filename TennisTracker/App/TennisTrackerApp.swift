@@ -30,6 +30,9 @@ struct TennisTrackerApp: App {
         WindowGroup {
             TennisTrackerRootView()
                 .environmentObject(store)
+                .onAppear {
+                    IPhoneWatchSyncService.shared.configure(store: store)
+                }
         }
     }
 }

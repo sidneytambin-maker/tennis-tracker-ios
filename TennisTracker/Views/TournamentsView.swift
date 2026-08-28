@@ -19,15 +19,15 @@ struct TournamentsView: View {
     var body: some View {
         NavigationStack {
             List {
-                ScreenIntro(title: "Tournaments", summary: "\(store.selectedTournaments.count) tournaments saved. Add tournaments as all-day events or with an optional start time.")
-                Section("Add") {
-                    Button("Add Tournament") { showingNewTournament = true }
-                        .accessibilityLabel("Add Tournament")
+                ScreenIntro(title: "Tournaments", summary: "\(store.selectedTournaments.count) tournaments saved. Track tournaments as all-day events or with an optional start time.")
+                Section("Track") {
+                    Button("Track Tournament") { showingNewTournament = true }
+                        .accessibilityLabel("Track Tournament")
                         .accessibilityIdentifier("addTournamentButton")
                 }
                 if store.selectedTournaments.isEmpty {
                     Section {
-                        EmptyStateView(title: "No tournaments added yet", message: "Add an upcoming tournament, then link matches to it later.")
+                        EmptyStateView(title: "No tournaments added yet", message: "Track an upcoming tournament, then link matches to it later.")
                     }
                 } else {
                     Section("Upcoming tournaments") {
@@ -101,7 +101,7 @@ struct TournamentsView: View {
         .accessibilityAction(named: "Edit tournament") {
             tournamentToEdit = tournament
         }
-        .accessibilityAction(named: "Add match") {
+        .accessibilityAction(named: "Add Match to Tournament") {
             matchTournament = tournament
         }
         .accessibilityAction(named: "Add to Calendar") {
@@ -142,7 +142,7 @@ struct TournamentDetailView: View {
             }
 
             Section("Matches") {
-                Button("Add match to this tournament") { showingNewMatch = true }
+                Button("Add Match to Tournament") { showingNewMatch = true }
                     .accessibilityIdentifier("addTournamentMatchButton")
                 if linkedMatches.isEmpty {
                     Text("Tournament matches will appear here after they are saved.")

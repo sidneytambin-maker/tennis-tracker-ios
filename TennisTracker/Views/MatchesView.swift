@@ -13,16 +13,16 @@ struct MatchesView: View {
     var body: some View {
         NavigationStack {
             List {
-                ScreenIntro(title: "Matches", summary: "\(store.selectedMatches.count) matches saved. Use live scoring for in-progress play or Add for a finished result.")
-                Section("Live scorer") {
-                    Button("Start live scoring") {
+                ScreenIntro(title: "Matches", summary: "\(store.selectedMatches.count) matches saved. Use match scoring for in-progress play or Record Match for a finished result.")
+                Section("Match scoring") {
+                    Button("Track Match Scoring") {
                         showingLiveScorer = true
                     }
                     .buttonStyle(.borderedProminent)
                     .accessibilityHint("Opens a point by point scorer with player and opponent names.")
 
                     ForEach(store.resumableMatches()) { match in
-                        Button("Resume \(match.opponentSummary.fallback("match"))") {
+                        Button("Resume Match Scoring, \(match.opponentSummary.fallback("match"))") {
                             liveMatchToResume = match
                             showingLiveScorer = true
                         }
@@ -30,15 +30,15 @@ struct MatchesView: View {
                     }
                 }
 
-                Section("Add") {
-                    Button("Add Match") { showingNewMatch = true }
-                        .accessibilityLabel("Add Match")
+                Section("Record") {
+                    Button("Record Match") { showingNewMatch = true }
+                        .accessibilityLabel("Record Match")
                         .accessibilityIdentifier("addMatchButton")
                 }
 
                 Section("Match history") {
                     if store.selectedMatches.isEmpty {
-                        EmptyStateView(title: "No matches recorded yet", message: "Use Add to record a match or start live scoring.")
+                        EmptyStateView(title: "No matches recorded yet", message: "Use Record Match or Track Match Scoring.")
                     } else {
                         ForEach(store.selectedMatches) { match in
                             NavigationLink {
@@ -117,7 +117,7 @@ private struct MatchResumeAction: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if match.status == .inProgress && match.liveScore != nil {
-            content.accessibilityAction(named: "Resume live score") { resume() }
+            content.accessibilityAction(named: "Resume Match Scoring") { resume() }
         } else {
             content
         }
@@ -549,10 +549,10 @@ struct LiveMatchView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isScoring {
-                        Button("Save") { saveProgress(dismissAfterSave: false) }
-                            .accessibilityLabel("Save match progress")
+                        Button("Save Match Progress") { saveProgress(dismissAfterSave: false) }
+                            .accessibilityLabel("Save Match Progress")
                     } else {
-                        Button("Start") { startScoring() }
+                        Button("Track Match Scoring") { startScoring() }
                             .disabled(match == nil)
                             .accessibilityIdentifier("startConfiguredLiveScoringButton")
                     }
@@ -638,7 +638,7 @@ struct LiveMatchView: View {
         }
 
         Section {
-            Button("Start live scoring") { startScoring() }
+            Button("Track Match Scoring") { startScoring() }
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("startConfiguredLiveScoringButton")
         }
@@ -659,13 +659,13 @@ struct LiveMatchView: View {
                 .accessibilityAction(named: "Undo last point") {
                     announce(scorer.undo(), force: store.data.settings.scoreAnnouncementMode != .off)
                 }
-                .accessibilityAction(named: "Save progress") {
+                .accessibilityAction(named: "Save Match Progress") {
                     saveProgress(dismissAfterSave: false)
                 }
                 .accessibilityAction(named: "Start tie-break") {
                     startTieBreak()
                 }
-                .accessibilityAction(named: "End match") {
+                .accessibilityAction(named: "Finish Match") {
                     endMatch(winner: scorer.state.playerSets >= scorer.state.opponentSets ? .player : .opponent)
                 }
         }
@@ -687,7 +687,7 @@ struct LiveMatchView: View {
         }
 
         Section("Tie-break") {
-            Button("Start tie-break now") {
+            Button("Start Tie-break") {
                 startTieBreak()
             }
             .disabled(scorer.state.isTiebreak || scorer.state.isMatchComplete)
@@ -708,11 +708,11 @@ struct LiveMatchView: View {
                 saveProgress(dismissAfterSave: false, quiet: true)
             }
             .accessibilityIdentifier("undoScoreButton")
-            Button("Save progress") {
+            Button("Save Match Progress") {
                 saveProgress(dismissAfterSave: false)
             }
             .accessibilityIdentifier("saveLiveProgressButton")
-            Button("Save and close") {
+            Button("Save Match Progress and Close") {
                 saveProgress(dismissAfterSave: true)
             }
             Button("Hear full score") {
@@ -725,10 +725,10 @@ struct LiveMatchView: View {
                 saveProgress(dismissAfterSave: false, quiet: true)
             }
             .accessibilityIdentifier("resetScoreButton")
-            Button("End match for \(teamName(for: .player, match: match))") {
+            Button("Finish Match for \(teamName(for: .player, match: match))") {
                 endMatch(winner: .player)
             }
-            Button("End match for \(teamName(for: .opponent, match: match))") {
+            Button("Finish Match for \(teamName(for: .opponent, match: match))") {
                 endMatch(winner: .opponent)
             }
         }

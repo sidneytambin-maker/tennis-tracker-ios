@@ -25,6 +25,8 @@ The app contains:
 - `TennisTracker/Models/TennisModels.swift`: player, match, tournament, training, settings, sight-level, and tracking-mode data.
 - `TennisTracker/Store/TennisStore.swift`: native on-device JSON persistence in Application Support.
 - `TennisTracker/Scoring/TennisScoring.swift`: tennis scoring engine.
+- `TennisTrackerShared/TennisWatchSyncModels.swift`: shared iPhone and Apple Watch sync payloads, conflict rules, and Watch activity factory helpers.
+- `TennisTrackerWatchApp`: Apple Watch companion app with Today, Track, Live, and Recent pages.
 - `TennisTracker/Stats/TennisStatistics.swift`: dashboard and report-style summaries.
 - `TennisTracker/Views`: SwiftUI screens for each main feature area.
 - `TennisTrackerTests`: tests for scoring and statistics.
@@ -240,7 +242,9 @@ With Apple free personal development provisioning, the installed app expires aft
 
 Version `0.7.0` is the product-coherence accessibility build. It fixes tournament-created matches using today’s date, keeps tournament and match links on stable IDs, shows real linked matches inside tournament detail, adds explicit tournament deletion choices for linked matches, moves manual time entry to five-minute steps, keeps Training in the primary tab order, and simplifies match entry around details, format, and result.
 
-Version `0.7.1` begins the Apple Watch feasibility sprint. It preserves the iPhone app and adds the first minimum companion Watch target so the free cloud build and Sideloadly signing path can be tested before deeper Watch features are built.
+Version `0.7.1` proved the Apple Watch feasibility path. It preserved the iPhone app and added the first minimum companion Watch target so the free cloud build and Sideloadly signing path could be tested before deeper Watch features were built.
+
+Version `0.8.0` is the first useful Apple Watch companion build. It adds native Watch pages for Today, Track, Live, and Recent; quick Watch creation of training sessions, matches, and tournaments; large VoiceOver-friendly point buttons; match progress save/resume using stable record IDs; Watch-to-iPhone sync commands; queued offline Watch changes; needs-details handoff back to iPhone; and deterministic revision/date conflict handling.
 
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
@@ -259,10 +263,13 @@ Manual test priority:
 11. Open Tournaments from the tab bar, then add one tournament.
 12. Add one training session and one match.
 13. Link a match to a tournament or training session and confirm it appears in the related summaries.
-14. Start live scoring and test named point buttons, automatic/reduced/off announcements, Hear full score, sudden-death deuce, Undo, Reset, and Save completed match.
+14. Track match scoring and test named point buttons, automatic/reduced/off announcements, Hear full score, sudden-death deuce, Undo, Reset, Save Match Progress, and Finish Match.
 15. Close and reopen the app; confirm the player profile and created records persist.
 16. Confirm no old Player One, practice opponent, or sample training records appear.
 17. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
+18. On Apple Watch, confirm Tennis Tracker appears as a companion app. If it does not appear automatically, open the iPhone Watch app, find Tennis Tracker, and enable `Show App on Apple Watch`.
+19. With VoiceOver on Apple Watch, check Today, Track, Live, and Recent. Record a training session, finish it, and confirm the iPhone dashboard shows the activity under `Activities Need Details`.
+20. Record a Watch match, use both point buttons, Save Match Progress, resume the same match on iPhone, then Finish Match and confirm there is only one match record.
 
 ## Current limitations
 

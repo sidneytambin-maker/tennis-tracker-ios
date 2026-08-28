@@ -294,6 +294,9 @@ struct PlayerProfile: Identifiable, Codable, Equatable {
 struct TrainingSession: Identifiable, Codable, Equatable {
     var id = UUID()
     var playerID: UUID
+    var modifiedAt = Date()
+    var revision = 0
+    var needsDetails = false
     var hasSessionDetails = true
     var date = Date()
     var hasStartTime = true
@@ -326,6 +329,9 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         playerID = try container.decode(UUID.self, forKey: .playerID)
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
+        revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
+        needsDetails = try container.decodeIfPresent(Bool.self, forKey: .needsDetails) ?? false
         hasSessionDetails = try container.decodeIfPresent(Bool.self, forKey: .hasSessionDetails) ?? true
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
         hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
@@ -347,6 +353,9 @@ struct TrainingSession: Identifiable, Codable, Equatable {
 struct MatchRecord: Identifiable, Codable, Equatable {
     var id = UUID()
     var playerID: UUID
+    var modifiedAt = Date()
+    var revision = 0
+    var needsDetails = false
     var date = Date()
     var hasStartTime = false
     var expectedDurationMinutes = 90
@@ -414,6 +423,9 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         playerID = try container.decode(UUID.self, forKey: .playerID)
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
+        revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
+        needsDetails = try container.decodeIfPresent(Bool.self, forKey: .needsDetails) ?? false
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
         hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
         expectedDurationMinutes = try container.decodeIfPresent(Int.self, forKey: .expectedDurationMinutes) ?? 90
@@ -464,6 +476,9 @@ struct MatchRecord: Identifiable, Codable, Equatable {
 struct TournamentRecord: Identifiable, Codable, Equatable {
     var id = UUID()
     var playerID: UUID
+    var modifiedAt = Date()
+    var revision = 0
+    var needsDetails = false
     var name = ""
     var location = ""
     var date = Date()
@@ -494,6 +509,9 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         playerID = try container.decode(UUID.self, forKey: .playerID)
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
+        revision = try container.decodeIfPresent(Int.self, forKey: .revision) ?? 0
+        needsDetails = try container.decodeIfPresent(Bool.self, forKey: .needsDetails) ?? false
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
@@ -571,7 +589,7 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 7
+    var dataVersion = 8
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []

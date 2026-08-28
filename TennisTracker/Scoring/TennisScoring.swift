@@ -1,6 +1,6 @@
 import Foundation
 
-enum PointWinner: Codable, Equatable {
+enum PointWinner: Codable, Equatable, Hashable {
     case player
     case opponent
 }

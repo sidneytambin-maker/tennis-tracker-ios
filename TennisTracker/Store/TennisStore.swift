@@ -74,7 +74,7 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertMatch(_ match: MatchRecord) {
-        var saved = match
+        var saved = TennisRecordConflictResolver.prepareLocalMatch(match)
         if saved.playerName.isBlank {
             saved.playerName = selectedPlayer?.displayName ?? "Player"
         }
@@ -94,7 +94,8 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertTraining(_ session: TrainingSession) {
-        upsert(session, in: \.trainingSessions)
+        let saved = TennisRecordConflictResolver.prepareLocalTraining(session)
+        upsert(saved, in: \.trainingSessions)
         saveAndAnnounce("Saved training at \(session.placeText).")
     }
 
@@ -104,7 +105,8 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertTournament(_ tournament: TournamentRecord) {
-        upsert(tournament, in: \.tournaments)
+        let saved = TennisRecordConflictResolver.prepareLocalTournament(tournament)
+        upsert(saved, in: \.tournaments)
         saveAndAnnounce("Saved tournament \(tournament.name.fallback("unnamed tournament")).")
     }
 
@@ -141,6 +143,51 @@ final class TennisStore: ObservableObject {
         saved.announceScores = settings.scoreAnnouncementMode != .off
         data.settings = saved
         saveAndAnnounce("Saved settings.")
+    }
+
+    func completeMatchDetails(_ id: UUID) {
+        guard let index = data.matches.firstIndex(where: { $0.id == id }) else { return }
+        data.matches[index].needsDetails = false
+        data.matches[index] = TennisRecordConflictResolver.prepareLocalMatch(data.matches[index])
+        saveAndAnnounce("Marked match details complete.")
+    }
+
+    func completeTrainingDetails(_ id: UUID) {
+        guard let index = data.trainingSessions.firstIndex(where: { $0.id == id }) else { return }
+        data.trainingSessions[index].needsDetails = false
+        data.trainingSessions[index].hasSessionDetails = true
+        data.trainingSessions[index] = TennisRecordConflictResolver.prepareLocalTraining(data.trainingSessions[index])
+        saveAndAnnounce("Marked training details complete.")
+    }
+
+    func completeTournamentDetails(_ id: UUID) {
+        guard let index = data.tournaments.firstIndex(where: { $0.id == id }) else { return }
+        data.tournaments[index].needsDetails = false
+        data.tournaments[index] = TennisRecordConflictResolver.prepareLocalTournament(data.tournaments[index])
+        saveAndAnnounce("Marked tournament details complete.")
+    }
+
+    func applyWatchCommand(_ command: TennisWatchSyncCommand) {
+        switch command {
+        case .requestSnapshot:
+            save()
+            announce("Apple Watch sync refreshed.")
+        case .upsertMatch(let match):
+            mergeWatchMatch(match)
+            saveAndAnnounce("Synced match from Apple Watch.")
+        case .upsertTraining(let session):
+            mergeWatchTraining(session)
+            saveAndAnnounce("Synced training from Apple Watch.")
+        case .upsertTournament(let tournament):
+            mergeWatchTournament(tournament)
+            saveAndAnnounce("Synced tournament from Apple Watch.")
+        case .markMatchDetailsComplete(let id):
+            completeMatchDetails(id)
+        case .markTrainingDetailsComplete(let id):
+            completeTrainingDetails(id)
+        case .markTournamentDetailsComplete(let id):
+            completeTournamentDetails(id)
+        }
     }
 
     func makeDefaultMatch(tournamentID: UUID? = nil) -> MatchRecord? {
@@ -182,7 +229,7 @@ final class TennisStore: ObservableObject {
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 7
+        data.dataVersion = 8
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -198,6 +245,54 @@ final class TennisStore: ObservableObject {
             data[keyPath: keyPath][index] = item
         } else {
             data[keyPath: keyPath].append(item)
+        }
+    }
+
+    private func mergeWatchMatch(_ incoming: MatchRecord) {
+        guard let index = data.matches.firstIndex(where: { $0.id == incoming.id }) else {
+            data.matches.append(incoming)
+            return
+        }
+        let existing = data.matches[index]
+        if TennisRecordConflictResolver.shouldReplace(
+            incomingRevision: incoming.revision,
+            incomingModifiedAt: incoming.modifiedAt,
+            existingRevision: existing.revision,
+            existingModifiedAt: existing.modifiedAt
+        ) {
+            data.matches[index] = incoming
+        }
+    }
+
+    private func mergeWatchTraining(_ incoming: TrainingSession) {
+        guard let index = data.trainingSessions.firstIndex(where: { $0.id == incoming.id }) else {
+            data.trainingSessions.append(incoming)
+            return
+        }
+        let existing = data.trainingSessions[index]
+        if TennisRecordConflictResolver.shouldReplace(
+            incomingRevision: incoming.revision,
+            incomingModifiedAt: incoming.modifiedAt,
+            existingRevision: existing.revision,
+            existingModifiedAt: existing.modifiedAt
+        ) {
+            data.trainingSessions[index] = incoming
+        }
+    }
+
+    private func mergeWatchTournament(_ incoming: TournamentRecord) {
+        guard let index = data.tournaments.firstIndex(where: { $0.id == incoming.id }) else {
+            data.tournaments.append(incoming)
+            return
+        }
+        let existing = data.tournaments[index]
+        if TennisRecordConflictResolver.shouldReplace(
+            incomingRevision: incoming.revision,
+            incomingModifiedAt: incoming.modifiedAt,
+            existingRevision: existing.revision,
+            existingModifiedAt: existing.modifiedAt
+        ) {
+            data.tournaments[index] = incoming
         }
     }
 
@@ -220,6 +315,9 @@ final class TennisStore: ObservableObject {
         Task {
             await TennisNotificationService.shared.rescheduleAll(for: data)
         }
+        #if os(iOS)
+        IPhoneWatchSyncService.shared.sendSnapshot(data)
+        #endif
     }
 
     private func sightLevel(from category: String) -> SightLevel? {
@@ -231,31 +329,14 @@ final class TennisStore: ObservableObject {
     private func migrateIfNeeded() {
         if data.dataVersion < 3 {
             data = AppData()
-            data.dataVersion = 7
+            data.dataVersion = 8
             lastAnnouncement = "Tennis Tracker is ready for first setup."
             save()
             return
         }
-        if data.dataVersion < 7 {
-            data.dataVersion = 7
+        if data.dataVersion < 8 {
+            data.dataVersion = 8
             save()
         }
-    }
-}
-
-extension JSONEncoder {
-    static var tennisTracker: JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return encoder
-    }
-}
-
-extension JSONDecoder {
-    static var tennisTracker: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
     }
 }

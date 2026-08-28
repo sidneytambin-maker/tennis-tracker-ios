@@ -283,43 +283,6 @@ struct EmptyStateView: View {
     }
 }
 
-extension Date {
-    var shortTennisDate: String {
-        formatted(date: .abbreviated, time: .omitted)
-    }
-
-    var fullTennisDate: String {
-        formatted(date: .long, time: .omitted)
-    }
-
-    var shortTennisTime: String {
-        formatted(date: .omitted, time: .shortened)
-    }
-}
-
-extension Calendar {
-    func dateByKeepingTime(from timeSource: Date, on dateSource: Date) -> Date {
-        let time = dateComponents([.hour, .minute, .second], from: timeSource)
-        var date = dateComponents([.year, .month, .day], from: dateSource)
-        date.hour = time.hour
-        date.minute = time.minute
-        date.second = time.second
-        return self.date(from: date) ?? dateSource
-    }
-}
-
-extension Int {
-    var durationText: String {
-        let total = Swift.max(0, self)
-        let hours = total / 60
-        let minutes = total % 60
-        var parts: [String] = []
-        if hours > 0 { parts.append(hours == 1 ? "1 hour" : "\(hours) hours") }
-        if minutes > 0 { parts.append(minutes == 1 ? "1 minute" : "\(minutes) minutes") }
-        return parts.isEmpty ? "0 minutes" : parts.joined(separator: " ")
-    }
-}
-
 extension Binding where Value == Int {
     func clamped(min: Int = 0, max: Int = 999) -> Binding<Double> {
         Binding<Double>(

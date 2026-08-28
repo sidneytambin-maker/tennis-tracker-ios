@@ -19,7 +19,7 @@ struct StartLiveScoringIntent: AppIntent {
 }
 
 struct AddMatchIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Match"
+    static var title: LocalizedStringResource = "Record Match"
     static var description = IntentDescription("Open Tennis Tracker to add a match.")
     static var openAppWhenRun = true
 
@@ -30,7 +30,7 @@ struct AddMatchIntent: AppIntent {
 }
 
 struct AddTrainingSessionIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Training Session"
+    static var title: LocalizedStringResource = "Track Training Session"
     static var description = IntentDescription("Open Tennis Tracker to add a training session.")
     static var openAppWhenRun = true
 
@@ -41,7 +41,7 @@ struct AddTrainingSessionIntent: AppIntent {
 }
 
 struct AddTournamentIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Tournament"
+    static var title: LocalizedStringResource = "Track Tournament"
     static var description = IntentDescription("Open Tennis Tracker to add a tournament.")
     static var openAppWhenRun = true
 
@@ -75,10 +75,10 @@ struct ShowRecentRecordIntent: AppIntent {
 
 struct TennisTrackerShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        AppShortcut(intent: StartLiveScoringIntent(), phrases: ["Start live scoring in \(.applicationName)"], shortTitle: "Start Live Score", systemImageName: "figure.tennis")
-        AppShortcut(intent: AddMatchIntent(), phrases: ["Add a match in \(.applicationName)"], shortTitle: "Add Match", systemImageName: "plus.circle")
+        AppShortcut(intent: StartLiveScoringIntent(), phrases: ["Track match scoring in \(.applicationName)"], shortTitle: "Track Match Scoring", systemImageName: "figure.tennis")
+        AppShortcut(intent: AddMatchIntent(), phrases: ["Record a match in \(.applicationName)"], shortTitle: "Record Match", systemImageName: "plus.circle")
         AppShortcut(intent: AddTrainingSessionIntent(), phrases: ["Add training in \(.applicationName)"], shortTitle: "Add Training", systemImageName: "figure.run")
-        AppShortcut(intent: AddTournamentIntent(), phrases: ["Add a tournament in \(.applicationName)"], shortTitle: "Add Tournament", systemImageName: "trophy")
+        AppShortcut(intent: AddTournamentIntent(), phrases: ["Track a tournament in \(.applicationName)"], shortTitle: "Track Tournament", systemImageName: "trophy")
         AppShortcut(intent: ShowNextTournamentIntent(), phrases: ["Show my next tournament in \(.applicationName)"], shortTitle: "Next Tournament", systemImageName: "calendar")
         AppShortcut(intent: ShowRecentRecordIntent(), phrases: ["Show my recent record in \(.applicationName)"], shortTitle: "Recent Record", systemImageName: "chart.bar")
     }

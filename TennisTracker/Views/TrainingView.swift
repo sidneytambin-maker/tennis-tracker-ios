@@ -11,15 +11,15 @@ struct TrainingView: View {
     var body: some View {
         NavigationStack {
             List {
-                ScreenIntro(title: "Training", summary: "\(store.selectedTraining.count) sessions saved. Add sessions with date, start time, duration, focus, and notes.")
-                Section("Add") {
-                    Button("Add Training Session") { showingNewTraining = true }
-                        .accessibilityLabel("Add Training Session")
+                ScreenIntro(title: "Training", summary: "\(store.selectedTraining.count) sessions saved. Track sessions with date, start time, duration, focus, and notes.")
+                Section("Track") {
+                    Button("Track Training Session") { showingNewTraining = true }
+                        .accessibilityLabel("Track Training Session")
                         .accessibilityIdentifier("addTrainingButton")
                 }
                 Section("Training history") {
                     if store.selectedTraining.isEmpty {
-                        EmptyStateView(title: "No training sessions recorded yet", message: "Use Add to save your first session.")
+                        EmptyStateView(title: "No training sessions recorded yet", message: "Use Track Training Session to save your first session.")
                     } else {
                         ForEach(store.selectedTraining) { session in
                             NavigationLink {
@@ -34,10 +34,10 @@ struct TrainingView: View {
                             }
                             .accessibilityLabel("Training session")
                             .accessibilityValue("\(session.date.shortTennisDate), \(session.hasStartTime ? session.date.shortTennisTime : "time not specified"), \(session.trainingType.rawValue), \(session.durationMinutes.durationText), focus \(session.focus.fallback("not recorded"))")
-                            .accessibilityAction(named: "Edit session") {
+                            .accessibilityAction(named: "Complete Training Details") {
                                 sessionToEdit = session
                             }
-                            .accessibilityAction(named: session.notes.isBlank ? "Add notes" : "Edit notes") {
+                            .accessibilityAction(named: session.notes.isBlank ? "Complete Training Details" : "Edit Training Session") {
                                 sessionToEdit = session
                             }
                             .accessibilityAction(named: "Add to Calendar") {
