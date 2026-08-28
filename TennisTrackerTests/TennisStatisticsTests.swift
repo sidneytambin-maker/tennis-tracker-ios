@@ -5,10 +5,17 @@ final class TennisStatisticsTests: XCTestCase {
     func testStatisticsSummariseMatchesTrainingAndTournaments() {
         let playerID = UUID()
         let now = Date()
-        let matches = [
-            MatchRecord(playerID: playerID, result: .win, yourSetsWon: 2, opponentSetsWon: 0, hadTiebreak: true, tiebreakScore: "7-5"),
-            MatchRecord(playerID: playerID, result: .loss, yourSetsWon: 1, opponentSetsWon: 2)
-        ]
+        var win = MatchRecord(playerID: playerID)
+        win.result = .win
+        win.yourSetsWon = 2
+        win.opponentSetsWon = 0
+        win.hadTiebreak = true
+        win.tiebreakScore = "7-5"
+        var loss = MatchRecord(playerID: playerID)
+        loss.result = .loss
+        loss.yourSetsWon = 1
+        loss.opponentSetsWon = 2
+        let matches = [win, loss]
         let training = [
             TrainingSession(playerID: playerID, date: now, durationMinutes: 75),
             TrainingSession(playerID: playerID, date: now, durationMinutes: 45)

@@ -12,10 +12,10 @@ extension AppTheme {
         switch self {
         case .tennis:
             return AppThemePalette(
-                background: Color(red: 0.94, green: 0.98, blue: 0.91),
-                groupedBackground: Color(red: 0.88, green: 0.95, blue: 0.85),
+                background: Color(red: 0.90, green: 0.97, blue: 0.82),
+                groupedBackground: Color(red: 0.78, green: 0.90, blue: 0.60),
                 rowBackground: .white,
-                accent: Color(red: 0.30, green: 0.49, blue: 0.02)
+                accent: Color(red: 0.22, green: 0.39, blue: 0.03)
             )
         case .classic:
             return AppThemePalette(

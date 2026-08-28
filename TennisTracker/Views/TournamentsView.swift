@@ -74,6 +74,7 @@ struct TournamentDetailView: View {
     @State private var showingEditor = false
     @State private var showingNewMatch = false
     @State private var confirmDelete = false
+    @State private var calendarMessage = ""
 
     private var linkedMatches: [MatchRecord] {
         store.selectedMatches.filter { $0.tournamentID == tournament.id }.sorted { $0.date > $1.date }
@@ -111,6 +112,18 @@ struct TournamentDetailView: View {
                 Text(tournament.notes.fallback("No notes recorded."))
             }
 
+            Section("Calendar") {
+                Button("Add to Apple Calendar") {
+                    addToCalendar()
+                }
+                .accessibilityAction(named: "Add tournament to Apple Calendar") {
+                    addToCalendar()
+                }
+                if !calendarMessage.isBlank {
+                    Text(calendarMessage)
+                }
+            }
+
             Section {
                 Button("Delete tournament", role: .destructive) { confirmDelete = true }
             }
@@ -132,6 +145,14 @@ struct TournamentDetailView: View {
             Button("Delete tournament", role: .destructive) {
                 store.deleteTournament(tournament)
             }
+        }
+    }
+
+    private func addToCalendar() {
+        Task {
+            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: tournament))
+            calendarMessage = success ? "Added to Apple Calendar." : "Calendar access was not granted or the event could not be saved."
+            store.announce(calendarMessage)
         }
     }
 

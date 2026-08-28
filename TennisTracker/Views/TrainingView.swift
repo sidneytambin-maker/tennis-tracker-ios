@@ -49,6 +49,7 @@ struct TrainingDetailView: View {
     @State var session: TrainingSession
     @State private var showingEditor = false
     @State private var confirmDelete = false
+    @State private var calendarMessage = ""
 
     var body: some View {
         List {
@@ -71,6 +72,18 @@ struct TrainingDetailView: View {
                 Text(session.notes.fallback("No notes recorded."))
             }
 
+            Section("Calendar") {
+                Button("Add to Apple Calendar") {
+                    addToCalendar()
+                }
+                .accessibilityAction(named: "Add training to Apple Calendar") {
+                    addToCalendar()
+                }
+                if !calendarMessage.isBlank {
+                    Text(calendarMessage)
+                }
+            }
+
             Section {
                 Button("Delete training session", role: .destructive) { confirmDelete = true }
             }
@@ -87,6 +100,14 @@ struct TrainingDetailView: View {
             Button("Delete training session", role: .destructive) {
                 store.deleteTraining(session)
             }
+        }
+    }
+
+    private func addToCalendar() {
+        Task {
+            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: session))
+            calendarMessage = success ? "Added to Apple Calendar." : "Calendar access was not granted or the event could not be saved."
+            store.announce(calendarMessage)
         }
     }
 }

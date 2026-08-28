@@ -99,6 +99,22 @@ enum MatchKind: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum MatchStatus: String, Codable, CaseIterable, Identifiable {
+    case scheduled = "Scheduled"
+    case inProgress = "In progress"
+    case completed = "Completed"
+
+    var id: String { rawValue }
+}
+
+enum TieBreakRule: String, Codable, CaseIterable, Identifiable {
+    case standardAtSixAll = "Automatic at 6-6"
+    case manual = "Manual start and finish"
+    case tenPoint = "10 point match tie-break"
+
+    var id: String { rawValue }
+}
+
 enum TrainingType: String, Codable, CaseIterable, Identifiable {
     case general = "General practice"
     case technical = "Technical session"
@@ -243,6 +259,10 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var id = UUID()
     var playerID: UUID
     var date = Date()
+    var expectedDurationMinutes = 90
+    var venue = ""
+    var location = ""
+    var status: MatchStatus = .completed
     var matchType: MatchKind = .singles
     var playerName = ""
     var opponentName = ""
@@ -262,6 +282,9 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var sightLevel: SightLevel = .b1
     var allowedBounces = 3
     var suddenDeathDeuce = true
+    var tieBreakRule: TieBreakRule = .standardAtSixAll
+    var tieBreakTarget = 7
+    var tieBreakWinByTwo = true
     var aces = 0
     var doubleFaults = 0
     var winners = 0
@@ -273,6 +296,9 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var tiebreakScore = ""
     var tournamentID: UUID?
     var trainingSessionID: UUID?
+    var liveScore: TennisScoreSnapshot?
+    var stableShareID = UUID()
+    var sharingEnabled = false
 
     var opponentSummary: String {
         matchType == .doubles ? [opponentName, opponent2Name].filter { !$0.isBlank }.joined(separator: " and ") : opponentName
@@ -286,6 +312,57 @@ struct MatchRecord: Identifiable, Codable, Equatable {
 
     var tiebreakSetCount: Int {
         tiebreakScore.split(separator: ";").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+    }
+
+    init(playerID: UUID) {
+        self.playerID = playerID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        playerID = try container.decode(UUID.self, forKey: .playerID)
+        date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        expectedDurationMinutes = try container.decodeIfPresent(Int.self, forKey: .expectedDurationMinutes) ?? 90
+        venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
+        location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
+        status = try container.decodeIfPresent(MatchStatus.self, forKey: .status) ?? .completed
+        matchType = try container.decodeIfPresent(MatchKind.self, forKey: .matchType) ?? .singles
+        playerName = try container.decodeIfPresent(String.self, forKey: .playerName) ?? ""
+        opponentName = try container.decodeIfPresent(String.self, forKey: .opponentName) ?? ""
+        partnerName = try container.decodeIfPresent(String.self, forKey: .partnerName) ?? ""
+        opponent2Name = try container.decodeIfPresent(String.self, forKey: .opponent2Name) ?? ""
+        result = try container.decodeIfPresent(MatchResult.self, forKey: .result) ?? .win
+        matchPosition = try container.decodeIfPresent(MatchPosition.self, forKey: .matchPosition) ?? .notSpecified
+        opponentStyle = try container.decodeIfPresent(String.self, forKey: .opponentStyle) ?? ""
+        pressureMoment = try container.decodeIfPresent(String.self, forKey: .pressureMoment) ?? ""
+        matchStory = try container.decodeIfPresent(String.self, forKey: .matchStory) ?? ""
+        nextPracticeFocus = try container.decodeIfPresent(String.self, forKey: .nextPracticeFocus) ?? ""
+        courtSurface = try container.decodeIfPresent(CourtSurface.self, forKey: .courtSurface) ?? .notSpecified
+        matchConditions = try container.decodeIfPresent(String.self, forKey: .matchConditions) ?? ""
+        matchStrengths = try container.decodeIfPresent(String.self, forKey: .matchStrengths) ?? ""
+        matchNeedsWork = try container.decodeIfPresent(String.self, forKey: .matchNeedsWork) ?? ""
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        sightLevel = try container.decodeIfPresent(SightLevel.self, forKey: .sightLevel) ?? .b1
+        allowedBounces = try container.decodeIfPresent(Int.self, forKey: .allowedBounces) ?? sightLevel.allowedBounces
+        suddenDeathDeuce = try container.decodeIfPresent(Bool.self, forKey: .suddenDeathDeuce) ?? true
+        tieBreakRule = try container.decodeIfPresent(TieBreakRule.self, forKey: .tieBreakRule) ?? .standardAtSixAll
+        tieBreakTarget = try container.decodeIfPresent(Int.self, forKey: .tieBreakTarget) ?? 7
+        tieBreakWinByTwo = try container.decodeIfPresent(Bool.self, forKey: .tieBreakWinByTwo) ?? true
+        aces = try container.decodeIfPresent(Int.self, forKey: .aces) ?? 0
+        doubleFaults = try container.decodeIfPresent(Int.self, forKey: .doubleFaults) ?? 0
+        winners = try container.decodeIfPresent(Int.self, forKey: .winners) ?? 0
+        unforcedErrors = try container.decodeIfPresent(Int.self, forKey: .unforcedErrors) ?? 0
+        yourSetsWon = try container.decodeIfPresent(Int.self, forKey: .yourSetsWon) ?? 0
+        opponentSetsWon = try container.decodeIfPresent(Int.self, forKey: .opponentSetsWon) ?? 0
+        setScores = try container.decodeIfPresent(String.self, forKey: .setScores) ?? ""
+        hadTiebreak = try container.decodeIfPresent(Bool.self, forKey: .hadTiebreak) ?? false
+        tiebreakScore = try container.decodeIfPresent(String.self, forKey: .tiebreakScore) ?? ""
+        tournamentID = try container.decodeIfPresent(UUID.self, forKey: .tournamentID)
+        trainingSessionID = try container.decodeIfPresent(UUID.self, forKey: .trainingSessionID)
+        liveScore = try container.decodeIfPresent(TennisScoreSnapshot.self, forKey: .liveScore)
+        stableShareID = try container.decodeIfPresent(UUID.self, forKey: .stableShareID) ?? UUID()
+        sharingEnabled = try container.decodeIfPresent(Bool.self, forKey: .sharingEnabled) ?? false
     }
 }
 
@@ -325,6 +402,14 @@ struct AppSettings: Codable, Equatable {
     var showNeedsAttention = true
     var showRecentActivity = true
     var showUpcomingTournaments = true
+    var trainingRemindersEnabled = false
+    var matchRemindersEnabled = false
+    var tournamentRemindersEnabled = false
+    var postSessionRemindersEnabled = false
+    var weeklySummaryEnabled = false
+    var reminderLeadMinutes = 60
+    var postSessionDelayMinutes = 120
+    var calendarIntegrationEnabled = false
 
     mutating func applyModeDefaults() {
         switch trackingMode {
@@ -352,11 +437,19 @@ struct AppSettings: Codable, Equatable {
         showNeedsAttention = try container.decodeIfPresent(Bool.self, forKey: .showNeedsAttention) ?? true
         showRecentActivity = try container.decodeIfPresent(Bool.self, forKey: .showRecentActivity) ?? true
         showUpcomingTournaments = try container.decodeIfPresent(Bool.self, forKey: .showUpcomingTournaments) ?? true
+        trainingRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .trainingRemindersEnabled) ?? false
+        matchRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .matchRemindersEnabled) ?? false
+        tournamentRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .tournamentRemindersEnabled) ?? false
+        postSessionRemindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .postSessionRemindersEnabled) ?? false
+        weeklySummaryEnabled = try container.decodeIfPresent(Bool.self, forKey: .weeklySummaryEnabled) ?? false
+        reminderLeadMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderLeadMinutes) ?? 60
+        postSessionDelayMinutes = try container.decodeIfPresent(Int.self, forKey: .postSessionDelayMinutes) ?? 120
+        calendarIntegrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .calendarIntegrationEnabled) ?? false
     }
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 4
+    var dataVersion = 5
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []

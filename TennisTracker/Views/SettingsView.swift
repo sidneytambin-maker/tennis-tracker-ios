@@ -59,6 +59,44 @@ struct SettingsView: View {
                     Text("Automatic speaks the new score after each point. Reduced speaks the point winner and current game score. Off keeps the Hear full score button available.")
                 }
 
+                Section("Reminders") {
+                    Toggle("Match reminders", isOn: $settings.matchRemindersEnabled)
+                    Toggle("Training reminders", isOn: $settings.trainingRemindersEnabled)
+                    Toggle("Tournament reminders", isOn: $settings.tournamentRemindersEnabled)
+                    Toggle("Post-session reflection", isOn: $settings.postSessionRemindersEnabled)
+                    Toggle("Weekly summary", isOn: $settings.weeklySummaryEnabled)
+                    Picker("Reminder lead time", selection: $settings.reminderLeadMinutes) {
+                        Text("15 minutes").tag(15)
+                        Text("30 minutes").tag(30)
+                        Text("1 hour").tag(60)
+                        Text("2 hours").tag(120)
+                    }
+                    Picker("Reflection delay", selection: $settings.postSessionDelayMinutes) {
+                        Text("1 hour").tag(60)
+                        Text("2 hours").tag(120)
+                        Text("4 hours").tag(240)
+                    }
+                    Button("Allow iPhone notifications") {
+                        Task {
+                            let granted = await TennisNotificationService.shared.requestAuthorization()
+                            savedMessage = granted ? "Notifications are allowed." : "Notifications were not allowed."
+                            saveSettings(announce: true)
+                        }
+                    }
+                }
+
+                Section("Calendar") {
+                    Toggle("Calendar integration", isOn: $settings.calendarIntegrationEnabled)
+                    Button("Allow Apple Calendar") {
+                        Task {
+                            let granted = await TennisCalendarService.shared.requestAccess()
+                            settings.calendarIntegrationEnabled = granted
+                            savedMessage = granted ? "Apple Calendar is connected." : "Apple Calendar was not allowed."
+                            saveSettings(announce: true)
+                        }
+                    }
+                }
+
                 Section("Dashboard") {
                     Toggle("Show needs attention", isOn: $settings.showNeedsAttention)
                         .accessibilityIdentifier("settingsNeedsAttentionToggle")
@@ -69,7 +107,7 @@ struct SettingsView: View {
                 }
 
                 Section("Build") {
-                    SummaryRow(title: "Version", value: "0.4.0")
+                    SummaryRow(title: "Version", value: "0.5.0")
                     SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
                 }
             }

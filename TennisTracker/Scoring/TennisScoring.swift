@@ -5,7 +5,7 @@ enum PointWinner: Codable, Equatable {
     case opponent
 }
 
-struct TennisScoreState: Equatable {
+struct TennisScoreSnapshot: Codable, Equatable {
     var playerPoints = 0
     var opponentPoints = 0
     var playerGames = 0
@@ -13,11 +13,55 @@ struct TennisScoreState: Equatable {
     var playerSets = 0
     var opponentSets = 0
     var completedSetScores: [String] = []
+    var isTiebreak = false
+    var isMatchComplete = false
+    var lastWinner: PointWinner?
+}
+
+struct TennisScoreState: Codable, Equatable {
+    var playerPoints = 0
+    var opponentPoints = 0
+    var playerGames = 0
+    var opponentGames = 0
+    var playerSets = 0
+    var opponentSets = 0
+    var completedSetScores: [String] = []
+    var manualTiebreakActive = false
     var isMatchComplete = false
     var lastWinner: PointWinner?
 
     var isTiebreak: Bool {
-        playerGames == 6 && opponentGames == 6
+        manualTiebreakActive || (playerGames == 6 && opponentGames == 6)
+    }
+
+    var snapshot: TennisScoreSnapshot {
+        TennisScoreSnapshot(
+            playerPoints: playerPoints,
+            opponentPoints: opponentPoints,
+            playerGames: playerGames,
+            opponentGames: opponentGames,
+            playerSets: playerSets,
+            opponentSets: opponentSets,
+            completedSetScores: completedSetScores,
+            isTiebreak: isTiebreak,
+            isMatchComplete: isMatchComplete,
+            lastWinner: lastWinner
+        )
+    }
+
+    init() {}
+
+    init(snapshot: TennisScoreSnapshot) {
+        playerPoints = snapshot.playerPoints
+        opponentPoints = snapshot.opponentPoints
+        playerGames = snapshot.playerGames
+        opponentGames = snapshot.opponentGames
+        playerSets = snapshot.playerSets
+        opponentSets = snapshot.opponentSets
+        completedSetScores = snapshot.completedSetScores
+        manualTiebreakActive = snapshot.isTiebreak
+        isMatchComplete = snapshot.isMatchComplete
+        lastWinner = snapshot.lastWinner
     }
 
     var pointScore: String {
@@ -63,11 +107,28 @@ struct TennisScoringEngine {
     var playerName = "Player"
     var opponentName = "Opponent"
     var suddenDeathDeuce = false
+    var tieBreakRule: TieBreakRule = .standardAtSixAll
+    var tieBreakTarget = 7
+    var tieBreakWinByTwo = true
 
-    init(playerName: String = "Player", opponentName: String = "Opponent", suddenDeathDeuce: Bool = false) {
+    init(
+        playerName: String = "Player",
+        opponentName: String = "Opponent",
+        suddenDeathDeuce: Bool = false,
+        tieBreakRule: TieBreakRule = .standardAtSixAll,
+        tieBreakTarget: Int = 7,
+        tieBreakWinByTwo: Bool = true,
+        snapshot: TennisScoreSnapshot? = nil
+    ) {
         self.playerName = playerName.fallback("Player")
         self.opponentName = opponentName.fallback("Opponent")
         self.suddenDeathDeuce = suddenDeathDeuce
+        self.tieBreakRule = tieBreakRule
+        self.tieBreakTarget = max(1, tieBreakTarget)
+        self.tieBreakWinByTwo = tieBreakWinByTwo
+        if let snapshot {
+            self.state = TennisScoreState(snapshot: snapshot)
+        }
     }
 
     mutating func awardPoint(to winner: PointWinner) -> String {
@@ -85,6 +146,28 @@ struct TennisScoringEngine {
         return "\(scorePhrase). Point to \(name)."
     }
 
+    mutating func startTieBreak() -> String {
+        guard !state.isMatchComplete else { return "Match is already complete. \(fullScore)" }
+        guard !state.isTiebreak else { return "Tie-break already in progress. \(fullScore)" }
+        history.append(state)
+        state.playerPoints = 0
+        state.opponentPoints = 0
+        state.manualTiebreakActive = true
+        return "Tie-break started. \(fullScore)"
+    }
+
+    mutating func finishTieBreak(winner: PointWinner) -> String {
+        guard state.isTiebreak else { return "No tie-break is in progress. \(fullScore)" }
+        history.append(state)
+        if winner == .player {
+            state.playerPoints = max(state.playerPoints, state.opponentPoints + 1, tieBreakTarget)
+        } else {
+            state.opponentPoints = max(state.opponentPoints, state.playerPoints + 1, tieBreakTarget)
+        }
+        finishGameAndMaybeSet()
+        return "Tie-break finished. \(fullScore)"
+    }
+
     mutating func undo() -> String {
         guard let previous = history.popLast() else {
             return "Nothing to undo. \(fullScore)."
@@ -100,7 +183,9 @@ struct TennisScoringEngine {
 
     private mutating func resolvePoint() {
         if state.isTiebreak {
-            if max(state.playerPoints, state.opponentPoints) >= 7 && abs(state.playerPoints - state.opponentPoints) >= 2 {
+            let targetReached = max(state.playerPoints, state.opponentPoints) >= tieBreakTarget
+            let margin = abs(state.playerPoints - state.opponentPoints)
+            if targetReached && (!tieBreakWinByTwo || margin >= 2) {
                 finishGameAndMaybeSet()
             }
             return
@@ -125,6 +210,7 @@ struct TennisScoringEngine {
         } else {
             state.opponentGames += 1
         }
+        state.manualTiebreakActive = false
         state.playerPoints = 0
         state.opponentPoints = 0
         if setIsComplete {

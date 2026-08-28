@@ -104,6 +104,34 @@ final class TennisScoringTests: XCTestCase {
         XCTAssertTrue(message.contains("Sidney against Klaudia"))
     }
 
+    func testManualTieBreakCanStartAndFinish() {
+        var scorer = TennisScoringEngine(playerName: "Sidney", opponentName: "Klaudia", tieBreakRule: .manual)
+
+        XCTAssertFalse(scorer.state.isTiebreak)
+        _ = scorer.startTieBreak()
+        XCTAssertTrue(scorer.state.isTiebreak)
+        _ = scorer.finishTieBreak(winner: .player)
+
+        XCTAssertFalse(scorer.state.isTiebreak)
+        XCTAssertEqual(scorer.state.playerGames, 1)
+    }
+
+    func testScoreSnapshotRestoresInProgressMatch() {
+        var scorer = TennisScoringEngine(playerName: "Sidney", opponentName: "Klaudia")
+        _ = scorer.awardPoint(to: .player)
+        _ = scorer.awardPoint(to: .opponent)
+
+        let restored = TennisScoringEngine(
+            playerName: "Sidney",
+            opponentName: "Klaudia",
+            snapshot: scorer.state.snapshot
+        )
+
+        XCTAssertEqual(restored.state.playerPoints, 1)
+        XCTAssertEqual(restored.state.opponentPoints, 1)
+        XCTAssertEqual(restored.fullScore, scorer.fullScore)
+    }
+
     private func winGames(_ count: Int, for winner: PointWinner, scorer: inout TennisScoringEngine) {
         for _ in 0..<count {
             for _ in 0..<4 {

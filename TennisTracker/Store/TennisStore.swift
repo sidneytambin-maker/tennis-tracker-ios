@@ -81,6 +81,9 @@ final class TennisStore: ObservableObject {
         if saved.allowedBounces == 0 {
             saved.allowedBounces = saved.sightLevel.allowedBounces
         }
+        if saved.status == .completed {
+            saved.liveScore = nil
+        }
         upsert(saved, in: \.matches)
         saveAndAnnounce("Saved match against \(match.opponentSummary.fallback("opponent not recorded")).")
     }
@@ -137,6 +140,10 @@ final class TennisStore: ObservableObject {
         return match
     }
 
+    func resumableMatches() -> [MatchRecord] {
+        selectedMatches.filter { $0.status == .inProgress && $0.liveScore != nil }
+    }
+
     func makeDefaultTournament() -> TournamentRecord? {
         guard let player = selectedPlayer else { return nil }
         var tournament = TournamentRecord(playerID: player.id)
@@ -151,7 +158,7 @@ final class TennisStore: ObservableObject {
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 4
+        data.dataVersion = 5
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -186,18 +193,21 @@ final class TennisStore: ObservableObject {
     private func save() {
         guard let encoded = try? JSONEncoder.tennisTracker.encode(data) else { return }
         try? encoded.write(to: storeURL, options: [.atomic])
+        Task {
+            await TennisNotificationService.shared.rescheduleAll(for: data)
+        }
     }
 
     private func migrateIfNeeded() {
         if data.dataVersion < 3 {
             data = AppData()
-            data.dataVersion = 4
+            data.dataVersion = 5
             lastAnnouncement = "Tennis Tracker is ready for first setup."
             save()
             return
         }
-        if data.dataVersion < 4 {
-            data.dataVersion = 4
+        if data.dataVersion < 5 {
+            data.dataVersion = 5
             save()
         }
     }

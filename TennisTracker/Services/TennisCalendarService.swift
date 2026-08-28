@@ -1,0 +1,91 @@
+import EventKit
+import Foundation
+
+struct CalendarEventDraft: Equatable {
+    var title: String
+    var notes: String
+    var startDate: Date
+    var endDate: Date
+    var location: String
+    var deepLink: URL
+}
+
+enum TennisCalendarMapper {
+    static func event(for match: MatchRecord) -> CalendarEventDraft {
+        CalendarEventDraft(
+            title: "Tennis match: \(match.opponentSummary.fallback("opponent not recorded"))",
+            notes: "Tennis Tracker match. \(match.status.rawValue). \(match.setScores.fallback(match.notes))",
+            startDate: match.date,
+            endDate: match.date.addingTimeInterval(TimeInterval(match.expectedDurationMinutes * 60)),
+            location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),
+            deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
+        )
+    }
+
+    static func event(for session: TrainingSession) -> CalendarEventDraft {
+        CalendarEventDraft(
+            title: "Tennis training: \(session.trainingType.rawValue)",
+            notes: "Tennis Tracker training. Focus: \(session.focus). \(session.notes)",
+            startDate: session.date,
+            endDate: session.date.addingTimeInterval(TimeInterval(session.durationMinutes * 60)),
+            location: session.placeText,
+            deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
+        )
+    }
+
+    static func event(for tournament: TournamentRecord) -> CalendarEventDraft {
+        CalendarEventDraft(
+            title: "Tennis tournament: \(tournament.name.fallback("Unnamed tournament"))",
+            notes: "Tennis Tracker tournament. Goal: \(tournament.goal). \(tournament.notes)",
+            startDate: tournament.date,
+            endDate: max(tournament.endDate, tournament.date.addingTimeInterval(60 * 60)),
+            location: tournament.location,
+            deepLink: URL(string: "tennistracker://tournament/\(tournament.id.uuidString)")!
+        )
+    }
+}
+
+final class TennisCalendarService {
+    static let shared = TennisCalendarService()
+
+    private let store = EKEventStore()
+
+    private init() {}
+
+    func requestAccess() async -> Bool {
+        do {
+            if #available(iOS 17.0, *) {
+                return try await store.requestFullAccessToEvents()
+            }
+            return try await withCheckedThrowingContinuation { continuation in
+                store.requestAccess(to: .event) { granted, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: granted)
+                    }
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    func save(_ draft: CalendarEventDraft) async -> Bool {
+        guard await requestAccess(), let calendar = store.defaultCalendarForNewEvents else { return false }
+        let event = EKEvent(eventStore: store)
+        event.calendar = calendar
+        event.title = draft.title
+        event.notes = "\(draft.notes)\n\(draft.deepLink.absoluteString)"
+        event.startDate = draft.startDate
+        event.endDate = draft.endDate
+        event.location = draft.location
+
+        do {
+            try store.save(event, span: .thisEvent)
+            return true
+        } catch {
+            return false
+        }
+    }
+}

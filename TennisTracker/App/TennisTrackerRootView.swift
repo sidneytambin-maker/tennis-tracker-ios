@@ -2,13 +2,14 @@ import SwiftUI
 
 struct TennisTrackerRootView: View {
     @EnvironmentObject private var store: TennisStore
+    @StateObject private var router = AppRouter()
 
     var body: some View {
         Group {
             if store.needsOnboarding {
                 OnboardingView()
             } else {
-                TabView {
+                TabView(selection: $router.selectedTab) {
                     DashboardView()
                         .tabItem {
                             Label("Dashboard", systemImage: "chart.bar")
@@ -46,8 +47,13 @@ struct TennisTrackerRootView: View {
                         .tag("settings")
                 }
                 .accessibilityIdentifier("mainTabView")
+                .onOpenURL { url in
+                    router.open(url)
+                    store.announce("Opened \(router.selectedTab).")
+                }
             }
         }
+        .environmentObject(router)
         .tint(store.data.settings.theme.accentColor)
         .preferredColorScheme(store.data.settings.theme.preferredColorScheme)
     }

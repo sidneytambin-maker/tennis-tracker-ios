@@ -43,10 +43,13 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         completeOnboarding()
         openDestination("Matches")
         app.buttons["Start live scoring"].tap()
+        XCTAssertTrue(app.buttons["startConfiguredLiveScoringButton"].waitForExistence(timeout: 5))
+        app.buttons["startConfiguredLiveScoringButton"].tap()
         XCTAssertTrue(app.buttons["playerWinsPointButton"].waitForExistence(timeout: 5))
         app.buttons["playerWinsPointButton"].tap()
         app.buttons["opponentWinsPointButton"].tap()
         tapPossiblyScrolledButton("undoScoreButton")
+        tapPossiblyScrolledButton("saveLiveProgressButton")
         tapPossiblyScrolledButton("hearFullScoreButton")
         tapPossiblyScrolledButton("resetScoreButton")
     }
