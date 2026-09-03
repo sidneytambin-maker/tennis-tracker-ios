@@ -234,12 +234,17 @@ private struct WatchLiveView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Menu("Match Actions") {
-                        Button("Undo Last Point") { store.undoLastPoint() }
-                        Button("Save Match Progress") { store.saveMatchProgress() }
-                        Button("Start Tie-break") { store.startTieBreak() }
-                        Button("Finish Match") { store.finishMatch() }
-                    }
+                    Button("Undo Last Point") { store.undoLastPoint() }
+                        .buttonStyle(.bordered)
+
+                    Button("Save Match Progress") { store.saveMatchProgress() }
+                        .buttonStyle(.bordered)
+
+                    Button("Start Tie-break") { store.startTieBreak() }
+                        .buttonStyle(.bordered)
+
+                    Button("Finish Match") { store.finishMatch() }
+                        .buttonStyle(.borderedProminent)
                 } else {
                     Text("No tennis activity in progress.")
                         .foregroundStyle(.secondary)
