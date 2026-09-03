@@ -15,9 +15,6 @@ targets:
     sources:
       - TennisTracker
       - TennisTrackerShared
-    dependencies:
-      - target: TennisTrackerWatchApp
-        embed: true
     info:
       path: TennisTracker/Info.plist
       properties:

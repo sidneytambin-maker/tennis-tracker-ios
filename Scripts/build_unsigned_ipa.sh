@@ -11,13 +11,33 @@ xcodebuild clean build \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY=""
 
+xcodebuild build \
+  -project "TennisTrackeriOS.xcodeproj" \
+  -target "TennisTrackerWatchApp" \
+  -sdk watchos \
+  -destination "generic/platform=watchOS" \
+  -configuration Release \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY=""
+
 mkdir -p artifacts/Payload
 APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-iphoneos/TennisTracker.app" -type d | head -n 1)"
+BUILT_WATCH_APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-watchos/TennisTrackerWatchApp.app" -type d | head -n 1)"
 
 if [ -z "$APP_PATH" ]; then
   echo "Could not find the unsigned Tennis Tracker.app build output." >&2
   exit 1
 fi
+
+if [ -z "$BUILT_WATCH_APP_PATH" ]; then
+  echo "Could not find the unsigned TennisTrackerWatchApp.app build output." >&2
+  exit 1
+fi
+
+rm -rf "$APP_PATH/Watch"
+mkdir -p "$APP_PATH/Watch"
+cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/Watch/"
 
 rm -rf artifacts/Payload/*
 cp -R "$APP_PATH" artifacts/Payload/
