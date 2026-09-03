@@ -19,8 +19,8 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate Xcode project
-        run: xcodegen generate
+      - name: Generate iOS test project
+        run: xcodegen generate --spec project-tests.yml
 
       - name: Run scoring and statistics tests
         run: |
@@ -43,6 +43,7 @@ jobs:
 
       - name: Build unsigned device IPA
         run: |
+          xcodegen generate --spec project.yml
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
 
