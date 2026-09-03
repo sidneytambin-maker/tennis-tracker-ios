@@ -1,4 +1,4 @@
-name: TennisTrackeriOSTests
+name: TennisTrackeriOS
 options:
   minimumXcodeGenVersion: 2.42.0
   deploymentTarget:
