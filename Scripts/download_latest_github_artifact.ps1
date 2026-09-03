@@ -35,3 +35,5 @@ if ($ipa.Length -le 0) {
 Write-Host "Downloaded IPA:"
 Write-Host $ipa.FullName
 Write-Host "Size in bytes: $($ipa.Length)"
+
+& (Join-Path $PSScriptRoot "verify_ipa_watch_embed.ps1")

@@ -64,6 +64,7 @@ private struct WatchTodayView: View {
 
 private struct WatchTrackView: View {
     @EnvironmentObject private var store: WatchTennisStore
+    @State private var choosingTrainingType = false
     @State private var choosingMatchKind = false
     @State private var choosingTournamentMatch = false
 
@@ -76,10 +77,11 @@ private struct WatchTrackView: View {
                     .accessibilityAddTraits(.isHeader)
 
                 Button("Track Training Session") {
-                    store.trackTrainingSession()
+                    choosingTrainingType = true
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .accessibilityHint("Choose the type of tennis training before starting.")
 
                 Button("Record Match") {
                     choosingMatchKind = true
@@ -97,6 +99,10 @@ private struct WatchTrackView: View {
             }
             .padding()
         }
+        .sheet(isPresented: $choosingTrainingType) {
+            WatchTrainingTypeSheet()
+                .environmentObject(store)
+        }
         .sheet(isPresented: $choosingMatchKind) {
             WatchMatchKindSheet(tournament: nil)
                 .environmentObject(store)
@@ -105,6 +111,30 @@ private struct WatchTrackView: View {
             WatchTournamentSheet()
                 .environmentObject(store)
         }
+    }
+}
+
+private struct WatchTrainingTypeSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: WatchTennisStore
+
+    var body: some View {
+        List {
+            Section("Training Type") {
+                ForEach(TrainingType.allCases) { type in
+                    Button(type.rawValue) {
+                        store.trackTrainingSession(type: type)
+                        dismiss()
+                    }
+                    .accessibilityLabel(type.rawValue)
+                    .accessibilityHint("Starts this training session on Apple Watch.")
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                dismiss()
+            }
+        }
+        .navigationTitle("Training Type")
     }
 }
 

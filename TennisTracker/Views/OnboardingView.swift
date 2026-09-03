@@ -139,8 +139,8 @@ struct OnboardingView: View {
             .accessibilityIdentifier("trackingModePicker")
             Text(settings.trackingMode.description)
 
-            Stepper("Season \(settings.defaultSeason)", value: $settings.defaultSeason, in: 2000...2100)
-                .accessibilityIdentifier("seasonStepper")
+            NumberChoicePicker(title: "Season", value: $settings.defaultSeason, range: 2000...2100)
+                .accessibilityIdentifier("seasonPicker")
 
             Picker("Theme", selection: $settings.theme) {
                 ForEach(AppTheme.allCases) { theme in

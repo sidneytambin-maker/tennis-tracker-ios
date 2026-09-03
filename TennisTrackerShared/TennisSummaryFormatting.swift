@@ -52,13 +52,14 @@ enum TennisSummaryFormatter {
 
     static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long) -> String {
         let duration = session.durationMinutes.durationText
+        let type = session.trainingType.rawValue
         let focus = session.focus.fallback("focus not recorded")
         let date = session.date.formatted(date: .abbreviated, time: session.hasStartTime ? .shortened : .omitted)
         switch style {
         case .short:
-            return "Training, \(duration), \(focus)."
+            return "\(type), \(duration), \(focus)."
         case .long, .accessibility:
-            return "Training, \(duration), \(focus), \(date)."
+            return "\(type), \(duration), \(focus), \(date)."
         }
     }
 

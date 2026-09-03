@@ -1,10 +1,6 @@
 name: TennisTrackeriOS
 options:
   minimumXcodeGenVersion: 2.42.0
-  postGenCommand: |
-    if grep -q 'dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";' TennisTrackeriOS.xcodeproj/project.pbxproj; then
-      sed -i '' -e 's|dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";|dstPath = "";|' -e 's|dstSubfolderSpec = 16;|dstSubfolderSpec = 13;|' TennisTrackeriOS.xcodeproj/project.pbxproj
-    fi
   deploymentTarget:
     iOS: "17.0"
     watchOS: "10.0"
@@ -26,8 +22,8 @@ targets:
       path: TennisTracker/Info.plist
       properties:
         CFBundleDisplayName: Tennis Tracker
-        CFBundleShortVersionString: "0.8.1"
-        CFBundleVersion: "10"
+        CFBundleShortVersionString: "0.9.0"
+        CFBundleVersion: "11"
         CFBundleURLTypes:
           - CFBundleURLName: com.inclusophy.tennistracker.dev
             CFBundleURLSchemes:
@@ -42,8 +38,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev
         PRODUCT_NAME: TennisTracker
-        MARKETING_VERSION: "0.8.1"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.9.0"
+        CURRENT_PROJECT_VERSION: "11"
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
   TennisTrackerTests:
@@ -79,16 +75,16 @@ targets:
       path: TennisTrackerWatchApp/Info.plist
       properties:
         CFBundleDisplayName: Tennis Tracker
-        CFBundleShortVersionString: "0.8.1"
-        CFBundleVersion: "10"
+        CFBundleShortVersionString: "0.9.0"
+        CFBundleVersion: "11"
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.inclusophy.tennistracker.dev
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev.watchkitapp
         PRODUCT_NAME: TennisTrackerWatchApp
-        MARKETING_VERSION: "0.8.1"
-        CURRENT_PROJECT_VERSION: "10"
+        MARKETING_VERSION: "0.9.0"
+        CURRENT_PROJECT_VERSION: "11"
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
 schemes:

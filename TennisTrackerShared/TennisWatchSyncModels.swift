@@ -79,15 +79,16 @@ enum TennisRecordConflictResolver {
 }
 
 enum TennisWatchActivityFactory {
-    static func trainingSession(playerID: UUID, startDate: Date = Date()) -> TrainingSession {
+    static func trainingSession(playerID: UUID, type: TrainingType = .singlesPractice, startDate: Date = Date()) -> TrainingSession {
         var session = TrainingSession(playerID: playerID)
         session.date = startDate
         session.hasStartTime = true
         session.durationMinutes = 1
+        session.trainingType = type
         session.hasSessionDetails = false
         session.needsDetails = true
-        session.focus = "Needs details"
-        session.notes = "Created on Apple Watch."
+        session.focus = type.rawValue
+        session.notes = "Created on Apple Watch. Complete details on iPhone."
         return TennisRecordConflictResolver.prepareLocalTraining(session, now: startDate)
     }
 

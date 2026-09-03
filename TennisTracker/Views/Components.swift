@@ -153,6 +153,30 @@ struct AccessibleDateTimeEditor: View {
     }
 }
 
+struct AccessibleDateRangeEditor: View {
+    @Binding var startDate: Date
+    @Binding var endDate: Date
+
+    var body: some View {
+        DatePicker("Start date", selection: $startDate, displayedComponents: .date)
+            .datePickerStyle(.compact)
+            .accessibilityLabel("Tournament start date")
+            .accessibilityValue(startDate.fullTennisDate)
+            .accessibilityHint("Opens the native date picker.")
+            .onChange(of: startDate) { _, newStart in
+                if endDate < newStart {
+                    endDate = newStart
+                }
+            }
+
+        DatePicker("End date", selection: $endDate, in: startDate..., displayedComponents: .date)
+            .datePickerStyle(.compact)
+            .accessibilityLabel("Tournament end date")
+            .accessibilityValue(endDate.fullTennisDate)
+            .accessibilityHint("Opens the native date picker. The end date cannot be before the start date.")
+    }
+}
+
 struct FiveMinuteTimePicker: View {
     let title: String
     @Binding var date: Date
@@ -270,6 +294,32 @@ struct DurationFields: View {
 
     private func closestMinuteChoice(_ value: Int) -> Int {
         minuteChoices.min(by: { abs($0 - value) < abs($1 - value) }) ?? 0
+    }
+}
+
+struct NumberChoicePicker: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    var suffix: String = ""
+
+    var body: some View {
+        Picker(title, selection: $value) {
+            ForEach(Array(range), id: \.self) { number in
+                Text(label(for: number)).tag(number)
+            }
+        }
+        .accessibilityLabel(title)
+        .accessibilityValue(label(for: value))
+        .accessibilityHint("Double tap to choose a value.")
+    }
+
+    private func label(for number: Int) -> String {
+        if suffix.isBlank { return "\(number)" }
+        if number == 1, suffix.hasSuffix("s") {
+            return "\(number) \(suffix.dropLast())"
+        }
+        return "\(number) \(suffix)"
     }
 }
 

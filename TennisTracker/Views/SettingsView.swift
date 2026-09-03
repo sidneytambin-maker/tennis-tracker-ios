@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import WatchConnectivity
 
 struct SettingsView: View {
     @EnvironmentObject private var store: TennisStore
@@ -51,8 +52,8 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("settingsDefaultMatchTypePicker")
-                    Stepper("Season \(settings.defaultSeason)", value: $settings.defaultSeason, in: 2000...2100)
-                        .accessibilityIdentifier("settingsSeasonStepper")
+                    NumberChoicePicker(title: "Season", value: $settings.defaultSeason, range: 2000...2100)
+                        .accessibilityIdentifier("settingsSeasonPicker")
                 }
 
                 Section("Live scoring") {
@@ -107,6 +108,18 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Apple Watch") {
+                    WatchStatusView()
+                    Button("Refresh Apple Watch Sync") {
+                        IPhoneWatchSyncService.shared.sendSnapshot(store.data)
+                        savedMessage = "Apple Watch sync refresh requested."
+                        UIAccessibility.post(notification: .announcement, argument: savedMessage)
+                    }
+                    .accessibilityHint("Sends the latest tennis data to the paired Apple Watch when the companion app is installed.")
+                    Text("If Tennis Tracker does not appear on Apple Watch after installation, open the iPhone Watch app, find Tennis Tracker, and enable Show App on Apple Watch. If it is missing there too, the IPA did not embed the Watch app correctly.")
+                        .accessibilityLabel("Apple Watch installation help")
+                }
+
                 Section("Dashboard") {
                     Toggle("Show needs attention", isOn: $settings.showNeedsAttention)
                         .accessibilityIdentifier("settingsNeedsAttentionToggle")
@@ -117,8 +130,8 @@ struct SettingsView: View {
                 }
 
                 Section("Build") {
-                    SummaryRow(title: "Version", value: "0.8.1")
-                    SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app. Sideloadly signs and installs it with the free Apple account.")
+                    SummaryRow(title: "Version", value: "0.9.0")
+                    SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app and embeds the Watch app in the Watch folder. Sideloadly signs and installs it with the free Apple account.")
                 }
 
             }
@@ -156,5 +169,22 @@ struct SettingsView: View {
             savedMessage = "Settings saved."
             UIAccessibility.post(notification: .announcement, argument: savedMessage)
         }
+    }
+}
+
+private struct WatchStatusView: View {
+    var body: some View {
+        SummaryRow(title: "Watch status", value: statusText)
+    }
+
+    private var statusText: String {
+        guard WCSession.isSupported() else {
+            return "WatchConnectivity is not supported on this device."
+        }
+        let session = WCSession.default
+        let paired = session.isPaired ? "paired" : "not paired"
+        let installed = session.isWatchAppInstalled ? "Watch app installed" : "Watch app not installed"
+        let reachable = session.isReachable ? "currently reachable" : "not currently reachable"
+        return "Apple Watch \(paired). \(installed). \(reachable)."
     }
 }

@@ -260,8 +260,11 @@ struct TournamentEditorView: View {
                         allowsUnspecifiedTime: !tournament.isAllDay
                     )
                         .accessibilityIdentifier("tournamentStartDatePicker")
-                    DatePicker("End date", selection: $tournament.endDate, displayedComponents: .date)
+                    DatePicker("End date", selection: $tournament.endDate, in: tournament.date..., displayedComponents: .date)
                         .datePickerStyle(.compact)
+                        .accessibilityLabel("Tournament end date")
+                        .accessibilityValue(tournament.endDate.fullTennisDate)
+                        .accessibilityHint("Opens the native date picker. The end date cannot be before the start date.")
                         .accessibilityIdentifier("tournamentEndDatePicker")
                 }
 
@@ -279,7 +282,8 @@ struct TournamentEditorView: View {
                         ForEach(TournamentStage.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .accessibilityIdentifier("tournamentStagePicker")
-                    Stepper("Matches expected or played \(tournament.matchesPlayed)", value: $tournament.matchesPlayed, in: 0...99)
+                    NumberChoicePicker(title: "Matches expected or played", value: $tournament.matchesPlayed, range: 0...99, suffix: "matches")
+                        .accessibilityIdentifier("tournamentMatchesPlayedPicker")
                 }
 
                 if store.data.settings.trackingMode != .basic {

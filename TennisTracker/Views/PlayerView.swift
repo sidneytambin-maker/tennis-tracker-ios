@@ -71,7 +71,7 @@ struct PlayerEditorView: View {
                     TextField("Full name", text: $player.name)
                     TextField("Preferred name", text: $player.preferredName)
                     TextField("Surname", text: $player.surname)
-                    Stepper("Age \(player.age)", value: $player.age, in: 0...120)
+                    NumberChoicePicker(title: "Age", value: $player.age, range: 0...120, suffix: "years")
                     TextField("Nationality", text: $player.nationality)
                 }
                 Section("Player category") {

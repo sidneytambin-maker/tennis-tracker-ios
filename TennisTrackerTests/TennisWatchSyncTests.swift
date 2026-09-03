@@ -7,15 +7,39 @@ final class TennisWatchSyncTests: XCTestCase {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         let finish = start.addingTimeInterval(37 * 60)
 
-        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, startDate: start)
+        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: .serveAndReturn, startDate: start)
         let finished = TennisWatchActivityFactory.finishTrainingSession(session, finishDate: finish)
 
         XCTAssertEqual(finished.id, session.id)
         XCTAssertEqual(finished.playerID, playerID)
+        XCTAssertEqual(finished.trainingType, .serveAndReturn)
         XCTAssertEqual(finished.durationMinutes, 37)
         XCTAssertTrue(finished.needsDetails)
         XCTAssertFalse(finished.hasSessionDetails)
         XCTAssertGreaterThan(finished.revision, session.revision)
+    }
+
+    func testTrainingTypesAreStructuredTennisOptionsForIPhoneAndWatch() {
+        XCTAssertGreaterThanOrEqual(TrainingType.allCases.count, 8)
+        XCTAssertTrue(TrainingType.allCases.contains(.oneToOneCoaching))
+        XCTAssertTrue(TrainingType.allCases.contains(.singlesPractice))
+        XCTAssertTrue(TrainingType.allCases.contains(.doublesPractice))
+        XCTAssertTrue(TrainingType.allCases.contains(.tournamentPreparation))
+
+        let playerID = UUID()
+        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: .doublesPractice)
+
+        XCTAssertEqual(session.trainingType, .doublesPractice)
+        XCTAssertEqual(session.focus, "Doubles practice")
+        XCTAssertTrue(TennisSummaryFormatter.training(session, style: .accessibility).contains("Doubles practice"))
+    }
+
+    func testLegacyTrainingTypeNamesDecodeToCurrentStructuredTypes() throws {
+        let decoder = JSONDecoder()
+
+        XCTAssertEqual(try decoder.decode(TrainingType.self, from: Data(#""General practice""#.utf8)), .rallyConsistency)
+        XCTAssertEqual(try decoder.decode(TrainingType.self, from: Data(#""Match practice""#.utf8)), .matchPlay)
+        XCTAssertEqual(try decoder.decode(TrainingType.self, from: Data(#""Coaching""#.utf8)), .oneToOneCoaching)
     }
 
     func testWatchCreatedMatchHasStableIDLiveScoreAndNeedsDetails() {

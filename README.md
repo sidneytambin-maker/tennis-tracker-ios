@@ -248,6 +248,8 @@ Version `0.8.0` is the first useful Apple Watch companion build. It adds native 
 
 Version `0.8.1` is the iPhone and Apple Watch unification sprint. It adds the shared accessibility standard, shared match/training/tournament summaries, consistent one-set match result wording across iPhone and Watch, shared score announcement phrasing, reduced repeated stepper controls in match entry, and clearer needs-details handoff language.
 
+Version `0.9.0` is the Apple Watch installation recovery and VoiceOver control sprint. It restores the embedded Watch app destination to `Payload/TennisTracker.app/Watch`, adds build and downloaded-IPA checks for the Watch companion, adds in-app Apple Watch status and sync refresh help, replaces remaining stepper controls with labeled pickers, improves tournament end date VoiceOver output, and expands training into ten tennis-specific session types shared by iPhone, dashboard/history summaries, and Apple Watch quick tracking.
+
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
 Manual test priority:

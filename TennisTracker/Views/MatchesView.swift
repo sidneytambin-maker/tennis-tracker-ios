@@ -298,8 +298,8 @@ struct MatchEditorView: View {
                             Picker("Result", selection: $match.result) {
                                 ForEach(MatchResult.allCases) { result in Text(result.rawValue).tag(result) }
                             }
-                            Stepper("Player sets won \(match.yourSetsWon)", value: $match.yourSetsWon, in: 0...5)
-                            Stepper("Opponent sets won \(match.opponentSetsWon)", value: $match.opponentSetsWon, in: 0...5)
+                            NumberChoicePicker(title: "Player sets won", value: $match.yourSetsWon, range: 0...5, suffix: "sets")
+                            NumberChoicePicker(title: "Opponent sets won", value: $match.opponentSetsWon, range: 0...5, suffix: "sets")
                             TextField("Set scores", text: $match.setScores)
                         } else {
                             Picker("Sets played", selection: $setCount) {
@@ -336,8 +336,8 @@ struct MatchEditorView: View {
                         Picker("Court surface", selection: $match.courtSurface) {
                             ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                         }
-                        Stepper("Aces \(match.aces)", value: $match.aces, in: 0...99)
-                        Stepper("Double faults \(match.doubleFaults)", value: $match.doubleFaults, in: 0...99)
+                        NumberChoicePicker(title: "Aces", value: $match.aces, range: 0...99)
+                        NumberChoicePicker(title: "Double faults", value: $match.doubleFaults, range: 0...99)
                         TextField("Next practice focus", text: $match.nextPracticeFocus, axis: .vertical)
                     }
                 }

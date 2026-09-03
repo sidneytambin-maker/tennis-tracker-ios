@@ -175,14 +175,42 @@ enum TieBreakRule: String, Codable, CaseIterable, Identifiable {
 }
 
 enum TrainingType: String, Codable, CaseIterable, Identifiable {
-    case general = "General practice"
-    case technical = "Technical session"
-    case tactical = "Tactical session"
-    case fitness = "Fitness"
-    case matchPractice = "Match practice"
-    case coaching = "Coaching"
+    case oneToOneCoaching = "One-to-one coaching"
+    case singlesPractice = "Singles practice"
+    case doublesPractice = "Doubles practice"
+    case serveAndReturn = "Serve and return"
+    case rallyConsistency = "Rally consistency"
+    case movementAndFootwork = "Movement and footwork"
+    case matchPlay = "Practice match"
+    case tacticalPatterns = "Tactical patterns"
+    case fitnessConditioning = "Tennis fitness"
+    case tournamentPreparation = "Tournament preparation"
 
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        switch value {
+        case "General practice", "Technical session":
+            self = .rallyConsistency
+        case "Tactical session":
+            self = .tacticalPatterns
+        case "Fitness":
+            self = .fitnessConditioning
+        case "Match practice":
+            self = .matchPlay
+        case "Coaching":
+            self = .oneToOneCoaching
+        default:
+            self = TrainingType(rawValue: value) ?? .singlesPractice
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 enum RatingLevel: String, Codable, CaseIterable, Identifiable {
@@ -301,11 +329,11 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var date = Date()
     var hasStartTime = true
     var durationMinutes = 60
-    var trainingType: TrainingType = .general
+    var trainingType: TrainingType = .singlesPractice
     var location = ""
     var venue = ""
     var surface: CourtSurface = .notSpecified
-    var focus = "General practice"
+    var focus = "Singles practice"
     var effortLevel: RatingLevel = .medium
     var confidenceLevel: RatingLevel = .medium
     var sessionOutcome = ""
@@ -336,11 +364,11 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
         hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
         durationMinutes = try container.decodeIfPresent(Int.self, forKey: .durationMinutes) ?? 60
-        trainingType = try container.decodeIfPresent(TrainingType.self, forKey: .trainingType) ?? .general
+        trainingType = try container.decodeIfPresent(TrainingType.self, forKey: .trainingType) ?? .singlesPractice
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
         surface = try container.decodeIfPresent(CourtSurface.self, forKey: .surface) ?? .notSpecified
-        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "General practice"
+        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "Singles practice"
         effortLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .effortLevel) ?? .medium
         confidenceLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .confidenceLevel) ?? .medium
         sessionOutcome = try container.decodeIfPresent(String.self, forKey: .sessionOutcome) ?? ""

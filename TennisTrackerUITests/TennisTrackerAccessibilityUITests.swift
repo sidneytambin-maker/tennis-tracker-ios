@@ -78,7 +78,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.buttons["addTrainingButton"].tap()
         XCTAssertTrue(app.buttons["trainingTypePicker"].waitForExistence(timeout: 5))
         app.buttons["saveTrainingButton"].tap()
-        XCTAssertTrue(textContaining("General practice").waitForExistence(timeout: 5))
+        XCTAssertTrue(textContaining("Singles practice").waitForExistence(timeout: 5))
     }
 
     private func completeOnboarding() {

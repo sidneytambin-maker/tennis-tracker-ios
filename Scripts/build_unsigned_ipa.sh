@@ -21,6 +21,15 @@ fi
 
 rm -rf artifacts/Payload/*
 cp -R "$APP_PATH" artifacts/Payload/
+
+WATCH_APP_PATH="artifacts/Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app"
+if [ ! -d "$WATCH_APP_PATH" ]; then
+  echo "Apple Watch companion app was not embedded at Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app." >&2
+  echo "Found embedded app folders:" >&2
+  find artifacts/Payload/TennisTracker.app -maxdepth 3 -type d \( -name "*.app" -o -name "Watch" -o -name "PlugIns" \) -print >&2
+  exit 1
+fi
+
 (
   cd artifacts
   /usr/bin/zip -qry TennisTracker-unsigned.ipa Payload
@@ -31,4 +40,5 @@ Build artifact: TennisTracker-unsigned.ipa
 Signing status: unsigned
 Intended next step: download on Windows and sign/install with Sideloadly using a free Apple Account.
 Bundle identifier: com.inclusophy.tennistracker.dev
+Embedded Watch app: Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app
 SUMMARY

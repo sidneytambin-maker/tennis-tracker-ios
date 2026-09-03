@@ -57,17 +57,17 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.requestSnapshot)
     }
 
-    func trackTrainingSession() {
+    func trackTrainingSession(type: TrainingType = .singlesPractice) {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
         }
-        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID)
+        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
         activeTraining = session
         mergeTraining(session)
         send(.upsertTraining(session))
         haptic(.start)
-        announce("Training session tracking started.")
+        announce("\(type.rawValue) tracking started.")
     }
 
     func finishTrainingSession() {
