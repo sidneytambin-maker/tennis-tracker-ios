@@ -23,7 +23,7 @@ xcodebuild build \
 
 mkdir -p artifacts/Payload
 APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-iphoneos/TennisTracker.app" -type d | head -n 1)"
-BUILT_WATCH_APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-watchos/TennisTrackerWatchApp.app" -type d | head -n 1)"
+BUILT_WATCH_APP_PATH="$(find build "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Release-watchos/TennisTrackerWatchApp.app" -type d 2>/dev/null | head -n 1)"
 
 if [ -z "$APP_PATH" ]; then
   echo "Could not find the unsigned Tennis Tracker.app build output." >&2
