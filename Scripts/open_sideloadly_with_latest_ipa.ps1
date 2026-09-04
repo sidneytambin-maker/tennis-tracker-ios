@@ -1,21 +1,27 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$buildsRoot = Join-Path $projectRoot "builds"
 $sideloadly = Join-Path $env:LOCALAPPDATA "Sideloadly\sideloadly.exe"
 
-if (-not (Test-Path $sideloadly)) {
+if (-not (Test-Path -LiteralPath $sideloadly)) {
     throw "Sideloadly was not found at $sideloadly"
 }
 
-$ipa = Get-ChildItem -Path $buildsRoot -Filter "TennisTracker-development-unsigned-*.ipa" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
+$preparedOutput = & (Join-Path $PSScriptRoot "prepare_sideloadly_watch_ipa.ps1") 2>&1
+$preparedOutput | Write-Host
 
-if (-not $ipa) {
-    throw "No Tennis Tracker IPA was found in $buildsRoot. Run Scripts\download_latest_github_artifact.ps1 first."
+$ipaPathLine = $preparedOutput | Select-String -Pattern "TennisTracker-latest-sideloadly-watch\.ipa" | Select-Object -Last 1
+if (-not $ipaPathLine) {
+    throw "Could not determine the prepared Sideloadly IPA path."
 }
 
-Start-Process -FilePath $sideloadly -ArgumentList ('"' + $ipa.FullName + '"')
+$ipaPath = $ipaPathLine.Line.Trim()
+if (-not (Test-Path -LiteralPath $ipaPath)) {
+    throw "Prepared Sideloadly IPA was not found: $ipaPath"
+}
+
+Start-Process -FilePath $sideloadly -ArgumentList ('"' + $ipaPath + '"')
 Write-Host "Opened Sideloadly with:"
-Write-Host $ipa.FullName
+Write-Host $ipaPath
+Write-Host ""
+Write-Host "Important: after Sideloadly signs the package, the embedded Watch app must have its own valid signature and provisioning profile. If Sideloadly signs only the iPhone app, the Watch will show an integrity verification error."

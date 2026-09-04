@@ -10,3 +10,6 @@ sideloadlydaemon.log
 *.app
 *.xcarchive
 TennisTrackeriOS.xcodeproj/
+.zsign_cache/
+selfIdentity.plist
+work/

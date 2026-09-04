@@ -250,6 +250,8 @@ Version `0.8.1` is the iPhone and Apple Watch unification sprint. It adds the sh
 
 Version `0.9.0` is the Apple Watch installation recovery and VoiceOver control sprint. It restores the embedded Watch app destination to `Payload/TennisTracker.app/Watch`, adds build and downloaded-IPA checks for the Watch companion, adds in-app Apple Watch status and sync refresh help, replaces remaining stepper controls with labeled pickers, improves tournament end date VoiceOver output, and expands training into ten tennis-specific session types shared by iPhone, dashboard/history summaries, and Apple Watch quick tracking.
 
+Current Apple Watch deployment status: the companion can be packaged so it appears on the paired Apple Watch, but physical launch is not verified until the nested Watch app has its own valid signature and provisioning profile. The regression test is that opening Tennis Tracker on Apple Watch must launch the app and must not show an integrity verification error.
+
 The iPhone navigation uses native tabs. Dashboard, Player, Matches, Tournaments, and Training are direct bottom tabs; Settings is reachable through the native `More` tab when iOS needs to collapse the sixth destination.
 
 Manual test priority:
@@ -272,12 +274,14 @@ Manual test priority:
 16. Confirm no old Player One, practice opponent, or sample training records appear.
 17. Increase text size to an accessibility size and repeat tab, setup, settings, form, and live scoring activation checks.
 18. On Apple Watch, confirm Tennis Tracker appears as a companion app. If it does not appear automatically, open the iPhone Watch app, find Tennis Tracker, and enable `Show App on Apple Watch`.
-19. With VoiceOver on Apple Watch, check Today, Track, Live, and Recent. Record a training session, finish it, and confirm the iPhone dashboard shows the activity under `Activities Need Details`.
-20. Record a Watch match, use both point buttons, Save Match Progress, resume the same match on iPhone, then Finish Match and confirm there is only one match record.
+19. Open Tennis Tracker on Apple Watch and confirm it launches without the integrity verification error. If the error appears, inspect the signed package before reinstalling; do not treat icon visibility as a completed Watch install.
+20. With VoiceOver on Apple Watch, check Today, Track, Live, and Recent. Record a training session, finish it, and confirm the iPhone dashboard shows the activity under `Activities Need Details`.
+21. Record a Watch match, use both point buttons, Save Match Progress, resume the same match on iPhone, then Finish Match and confirm there is only one match record.
 
 ## Current limitations
 
 - Codex cannot complete your Apple Account sign-in, Google sign-in, CAPTCHA, two-factor authentication, device trust prompt, or legal acceptance.
 - Automated tests cannot prove real VoiceOver behaviour completely; they are guardrails alongside the physical VoiceOver checklist.
-- The IPA produced by GitHub Actions is unsigned. Sideloadly signs it on Windows using your free Apple Account.
+- The IPA produced by GitHub Actions is unsigned. A Watch-enabled build means the Watch bundle compiled and was embedded; it does not prove the nested Watch app was signed or provisioned for physical launch.
+- Sideloadly can sign and install the iPhone app with the free Apple Account workflow already used here. The Watch launch still requires the embedded Watch app to have its own valid Watch bundle signature and provisioning profile.
 - This workflow intentionally does not include App Store Connect, TestFlight, or the paid Apple Developer Program.

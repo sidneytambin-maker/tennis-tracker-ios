@@ -12,11 +12,11 @@ if (-not $ipa) {
 }
 
 $contents = tar -tf $ipa.FullName
-$watchPath = "Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app/"
-$wrongPluginPath = "Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app/"
+$watchPath = "Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app/"
+$oldWatchPath = "Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app/"
 
-if ($contents -contains $wrongPluginPath) {
-    throw "The Watch app is embedded in PlugIns instead of Watch. Rebuild after regenerating the Xcode project."
+if ($contents -contains $oldWatchPath) {
+    throw "The Watch app is embedded in the legacy Watch folder instead of PlugIns. Rebuild the unsigned IPA."
 }
 
 if (-not ($contents -contains $watchPath)) {
