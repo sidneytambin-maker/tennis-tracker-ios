@@ -39,8 +39,17 @@ rm -rf "$APP_PATH/Watch" "$APP_PATH/PlugIns"
 mkdir -p "$APP_PATH/Watch"
 cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/Watch/"
 
-rm -rf artifacts/Payload/*
+rm -rf artifacts/Payload/* artifacts/WatchKitSupport
 cp -R "$APP_PATH" artifacts/Payload/
+
+WATCHKIT_SUPPORT_PATH="$(xcrun --sdk iphoneos --show-sdk-platform-path)/Developer/Library/WatchKitSupport/WK"
+if [ -f "$WATCHKIT_SUPPORT_PATH" ]; then
+  mkdir -p artifacts/WatchKitSupport
+  cp "$WATCHKIT_SUPPORT_PATH" artifacts/WatchKitSupport/WK
+  echo "Embedded Xcode WatchKitSupport/WK into IPA artifact."
+else
+  echo "Xcode WatchKitSupport/WK was not found at $WATCHKIT_SUPPORT_PATH; continuing with embedded Watch app only."
+fi
 
 WATCH_APP_PATH="artifacts/Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app"
 if [ ! -d "$WATCH_APP_PATH" ]; then
@@ -52,7 +61,11 @@ fi
 
 (
   cd artifacts
-  /usr/bin/zip -qry TennisTracker-unsigned.ipa Payload
+  if [ -d WatchKitSupport ]; then
+    /usr/bin/zip -qry TennisTracker-unsigned.ipa Payload WatchKitSupport
+  else
+    /usr/bin/zip -qry TennisTracker-unsigned.ipa Payload
+  fi
 )
 
 cat > artifacts/build-summary.txt <<SUMMARY
