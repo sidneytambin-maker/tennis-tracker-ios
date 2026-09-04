@@ -125,10 +125,7 @@ if (Test-Path -LiteralPath $patchedIpa) {
     Remove-Item -LiteralPath $patchedIpa -Force
 }
 
-& tar.exe -a -cf $patchedIpa -C $tempRoot "Payload"
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to package the patched IPA."
-}
+Compress-Archive -Path (Join-Path $tempRoot "Payload") -DestinationPath $patchedIpa -Force
 
 Write-Host "Source IPA:"
 Write-Host $ipa.FullName

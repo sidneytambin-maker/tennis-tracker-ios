@@ -10,12 +10,7 @@ if (-not (Test-Path -LiteralPath $sideloadly)) {
 $preparedOutput = & (Join-Path $PSScriptRoot "prepare_sideloadly_watch_ipa.ps1") 2>&1
 $preparedOutput | Write-Host
 
-$ipaPathLine = $preparedOutput | Select-String -Pattern "TennisTracker-latest-sideloadly-watch\.ipa" | Select-Object -Last 1
-if (-not $ipaPathLine) {
-    throw "Could not determine the prepared Sideloadly IPA path."
-}
-
-$ipaPath = $ipaPathLine.Line.Trim()
+$ipaPath = Join-Path $projectRoot "work\sideloadly\TennisTracker-latest-sideloadly-watch.ipa"
 if (-not (Test-Path -LiteralPath $ipaPath)) {
     throw "Prepared Sideloadly IPA was not found: $ipaPath"
 }
