@@ -74,7 +74,9 @@ if (-not $python) {
 }
 
 $inspector = @'
+import base64
 import json
+import hashlib
 import plistlib
 import re
 import sys
@@ -164,6 +166,30 @@ def is_watch_app(path):
     families = [str(family) for family in info.get("UIDeviceFamily") or []]
     return bool(info.get("WKApplication") or "watchos" in platforms or "4" in families)
 
+def parent_watch_resource_hashes_current(iphone_path, watch_path):
+    if not watch_path or watch_path == iphone_path:
+        return False
+    resources_path = iphone_path / "_CodeSignature" / "CodeResources"
+    if not resources_path.exists():
+        return False
+    resources = read_plist(resources_path) or {}
+    files2 = resources.get("files2") or {}
+    checked = 0
+    for path in watch_path.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(iphone_path).as_posix()
+        entry = files2.get(rel)
+        if not isinstance(entry, dict) or "hash2" not in entry:
+            continue
+        expected = entry["hash2"]
+        expected_bytes = base64.b64decode(expected) if isinstance(expected, str) else bytes(expected)
+        actual = hashlib.sha256(path.read_bytes()).digest()
+        checked += 1
+        if actual != expected_bytes:
+            return False
+    return checked > 0
+
 watch_apps = []
 for container_name in ("PlugIns", "Watch"):
     container = iphone / container_name
@@ -214,6 +240,7 @@ checks["watch_device_family_is_watch"] = bool(
     watch
     and "4" in [str(family) for family in (report["watch"].get("device_families") or [])]
 )
+checks["iphone_code_resources_watch_hashes_current"] = parent_watch_resource_hashes_current(iphone, watch) if watch else False
 
 watch_profile = report["watch"].get("embedded_provisioning") if watch else None
 watch_entitlements = (watch_profile or {}).get("entitlements") or {}

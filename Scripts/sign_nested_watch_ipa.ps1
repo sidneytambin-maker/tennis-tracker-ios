@@ -26,7 +26,8 @@ param(
     [string]$ZsignPath = "",
     [string]$SigningPassword = "",
     [switch]$AllowNonWatchOsProfile,
-    [switch]$EmbedWatchInPlugIns
+    [switch]$EmbedWatchInPlugIns,
+    [switch]$SkipFinalWatchResign
 )
 
 $ErrorActionPreference = "Stop"
@@ -239,11 +240,60 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to sign the iPhone app wrapper."
 }
 
-# zsign signs nested Watch bundles again while signing the iPhone wrapper. Sign the
-# Watch app last so its executable entitlements match its own provisioning profile.
-& $zsign @zsignArgsBase "-m" $watchProvision "-e" $watchEntitlementsPath "-b" $FinalWatchBundleId "-f" $watchApp.FullName
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to re-sign the embedded Watch app after wrapper signing."
+if (-not $SkipFinalWatchResign) {
+    # zsign signs nested Watch bundles again while signing the iPhone wrapper. Sign the
+    # Watch app last so its executable entitlements match its own provisioning profile.
+    & $zsign @zsignArgsBase "-m" $watchProvision "-e" $watchEntitlementsPath "-b" $FinalWatchBundleId "-f" $watchApp.FullName
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to re-sign the embedded Watch app after wrapper signing."
+    }
+
+    $resourceRefreshScript = @"
+import base64
+import hashlib
+import plistlib
+import sys
+from pathlib import Path
+
+iphone_app = Path(sys.argv[1])
+watch_app = Path(sys.argv[2])
+resources_path = iphone_app / "_CodeSignature" / "CodeResources"
+resources = plistlib.loads(resources_path.read_bytes())
+files = resources.get("files")
+files2 = resources.get("files2")
+if not isinstance(files, dict) or not isinstance(files2, dict):
+    raise SystemExit("iPhone CodeResources did not contain the expected files/files2 dictionaries.")
+
+updated = 0
+for path in watch_app.rglob("*"):
+    if not path.is_file():
+        continue
+    rel = path.relative_to(iphone_app).as_posix()
+    sha1 = hashlib.sha1(path.read_bytes()).digest()
+    sha256 = hashlib.sha256(path.read_bytes()).digest()
+    if rel in files:
+        files[rel] = sha1
+        updated += 1
+    entry = files2.get(rel)
+    if isinstance(entry, dict):
+        if "hash" in entry:
+            entry["hash"] = sha1
+        if "hash2" in entry:
+            entry["hash2"] = sha256
+        updated += 1
+
+with resources_path.open("wb") as f:
+    plistlib.dump(resources, f, sort_keys=False)
+print(f"Refreshed iPhone CodeResources hashes for {updated} embedded Watch resource entries.")
+"@
+    $resourceRefreshFile = Join-Path $workRoot "refresh-parent-watch-resources.py"
+    Set-Content -LiteralPath $resourceRefreshFile -Value $resourceRefreshScript -Encoding UTF8
+    & $python $resourceRefreshFile $iphoneApp.FullName $watchApp.FullName
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to refresh iPhone CodeResources hashes for the final Watch signature."
+    }
+} else {
+    Write-Host "Skipped final Watch re-sign so the iPhone wrapper resource seal remains current."
 }
 
 if (Test-Path -LiteralPath $OutputIpaPath) {

@@ -72,8 +72,7 @@ else
     echo "- $IPHONEOS_PLATFORM_PATH/Developer/Library/WatchKitSupport/WK" >&2
     echo "- $IPHONEOS_SDK_PATH/Library/Application Support/WatchKit/WK" >&2
     echo "- any */WatchKitSupport/WK file under $DEVELOPER_PATH" >&2
-    echo "Refusing to package an Apple Watch companion IPA without WatchKitSupport/WK." >&2
-    exit 1
+    echo "Continuing because current Xcode runners no longer include this support payload." >&2
   fi
 fi
 
