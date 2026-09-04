@@ -22,9 +22,8 @@ jobs:
       - name: Generate iOS test project
         run: xcodegen generate --spec project-tests.yml
 
-      - name: Run scoring and statistics tests
-        timeout-minutes: 8
-        continue-on-error: true
+      - name: Run unit and accessibility UI tests
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
