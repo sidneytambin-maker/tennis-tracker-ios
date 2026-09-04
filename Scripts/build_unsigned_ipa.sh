@@ -42,13 +42,30 @@ cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/Watch/"
 rm -rf artifacts/Payload/* artifacts/WatchKitSupport
 cp -R "$APP_PATH" artifacts/Payload/
 
-WATCHKIT_SUPPORT_PATH="$(xcrun --sdk iphoneos --show-sdk-platform-path)/Developer/Library/WatchKitSupport/WK"
-if [ -f "$WATCHKIT_SUPPORT_PATH" ]; then
+IPHONEOS_PLATFORM_PATH="$(xcrun --sdk iphoneos --show-sdk-platform-path)"
+IPHONEOS_SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+WATCHKIT_SUPPORT_PATH=""
+for candidate in \
+  "$IPHONEOS_PLATFORM_PATH/Developer/Library/WatchKitSupport/WK" \
+  "$IPHONEOS_SDK_PATH/Library/Application Support/WatchKit/WK"
+do
+  if [ -f "$candidate" ]; then
+    WATCHKIT_SUPPORT_PATH="$candidate"
+    break
+  fi
+done
+
+if [ -n "$WATCHKIT_SUPPORT_PATH" ]; then
   mkdir -p artifacts/WatchKitSupport
   cp "$WATCHKIT_SUPPORT_PATH" artifacts/WatchKitSupport/WK
   echo "Embedded Xcode WatchKitSupport/WK into IPA artifact."
 else
-  echo "Xcode WatchKitSupport/WK was not found at $WATCHKIT_SUPPORT_PATH; continuing with embedded Watch app only."
+  echo "Xcode WatchKitSupport/WK was not found in either supported Xcode location." >&2
+  echo "Checked:" >&2
+  echo "- $IPHONEOS_PLATFORM_PATH/Developer/Library/WatchKitSupport/WK" >&2
+  echo "- $IPHONEOS_SDK_PATH/Library/Application Support/WatchKit/WK" >&2
+  echo "Refusing to package an Apple Watch companion IPA without WatchKitSupport/WK." >&2
+  exit 1
 fi
 
 WATCH_APP_PATH="artifacts/Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app"
