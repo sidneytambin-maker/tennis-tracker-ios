@@ -20,7 +20,7 @@ targets:
       properties:
         CFBundleDisplayName: Tennis Tracker
         CFBundleShortVersionString: "0.9.0"
-        CFBundleVersion: "12"
+        CFBundleVersion: "13"
         CFBundleURLTypes:
           - CFBundleURLName: com.inclusophy.tennistracker.dev
             CFBundleURLSchemes:
@@ -36,7 +36,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev
         PRODUCT_NAME: TennisTracker
         MARKETING_VERSION: "0.9.0"
-        CURRENT_PROJECT_VERSION: "12"
+        CURRENT_PROJECT_VERSION: "13"
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
   TennisTrackerTests:
@@ -73,7 +73,7 @@ targets:
       properties:
         CFBundleDisplayName: Tennis Tracker
         CFBundleShortVersionString: "0.9.0"
-        CFBundleVersion: "12"
+        CFBundleVersion: "13"
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.inclusophy.tennistracker.dev
     settings:
@@ -82,7 +82,7 @@ targets:
         PRODUCT_NAME: TennisTrackerWatchApp
         TARGETED_DEVICE_FAMILY: "4"
         MARKETING_VERSION: "0.9.0"
-        CURRENT_PROJECT_VERSION: "12"
+        CURRENT_PROJECT_VERSION: "13"
         SKIP_INSTALL: "YES"
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"

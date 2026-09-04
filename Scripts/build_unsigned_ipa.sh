@@ -36,8 +36,8 @@ if [ -z "$BUILT_WATCH_APP_PATH" ]; then
 fi
 
 rm -rf "$APP_PATH/Watch" "$APP_PATH/PlugIns"
-mkdir -p "$APP_PATH/Watch"
-cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/Watch/"
+mkdir -p "$APP_PATH/PlugIns"
+cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/PlugIns/"
 
 rm -rf artifacts/Payload/* artifacts/WatchKitSupport
 cp -R "$APP_PATH" artifacts/Payload/
@@ -51,9 +51,9 @@ else
   echo "Xcode WatchKitSupport/WK was not found at $WATCHKIT_SUPPORT_PATH; continuing with embedded Watch app only."
 fi
 
-WATCH_APP_PATH="artifacts/Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app"
+WATCH_APP_PATH="artifacts/Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app"
 if [ ! -d "$WATCH_APP_PATH" ]; then
-  echo "Apple Watch companion app was not embedded at Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app." >&2
+  echo "Apple Watch companion app was not embedded at Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app." >&2
   echo "Found embedded app folders:" >&2
   find artifacts/Payload/TennisTracker.app -maxdepth 3 -type d \( -name "*.app" -o -name "Watch" -o -name "PlugIns" \) -print >&2
   exit 1
@@ -74,5 +74,5 @@ Signing status: unsigned
 Watch deployment status: Watch bundle compiled - physical signing not yet verified.
 Intended next step: download on Windows, produce a signed package, then verify BOTH the iPhone app and embedded Watch app signatures/provisioning before installing.
 Bundle identifier: com.inclusophy.tennistracker.dev
-Embedded Watch app: Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app
+Embedded Watch app: Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app
 SUMMARY
