@@ -20,6 +20,7 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
 
     @Published private(set) var connectionDescription = "Checking Apple Watch."
     @Published private(set) var syncMessage = "Waiting for the connection."
+    @Published private(set) var lastSuccessfulSync = UserDefaults.standard.object(forKey: "lastWatchSyncReceipt") as? Date
 
     private weak var store: TennisStore?
     private let session: TennisWatchSessionTransport
@@ -148,6 +149,12 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
         guard let command = try? JSONDecoder.tennisTracker.decode(TennisWatchSyncCommand.self, from: data) else { return }
         Task { @MainActor [weak self] in
             self?.store?.applyWatchCommand(command)
+            if case .snapshotReceived = command {
+                let now = Date()
+                self?.lastSuccessfulSync = now
+                UserDefaults.standard.set(now, forKey: "lastWatchSyncReceipt")
+                self?.syncMessage = "Apple Watch confirmed receipt of tennis data."
+            }
         }
     }
 }

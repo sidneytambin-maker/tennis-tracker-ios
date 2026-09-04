@@ -19,7 +19,6 @@ struct TournamentsView: View {
     var body: some View {
         NavigationStack {
             List {
-                ScreenIntro(title: "Tournaments", summary: "\(store.selectedTournaments.count) tournaments saved. Track tournaments as all-day events or with an optional start time.")
                 Section("Track") {
                     Button("Track Tournament") { showingNewTournament = true }
                         .accessibilityLabel("Track Tournament")
@@ -91,7 +90,7 @@ struct TournamentsView: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(tournament.date.shortTennisDate): \(tournament.name.fallback("Unnamed tournament"))")
-                Text(TennisSummaryFormatter.tournament(tournament, linkedMatchCount: store.linkedMatches(for: tournament).count, style: .short))
+                Text(TennisSummaryFormatter.tournament(tournament, matches: store.linkedMatches(for: tournament)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -136,7 +135,7 @@ struct TournamentDetailView: View {
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: tournament.name.fallback("Unnamed tournament"), value: dateRangeText)
+                Text(TennisSummaryFormatter.tournament(tournament, style: .detailed, matches: linkedMatches))
                 SummaryRow(title: "Status", value: "\(tournament.finalResult.rawValue). \(tournament.format.rawValue). Stage: \(tournament.stageReached.rawValue).")
                 SummaryRow(title: "Matches", value: linkedMatches.isEmpty ? "No matches linked yet." : "\(linkedMatches.count) matches linked.")
             }
@@ -247,10 +246,23 @@ struct TournamentEditorView: View {
         NavigationStack {
             Form {
                 Section("Tournament") {
+                    Picker("Regular tournament", selection: $tournament.templateID) {
+                        Text("Other").tag(Optional<UUID>.none)
+                        ForEach(store.data.setup.tournamentTemplates) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .onChange(of: tournament.templateID) { _, id in
+                        if let template = store.data.setup.tournamentTemplates.first(where: { $0.id == id }) {
+                            tournament.name = template.name
+                            tournament.format = template.format
+                            tournament.venueID = template.venueID
+                            if let venue = store.data.setup.venues.first(where: { $0.id == template.venueID }) {
+                                tournament.venue = venue.name; tournament.location = venue.town
+                            }
+                        }
+                    }
                     TextField("Name", text: $tournament.name)
                         .accessibilityIdentifier("tournamentNameField")
-                    TextField("Venue", text: $tournament.location)
-                        .accessibilityIdentifier("tournamentVenueField")
+                    StoredVenuePicker(id: $tournament.venueID, venue: $tournament.venue, location: $tournament.location)
                     Toggle("All-day tournament", isOn: $tournament.isAllDay)
                     AccessibleDateTimeEditor(
                         dateTitle: "Start date",

@@ -34,7 +34,7 @@ struct TennisTrackerRootView: View {
                         }
                         .tag("training")
 
-                    PlayerView()
+                    NavigationStack { PlayerView() }
                         .tabItem {
                             Label("Player", systemImage: "person.crop.circle")
                         }

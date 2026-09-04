@@ -71,6 +71,9 @@ struct DashboardView: View {
                 }
 
                 Section("Training activity") {
+                    if let recent = store.selectedTraining.filter({ !$0.isActive && ($0.actualFinish != nil || $0.expectedEndDate < Date()) }).first {
+                        NavigationLink(TennisSummaryFormatter.training(recent)) { TrainingDetailView(session: recent) }
+                    }
                     SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
                         .accessibilityAction(named: "Track Training Session") {
                             showingNewTraining = true
@@ -83,7 +86,7 @@ struct DashboardView: View {
                 if store.data.settings.showUpcomingTournaments {
                     Section("Upcoming tournaments") {
                         if let nextTournament {
-                            SummaryRow(title: "Next tournament", value: "\(nextTournament.name.fallback("Unnamed tournament")), \(nextTournament.date.shortTennisDate), \(nextTournament.location.fallback("location not recorded")).")
+                            SummaryRow(title: "Next tournament", value: TennisSummaryFormatter.tournament(nextTournament, matches: store.selectedMatches))
                                 .accessibilityAction(named: "Edit tournament") {
                                     tournamentToEdit = nextTournament
                                 }

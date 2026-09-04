@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/ios-poc
+      - codex/product-integration
 
 jobs:
   build:

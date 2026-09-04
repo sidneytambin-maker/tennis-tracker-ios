@@ -11,7 +11,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                ScreenIntro(title: "Settings", summary: "Choose tracking detail, theme, scoring announcements, reminders, Calendar, and dashboard preferences.")
+                Section("Tennis Setup") {
+                    NavigationLink("Tennis Setup") { TennisSetupView() }
+                        .accessibilityIdentifier("tennisSetupLink")
+                    if let player = store.selectedPlayer {
+                        NavigationLink("Player Defaults") { PlayerEditorView(player: player) }
+                    }
+                }
                 Section("Save") {
                     Button("Save Settings") {
                         saveSettings(announce: true)
@@ -111,6 +117,7 @@ struct SettingsView: View {
 
                 Section("Apple Watch") {
                     WatchStatusView()
+                    SummaryRow(title: "Last successful sync", value: watchSync.lastSuccessfulSync?.formatted(date: .abbreviated, time: .shortened) ?? "Not yet confirmed")
                     Button("Refresh Apple Watch Sync") {
                         watchSync.sendSnapshot(store.data)
                         savedMessage = watchSync.syncMessage

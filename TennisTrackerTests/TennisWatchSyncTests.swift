@@ -65,10 +65,11 @@ final class TennisWatchSyncTests: XCTestCase {
         tournament.location = "Brighton"
         tournament.date = Date(timeIntervalSince1970: 1_800_100_000)
 
-        let match = TennisWatchActivityFactory.match(player: player, kind: .doubles, tournament: tournament)
+        let now = tournament.date.addingTimeInterval(3600)
+        let match = TennisWatchActivityFactory.match(player: player, kind: .doubles, tournament: tournament, startDate: now)
 
         XCTAssertEqual(match.tournamentID, tournament.id)
-        XCTAssertEqual(match.date, tournament.date)
+        XCTAssertEqual(match.date, now)
         XCTAssertEqual(match.venue, "Brighton")
         XCTAssertEqual(match.matchType, .doubles)
     }
@@ -118,7 +119,7 @@ final class TennisWatchSyncTests: XCTestCase {
 
         XCTAssertEqual(
             TennisSummaryFormatter.match(match, tournaments: [tournament], style: .long),
-            "Win against Anthony Harrison, 6-4, Yorkshire League, 21 August 2026."
+            "Sidney beat Anthony Harrison, 6-4, Yorkshire League, 21 August 2026."
         )
         XCTAssertEqual(
             TennisSummaryFormatter.match(match, tournaments: [tournament], style: .short),

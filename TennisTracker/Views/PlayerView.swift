@@ -3,57 +3,56 @@ import SwiftUI
 struct PlayerView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var editingPlayer: PlayerProfile?
-    @State private var showingNewPlayer = false
+    @State private var deletingPlayer: PlayerProfile?
+    @State private var confirmDelete = false
+    var partnersOnly = false
 
     var body: some View {
-        NavigationStack {
-            List {
-                ScreenIntro(title: "Player", summary: "Manage the current player profile, classification, tracking mode, and tennis preferences.")
+        List {
+            Section(partnersOnly ? "Regular Doubles Partners" : "Players") {
+                ForEach(store.data.players.filter { !partnersOnly || $0.isRegularPartner }) { player in
+                    Button { editingPlayer = player } label: {
+                        VStack(alignment: .leading) {
+                            Text(player.displayName)
+                            Text([player.sightLevel.label, player.club].filter { !$0.isBlank }.joined(separator: ", "))
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityValue(player.isRegularPartner ? "Regular doubles partner" : player.sightLevel.label)
+                    .accessibilityAction(named: "Edit Player") { editingPlayer = player }
+                    .accessibilityAction(named: "Delete Player") { deletingPlayer = player; confirmDelete = true }
+                }
+                Button("Add Player") {
+                    var player = PlayerProfile()
+                    player.sightLevel = .notKnown
+                    player.bCategory = "Not known"
+                    player.isRegularPartner = partnersOnly
+                    editingPlayer = player
+                }
+                .accessibilityIdentifier("addPlayerButton")
+            }
+            if !partnersOnly, let player = store.selectedPlayer {
                 Section("Current player") {
-                    if let player = store.selectedPlayer {
-                        SummaryRow(title: player.displayName, value: "\(player.sightLevel.rawValue). \(player.trackingMode.rawValue) mode.")
-                        Button("Edit current player") {
-                            editingPlayer = player
-                        }
+                    Picker("Track activity for", selection: Binding(
+                        get: { store.selectedPlayerID },
+                        set: { id in if let value = store.data.players.first(where: { $0.id == id }) { store.selectPlayer(value) } }
+                    )) {
+                        ForEach(store.data.players) { Text($0.displayName).tag(Optional($0.id)) }
+                    }
+                    Button("Edit current player") { editingPlayer = player }
                         .accessibilityIdentifier("editCurrentPlayerButton")
-                    } else {
-                        EmptyStateView(title: "No player", message: "Add a player profile to start tracking.")
-                    }
-                }
-
-                Section("All players") {
-                    ForEach(store.data.players) { player in
-                        Button {
-                            store.selectPlayer(player)
-                        } label: {
-                            VStack(alignment: .leading) {
-                                Text(player.displayName)
-                                Text("\(player.bCategory), \(player.club.fallback("club not recorded"))")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .accessibilityLabel(player.displayName)
-                        .accessibilityValue("\(player.sightLevel.rawValue). \(player.trackingMode.rawValue) mode.")
-                    }
-                }
-
-                Section("Add") {
-                    Button("Add Player") {
-                        showingNewPlayer = true
-                    }
-                    .accessibilityLabel("Add Player")
-                    .accessibilityIdentifier("addPlayerButton")
                 }
             }
-            .tennisThemedList()
-            .navigationTitle("Player")
-            .sheet(item: $editingPlayer) { player in
-                PlayerEditorView(player: player)
+        }
+        .tennisThemedList()
+        .navigationTitle(partnersOnly ? "Doubles Partners" : "Players")
+        .sheet(item: $editingPlayer) { PlayerEditorView(player: $0) }
+        .confirmationDialog("Delete player? Historical activity will be kept.", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete Player", role: .destructive) {
+                if let deletingPlayer { store.deletePlayer(deletingPlayer) }
+                deletingPlayer = nil
             }
-            .sheet(isPresented: $showingNewPlayer) {
-                PlayerEditorView(player: PlayerProfile())
-            }
+            Button("Cancel", role: .cancel) { deletingPlayer = nil }
         }
     }
 }
@@ -67,99 +66,69 @@ struct PlayerEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Identity") {
+                Section("Player") {
                     TextField("Full name", text: $player.name)
-                    TextField("Preferred name", text: $player.preferredName)
-                    TextField("Surname", text: $player.surname)
-                    NumberChoicePicker(title: "Age", value: $player.age, range: 0...120, suffix: "years")
-                    TextField("Nationality", text: $player.nationality)
-                }
-                Section("Player category") {
-                    Picker("Player type", selection: $player.playerMode) {
-                        ForEach(PlayerMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .accessibilityIdentifier("editPlayerModePicker")
-                    Picker("Sight level", selection: $player.sightLevel) {
-                        ForEach(SightLevel.allCases) { level in
-                            Text(level.rawValue).tag(level)
-                        }
-                    }
-                    .onChange(of: player.sightLevel) { _, level in
-                        player.bCategory = String(level.rawValue.prefix(2))
+                        .accessibilityIdentifier("playerNameField")
+                    Picker("Sight classification", selection: $player.sightLevel) {
+                        ForEach(SightLevel.allCases) { Text($0.label).tag($0) }
                     }
                     .accessibilityIdentifier("editSightLevelPicker")
-                    Text("Allowed bounces: \(player.sightLevel.allowedBounces)")
-                    TextField("LTA number", text: $player.ltaNumber)
-                    TextField("ITF number", text: $player.itfNumber)
-                }
-                Section("Tennis profile") {
-                    Picker("Tracking mode", selection: $player.trackingMode) {
-                        ForEach(TrackingMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
+                    .onChange(of: player.sightLevel) { _, level in
+                        player.bCategory = level.label
+                        player.playerMode = level == .fullySighted ? .standardTennis : .blindTennis
+                    }
+                    Picker("Handedness", selection: $player.playingHand) {
+                        Text("Not known").tag("")
+                        Text("Right-handed").tag("Right-handed")
+                        Text("Left-handed").tag("Left-handed")
+                        if !["", "Right-handed", "Left-handed"].contains(player.playingHand) {
+                            Text(player.playingHand).tag(player.playingHand)
                         }
                     }
-                    .accessibilityIdentifier("editTrackingModePicker")
-                    Text(player.trackingMode.description)
-                    TextField("Playing hand", text: $player.playingHand)
-                    TextField("Club", text: $player.club)
-                    TextField("Primary goal", text: $player.primaryGoal, axis: .vertical)
-                    Picker("Preferred match type", selection: preferredMatchTypeBinding) {
-                        ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind.rawValue) }
+                    Picker("Usual bounce allowance", selection: $player.bounceAllowance) {
+                        Text(player.sightLevel == .notKnown ? "Not known" : "Classification default: \(player.sightLevel.allowedBounces)")
+                            .tag(Optional<Int>.none)
+                        ForEach(1...3, id: \.self) { Text("\($0)").tag(Optional($0)) }
                     }
-                    Picker("Preferred surface", selection: preferredSurfaceBinding) {
-                        ForEach(CourtSurface.allCases) { surface in Text(surface.rawValue).tag(surface.rawValue) }
-                    }
-                    if player.trackingMode != .basic {
-                        TextField("Playing style", text: $player.playingStyle, axis: .vertical)
-                        TextField("Coaching focus", text: $player.coachingFocus, axis: .vertical)
-                    }
+                    Toggle("Regular doubles partner", isOn: $player.isRegularPartner)
+                    TextField("Club or team", text: $player.club)
                     TextField("Notes", text: $player.profileNotes, axis: .vertical)
                 }
-                Section {
-                    Button("Delete player", role: .destructive) {
-                        confirmDelete = true
+                Section("Player defaults") {
+                    Picker("Default Match Format", selection: $player.defaultMatchFormat) {
+                        ForEach(MatchFormat.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    .accessibilityIdentifier("deletePlayerButton")
+                    .accessibilityIdentifier("playerDefaultFormatPicker")
+                    Picker("Preferred match type", selection: $player.preferredMatchType) {
+                        ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                    }
+                    Picker("Tracking mode", selection: $player.trackingMode) {
+                        ForEach(TrackingMode.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                }
+                if store.data.players.contains(where: { $0.id == player.id }) {
+                    Section {
+                        Button("Delete Player", role: .destructive) { confirmDelete = true }
+                            .accessibilityIdentifier("deletePlayerButton")
+                    }
                 }
             }
             .tennisThemedList()
             .navigationTitle("Player Details")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .accessibilityIdentifier("cancelPlayerButton")
+                    Button("Cancel") { dismiss() }.accessibilityIdentifier("cancelPlayerButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        store.upsertPlayer(player)
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("savePlayerButton")
+                    Button("Save") { store.upsertPlayer(player); dismiss() }
+                        .disabled(player.name.isBlank)
+                        .accessibilityIdentifier("savePlayerButton")
                 }
             }
-            .confirmationDialog("Delete this player and their activity?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete Player", role: .destructive) {
-                    store.deletePlayer(player)
-                    dismiss()
-                }
+            .confirmationDialog("Delete player? Historical activity will be kept.", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete Player", role: .destructive) { store.deletePlayer(player); dismiss() }
                 Button("Cancel", role: .cancel) {}
             }
         }
-    }
-
-    private var preferredMatchTypeBinding: Binding<String> {
-        Binding(
-            get: { player.preferredMatchType },
-            set: { player.preferredMatchType = $0 }
-        )
-    }
-
-    private var preferredSurfaceBinding: Binding<String> {
-        Binding(
-            get: { player.preferredSurface.isBlank ? CourtSurface.notSpecified.rawValue : player.preferredSurface },
-            set: { player.preferredSurface = $0 == CourtSurface.notSpecified.rawValue ? "" : $0 }
-        )
     }
 }

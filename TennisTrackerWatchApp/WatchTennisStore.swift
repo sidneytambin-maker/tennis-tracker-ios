@@ -1,4 +1,5 @@
 import Foundation
+import Accessibility
 import WatchConnectivity
 #if os(watchOS)
 import WatchKit
@@ -12,12 +13,16 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var scoreState = TennisScoreState()
     @Published var lastAnnouncement = "Tennis Tracker ready."
     @Published var lastSyncStatus = "Waiting for iPhone data."
+    @Published var page: TennisWatchPage = .today
+    @Published var completedTraining: TrainingSession?
+    @Published var activeTournamentID: UUID?
 
     private let snapshotKey = "snapshotData"
     private let commandKey = "commandData"
     private let localSnapshotKey = "watchSnapshot"
     private let queuedCommandsKey = "queuedWatchCommands"
     private var queuedCommands: [TennisWatchSyncCommand] = []
+    private var pointHistory: [TennisScoreSnapshot] = []
 
     override init() {
         super.init()
@@ -58,13 +63,19 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.requestSnapshot)
     }
 
-    func trackTrainingSession(type: TrainingType = .singlesPractice) {
+    func trackTrainingSession(type: TrainingType = .singlesPractice, context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "") {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
         }
-        let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
+        guard activeTraining == nil else { page = .live; return }
+        var session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
+        session.context = context
+        session.venue = venue
+        session.location = location
         activeTraining = session
+        completedTraining = nil
+        page = .live
         mergeTraining(session)
         send(.upsertTraining(session))
         haptic(.start)
@@ -78,6 +89,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         }
         let finished = TennisWatchActivityFactory.finishTrainingSession(activeTraining)
         self.activeTraining = nil
+        completedTraining = finished
         mergeTraining(finished)
         send(.upsertTraining(finished))
         haptic(.success)
@@ -91,6 +103,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         }
         let match = TennisWatchActivityFactory.match(player: player, kind: kind, tournament: tournament)
         activeMatch = match
+        page = .score
         scoreState = TennisScoreState(snapshot: match.liveScore ?? TennisScoreState().snapshot)
         mergeMatch(match)
         send(.upsertMatch(match))
@@ -111,9 +124,68 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func resume(_ match: MatchRecord) {
+        if activeMatch?.id != match.id { pointHistory = [] }
         activeMatch = match
+        page = .score
         scoreState = TennisScoreState(snapshot: match.liveScore ?? TennisScoreState().snapshot)
         announce("Resumed match scoring.")
+    }
+
+    func beginMatch(_ match: MatchRecord) {
+        var match = match
+        match.status = .inProgress
+        match.liveScore = match.liveScore ?? TennisScoreState().snapshot
+        match = TennisRecordConflictResolver.prepareLocalMatch(match)
+        mergeMatch(match)
+        send(.upsertMatch(match))
+        resume(match)
+    }
+
+    func beginTraining(_ planned: TrainingSession) {
+        guard activeTraining == nil else { page = .live; return }
+        var session = planned
+        session.actualStart = Date()
+        session.actualFinish = nil
+        session = TennisRecordConflictResolver.prepareLocalTraining(session)
+        activeTraining = session
+        completedTraining = nil
+        mergeTraining(session)
+        send(.upsertTraining(session))
+        page = .live
+        haptic(.start)
+        announce("Training started.")
+    }
+
+    func beginTournament(_ tournament: TournamentRecord) {
+        var tournament = tournament
+        tournament.finalResult = .inProgress
+        tournament = TennisRecordConflictResolver.prepareLocalTournament(tournament)
+        activeTournamentID = tournament.id
+        UserDefaults.standard.set(tournament.id.uuidString, forKey: "activeTournamentID")
+        mergeTournament(tournament)
+        send(.upsertTournament(tournament))
+        page = .live
+    }
+
+    func finishTournament() {
+        guard var tournament = snapshot.tournaments.first(where: { $0.id == activeTournamentID }) else { return }
+        tournament.finalResult = .completed
+        tournament = TennisRecordConflictResolver.prepareLocalTournament(tournament)
+        mergeTournament(tournament)
+        send(.upsertTournament(tournament))
+        activeTournamentID = nil
+        UserDefaults.standard.removeObject(forKey: "activeTournamentID")
+        announce("Tournament tracking finished.")
+    }
+
+    func savePracticeResult(_ result: TennisPracticeResult) {
+        guard var training = completedTraining else { return }
+        training.practiceResult = result
+        training = TennisRecordConflictResolver.prepareLocalTraining(training)
+        completedTraining = training
+        mergeTraining(training)
+        send(.upsertTraining(training))
+        announce("Saved practice result with training.")
     }
 
     func recordPoint(_ winner: PointWinner) {
@@ -122,6 +194,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         var scorer = scoringEngine(for: match)
+        pointHistory.append(scoreState.snapshot)
+        persistPointHistory()
         let message = scorer.awardPoint(to: winner)
         scoreState = scorer.state
         match.liveScore = scoreState.snapshot
@@ -144,15 +218,19 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func undoLastPoint() {
         guard var match = activeMatch else { return }
-        var scorer = scoringEngine(for: match)
-        lastAnnouncement = scorer.undo()
-        scoreState = scorer.state
+        guard let previous = pointHistory.popLast() else { announce("No point available to undo."); return }
+        scoreState = TennisScoreState(snapshot: previous)
+        persistPointHistory()
         match.liveScore = scoreState.snapshot
+        match.yourSetsWon = scoreState.playerSets
+        match.opponentSetsWon = scoreState.opponentSets
+        match.setScores = scoreState.completedSetScores.joined(separator: ", ")
         match = TennisRecordConflictResolver.prepareLocalMatch(match)
         activeMatch = match
         mergeMatch(match)
         send(.upsertMatch(match))
         haptic(.retry)
+        announce("Point undone. " + scoreState.spokenScore(playerName: match.playerTeam, opponentName: match.opponentSummary, suddenDeathDeuce: match.suddenDeathDeuce))
     }
 
     func saveMatchProgress() {
@@ -170,7 +248,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     func startTieBreak() {
         guard var match = activeMatch else { return }
         var scorer = scoringEngine(for: match)
-        lastAnnouncement = scorer.startTieBreak()
+        announce(scorer.startTieBreak())
         scoreState = scorer.state
         match.liveScore = scoreState.snapshot
         match = TennisRecordConflictResolver.prepareLocalMatch(match)
@@ -208,6 +286,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func send(_ command: TennisWatchSyncCommand) {
+        if let id = command.recordID { queuedCommands.removeAll { $0.recordID == id } }
         queuedCommands.append(command)
         persistQueue()
         flushQueue()
@@ -260,7 +339,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     private func scoringEngine(for match: MatchRecord) -> TennisScoringEngine {
         TennisScoringEngine(
-            playerName: match.playerName,
+            playerName: match.playerTeam,
             opponentName: match.opponentSummary,
             suddenDeathDeuce: match.suddenDeathDeuce,
             tieBreakRule: match.tieBreakRule,
@@ -276,7 +355,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
         guard session.activationState == .activated else { return }
         let pending = queuedCommands
-        queuedCommands.removeAll()
+        queuedCommands.removeAll { $0.recordID == nil }
         persistQueue()
         for command in pending {
             guard let data = try? JSONEncoder.tennisTracker.encode(command) else { continue }
@@ -292,10 +371,19 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     private func applySnapshotData(_ data: Data) {
         guard let incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
-        snapshot = incoming
+        let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: queuedCommands)
+        snapshot = result.snapshot
+        queuedCommands = result.pending
+        persistQueue()
         lastSyncStatus = "Updated from iPhone at \(Date().formatted(date: .omitted, time: .shortened))."
-        if activeMatch == nil {
-            activeMatch = incoming.matches.first { $0.status == MatchStatus.inProgress && $0.liveScore != nil }
+        send(.snapshotReceived(incoming.generatedAt))
+        if let id = activeMatch?.id {
+            activeMatch = snapshot.matches.first { $0.id == id && $0.status == .inProgress }
+        } else {
+            activeMatch = snapshot.matches.first { $0.status == MatchStatus.inProgress && $0.liveScore != nil }
+        }
+        activeTraining = snapshot.trainingSessions.first(where: \.isActive)
+        if activeMatch != nil {
             if let activeMatch {
                 scoreState = TennisScoreState(snapshot: activeMatch.liveScore ?? TennisScoreState().snapshot)
             }
@@ -321,10 +409,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         persistSnapshot()
     }
 
-    private func announce(_ message: String) {
+    func announce(_ message: String) {
         lastAnnouncement = message
         #if os(watchOS)
-        WKInterfaceDevice.current().play(.click)
+        AccessibilityNotification.Announcement(message).post()
         #endif
     }
 
@@ -349,9 +437,15 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     private func loadLocalState() {
         let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: "pointHistory"), let history = try? JSONDecoder.tennisTracker.decode([TennisScoreSnapshot].self, from: data) { pointHistory = history }
+        activeTournamentID = defaults.string(forKey: "activeTournamentID").flatMap(UUID.init(uuidString:))
         if let data = defaults.data(forKey: localSnapshotKey),
            let saved = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) {
             snapshot = saved
+            activeTraining = saved.trainingSessions.first(where: \.isActive)
+            activeMatch = saved.matches.first { $0.status == .inProgress && $0.liveScore != nil }
+            if let activeMatch { scoreState = TennisScoreState(snapshot: activeMatch.liveScore ?? TennisScoreState().snapshot) }
+            lastSyncStatus = "Saved iPhone data available."
         }
         if let data = defaults.data(forKey: queuedCommandsKey),
            let saved = try? JSONDecoder.tennisTracker.decode([TennisWatchSyncCommand].self, from: data) {
@@ -367,6 +461,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func persistQueue() {
         guard let data = try? JSONEncoder.tennisTracker.encode(queuedCommands) else { return }
         UserDefaults.standard.set(data, forKey: queuedCommandsKey)
+    }
+
+    private func persistPointHistory() {
+        if let data = try? JSONEncoder.tennisTracker.encode(pointHistory) { UserDefaults.standard.set(data, forKey: "pointHistory") }
     }
 }
 

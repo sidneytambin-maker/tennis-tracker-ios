@@ -50,13 +50,21 @@ enum SightLevel: String, Codable, CaseIterable, Identifiable {
     case b4 = "B4 - 1 bounce of the ball allowed"
     case b5 = "B5 - 1 bounce of the ball allowed"
     case fullySighted = "Fully Sighted - 1 bounce of the ball allowed"
+    case notKnown = "Not known"
 
     var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .fullySighted: return "Sighted"
+        case .notKnown: return "Not known"
+        default: return String(rawValue.prefix(2))
+        }
+    }
     var allowedBounces: Int {
         switch self {
         case .b1, .b2: return 3
         case .b3: return 2
-        case .b4, .b5, .fullySighted: return 1
+        case .b4, .b5, .fullySighted, .notKnown: return 1
         }
     }
 }
@@ -178,12 +186,17 @@ enum TrainingType: String, Codable, CaseIterable, Identifiable {
     case oneToOneCoaching = "One-to-one coaching"
     case singlesPractice = "Singles practice"
     case doublesPractice = "Doubles practice"
+    case groupCoaching = "Group coaching"
+    case servingPractice = "Serving practice"
+    case returnPractice = "Return practice"
+    case drillsTechnique = "Drills and technique"
+    case other = "Other"
     case serveAndReturn = "Serve and return"
     case rallyConsistency = "Rally consistency"
-    case movementAndFootwork = "Movement and footwork"
-    case matchPlay = "Practice match"
+    case movementAndFootwork = "Movement and positioning"
+    case matchPlay = "Match practice"
     case tacticalPatterns = "Tactical patterns"
-    case fitnessConditioning = "Tennis fitness"
+    case fitnessConditioning = "Fitness and conditioning"
     case tournamentPreparation = "Tournament preparation"
 
     var id: String { rawValue }
@@ -196,10 +209,12 @@ enum TrainingType: String, Codable, CaseIterable, Identifiable {
             self = .rallyConsistency
         case "Tactical session":
             self = .tacticalPatterns
-        case "Fitness":
+        case "Fitness", "Tennis fitness":
             self = .fitnessConditioning
-        case "Match practice":
+        case "Match practice", "Practice match":
             self = .matchPlay
+        case "Movement and footwork":
+            self = .movementAndFootwork
         case "Coaching":
             self = .oneToOneCoaching
         default:
@@ -283,6 +298,9 @@ struct PlayerProfile: Identifiable, Codable, Equatable {
     var playingStyle = ""
     var coachingFocus = ""
     var profileNotes = ""
+    var isRegularPartner = false
+    var bounceAllowance: Int?
+    var defaultMatchFormat: MatchFormat = .oneSet
 
     var displayName: String {
         if !preferredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -316,6 +334,9 @@ struct PlayerProfile: Identifiable, Codable, Equatable {
         playingStyle = try container.decodeIfPresent(String.self, forKey: .playingStyle) ?? ""
         coachingFocus = try container.decodeIfPresent(String.self, forKey: .coachingFocus) ?? ""
         profileNotes = try container.decodeIfPresent(String.self, forKey: .profileNotes) ?? ""
+        isRegularPartner = try container.decodeIfPresent(Bool.self, forKey: .isRegularPartner) ?? false
+        bounceAllowance = try container.decodeIfPresent(Int.self, forKey: .bounceAllowance)
+        defaultMatchFormat = try container.decodeIfPresent(MatchFormat.self, forKey: .defaultMatchFormat) ?? .oneSet
     }
 }
 
@@ -340,6 +361,14 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var energyLevel: RatingLevel = .medium
     var painLevel: PainLevel = .none
     var notes = ""
+
+    var context: TennisActivityContext = TennisActivityContext()
+    var actualStart: Date?
+    var actualFinish: Date?
+    var workout: TennisWorkoutResult?
+    var practiceResult: TennisPracticeResult?
+
+    var isActive: Bool { actualStart != nil && actualFinish == nil }
 
     var placeText: String {
         [venue, location, surface == .notSpecified ? "" : surface.rawValue].filter { !$0.isBlank }.joined(separator: ", ").fallback("location not recorded")
@@ -375,6 +404,11 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         energyLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .energyLevel) ?? .medium
         painLevel = try container.decodeIfPresent(PainLevel.self, forKey: .painLevel) ?? .none
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        context = try container.decodeIfPresent(TennisActivityContext.self, forKey: .context) ?? TennisActivityContext()
+        actualStart = try container.decodeIfPresent(Date.self, forKey: .actualStart)
+        actualFinish = try container.decodeIfPresent(Date.self, forKey: .actualFinish)
+        workout = try container.decodeIfPresent(TennisWorkoutResult.self, forKey: .workout)
+        practiceResult = try container.decodeIfPresent(TennisPracticeResult.self, forKey: .practiceResult)
     }
 }
 
@@ -428,6 +462,15 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var liveScore: TennisScoreSnapshot?
     var stableShareID = UUID()
     var sharingEnabled = false
+    var opponentID: UUID?
+    var partnerID: UUID?
+    var opponent2ID: UUID?
+    var venueID: UUID?
+
+    var playerTeam: String {
+        (matchType == .doubles ? [playerName, partnerName] : [playerName])
+            .filter { !$0.isBlank }.joined(separator: " and ").fallback("Player")
+    }
 
     var opponentSummary: String {
         matchType == .doubles ? [opponentName, opponent2Name].filter { !$0.isBlank }.joined(separator: " and ") : opponentName
@@ -498,6 +541,10 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         liveScore = try container.decodeIfPresent(TennisScoreSnapshot.self, forKey: .liveScore)
         stableShareID = try container.decodeIfPresent(UUID.self, forKey: .stableShareID) ?? UUID()
         sharingEnabled = try container.decodeIfPresent(Bool.self, forKey: .sharingEnabled) ?? false
+        opponentID = try container.decodeIfPresent(UUID.self, forKey: .opponentID)
+        partnerID = try container.decodeIfPresent(UUID.self, forKey: .partnerID)
+        opponent2ID = try container.decodeIfPresent(UUID.self, forKey: .opponent2ID)
+        venueID = try container.decodeIfPresent(UUID.self, forKey: .venueID)
     }
 }
 
@@ -520,6 +567,9 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
     var stageReached: TournamentStage = .notStarted
     var goal = ""
     var notes = ""
+    var templateID: UUID?
+    var venueID: UUID?
+    var venue = ""
 
     var isCompleted: Bool {
         finalResult == .completed || finalResult == .withdrawn || endDate < Calendar.current.startOfDay(for: Date())
@@ -553,6 +603,9 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
         stageReached = try container.decodeIfPresent(TournamentStage.self, forKey: .stageReached) ?? .notStarted
         goal = try container.decodeIfPresent(String.self, forKey: .goal) ?? ""
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        templateID = try container.decodeIfPresent(UUID.self, forKey: .templateID)
+        venueID = try container.decodeIfPresent(UUID.self, forKey: .venueID)
+        venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
     }
 }
 
@@ -617,7 +670,8 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 8
+    var dataVersion = 9
+    var setup = TennisSetup()
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []
@@ -630,6 +684,7 @@ struct AppData: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         dataVersion = try container.decodeIfPresent(Int.self, forKey: .dataVersion) ?? 1
+        setup = try container.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
         selectedPlayerID = try container.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
         players = try container.decodeIfPresent([PlayerProfile].self, forKey: .players) ?? []
         matches = try container.decodeIfPresent([MatchRecord].self, forKey: .matches) ?? []

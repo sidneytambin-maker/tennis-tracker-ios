@@ -11,7 +11,6 @@ struct TrainingView: View {
     var body: some View {
         NavigationStack {
             List {
-                ScreenIntro(title: "Training", summary: "\(store.selectedTraining.count) sessions saved. Track sessions with date, start time, duration, focus, and notes.")
                 Section("Track") {
                     Button("Track Training Session") { showingNewTraining = true }
                         .accessibilityLabel("Track Training Session")
@@ -26,18 +25,12 @@ struct TrainingView: View {
                                 TrainingDetailView(session: session)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(session.date.shortTennisDate): \(session.trainingType.rawValue)")
-                                    Text("\(session.durationMinutes.durationText). Focus: \(session.focus.fallback("not recorded")).")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                    Text(TennisSummaryFormatter.training(session))
                                 }
                             }
                             .accessibilityLabel("Training session")
-                            .accessibilityValue("\(session.date.shortTennisDate), \(session.hasStartTime ? session.date.shortTennisTime : "time not specified"), \(session.trainingType.rawValue), \(session.durationMinutes.durationText), focus \(session.focus.fallback("not recorded"))")
-                            .accessibilityAction(named: "Complete Training Details") {
-                                sessionToEdit = session
-                            }
-                            .accessibilityAction(named: session.notes.isBlank ? "Complete Training Details" : "Edit Training Session") {
+                            .accessibilityValue(TennisSummaryFormatter.training(session, style: .accessibility))
+                            .accessibilityAction(named: session.needsDetails ? "Complete Training Details" : "Edit Training Session") {
                                 sessionToEdit = session
                             }
                             .accessibilityAction(named: "Add to Calendar") {
@@ -83,6 +76,7 @@ struct TrainingView: View {
 
 struct TrainingDetailView: View {
     @EnvironmentObject private var store: TennisStore
+    @Environment(\.dismiss) private var dismiss
     @State var session: TrainingSession
     @State private var showingEditor = false
     @State private var confirmDelete = false
@@ -91,7 +85,7 @@ struct TrainingDetailView: View {
     var body: some View {
         List {
             Section("Summary") {
-                SummaryRow(title: session.trainingType.rawValue, value: "\(session.date.shortTennisDate). \(session.hasStartTime ? "Starts \(session.date.shortTennisTime)." : "Start time not specified.") \(session.durationMinutes.durationText). Expected end \(session.hasStartTime ? session.expectedEndDate.shortTennisTime : "not available"). \(session.placeText).")
+                Text(TennisSummaryFormatter.training(session, style: .detailed))
                 SummaryRow(title: "Focus", value: session.focus.fallback("not recorded"))
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
@@ -124,6 +118,10 @@ struct TrainingDetailView: View {
         }
         .tennisThemedList()
         .navigationTitle("Training detail")
+        .onChange(of: store.data.trainingSessions) { _, sessions in
+            if let updated = sessions.first(where: { $0.id == session.id }) { session = updated }
+            else { dismiss() }
+        }
         .toolbar {
             Button("Edit") { showingEditor = true }
         }
@@ -169,8 +167,33 @@ struct TrainingEditorView: View {
                     .accessibilityIdentifier("trainingTypePicker")
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $session.date, hasStartTime: $session.hasStartTime)
                         .accessibilityIdentifier("trainingDatePicker")
-                    TextField("Venue", text: $session.venue)
-                    TextField("Location", text: $session.location)
+                    StoredVenuePicker(id: $session.context.venueID, venue: $session.venue, location: $session.location, training: true)
+                    Picker("Coach", selection: $session.context.coachID) {
+                        Text("Other or no coach").tag(Optional<UUID>.none)
+                        ForEach(store.data.setup.coaches) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .onChange(of: session.context.coachID) { _, id in
+                        session.context.coachName = store.data.setup.coaches.first(where: { $0.id == id })?.name ?? ""
+                    }
+                    if session.context.coachID == nil { TextField("Coach name", text: $session.context.coachName) }
+                    NavigationLink("Players Present") {
+                        List {
+                            ForEach(store.data.players.filter { $0.id != session.playerID }) { player in
+                                Toggle(player.displayName, isOn: Binding(
+                                    get: { session.context.participantIDs.contains(player.id) },
+                                    set: { selected in
+                                        session.context.participantIDs.removeAll { $0 == player.id }
+                                        if selected { session.context.participantIDs.append(player.id) }
+                                        session.context.participantNames = store.data.players.filter { session.context.participantIDs.contains($0.id) }.map(\.displayName)
+                                    }
+                                ))
+                            }
+                        }.navigationTitle("Players Present")
+                    }
+                    Picker("Tournament", selection: $session.context.tournamentID) {
+                        Text("No tournament").tag(Optional<UUID>.none)
+                        ForEach(store.selectedTournaments) { Text($0.name).tag(Optional($0.id)) }
+                    }
                     Picker("Surface", selection: $session.surface) {
                         ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -225,6 +248,7 @@ struct TrainingEditorView: View {
             UIAccessibility.post(notification: .announcement, argument: validationMessage)
             return
         }
+        session.needsDetails = false
         store.upsertTraining(session)
         dismiss()
     }

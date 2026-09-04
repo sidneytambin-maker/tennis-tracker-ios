@@ -2,336 +2,351 @@ import SwiftUI
 
 struct WatchRootView: View {
     @StateObject private var store = WatchTennisStore()
-
     var body: some View {
-        TabView {
-            WatchTodayView()
-                .environmentObject(store)
-            WatchTrackView()
-                .environmentObject(store)
-            WatchLiveView()
-                .environmentObject(store)
-            WatchRecentView()
-                .environmentObject(store)
+        TabView(selection: $store.page) {
+            NavigationStack { WatchTodayView() }.tag(TennisWatchPage.today)
+            NavigationStack { WatchTrackView() }.tag(TennisWatchPage.track)
+            NavigationStack { WatchLiveView() }.tag(TennisWatchPage.live)
+            NavigationStack { WatchRecentView() }.tag(TennisWatchPage.recent)
+            NavigationStack { WatchScoreView() }.tag(TennisWatchPage.score)
         }
+        .environmentObject(store)
         .tabViewStyle(.page)
-        .onAppear {
-            store.activate()
+        .onAppear { store.activate() }
+        .onOpenURL { url in
+            if let page = TennisWatchPage.destination(for: url) { store.page = page }
         }
     }
 }
 
 private struct WatchTodayView: View {
     @EnvironmentObject private var store: WatchTennisStore
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Today")
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
-                Text(activeText)
-                    .font(.headline)
-                    .foregroundStyle(.green)
-                if let latestMatch = store.snapshot.matches.first {
-                    WatchSummaryLine(title: "Recent", value: TennisSummaryFormatter.match(latestMatch, tournaments: store.snapshot.tournaments, style: .short))
-                } else if let latestTraining = store.snapshot.trainingSessions.first {
-                    WatchSummaryLine(title: "Recent", value: TennisSummaryFormatter.training(latestTraining, style: .short))
+        List {
+            if let training = store.snapshot.trainingSessions.filter({ !$0.isActive && $0.actualFinish == nil && $0.expectedEndDate >= Date() }).sorted(by: { $0.date < $1.date }).first {
+                Section("Next training") {
+                    Text(TennisSummaryFormatter.training(training))
+                    Button("Start Training Session") { store.beginTraining(training) }
+                        .disabled(store.activeTraining != nil)
                 }
-                if let tournament = store.upcomingTournament {
-                    WatchSummaryLine(title: "Next", value: "\(tournament.name.fallback("Tournament")), \(tournament.date.shortTennisDate)")
-                }
-                WatchSummaryLine(title: "Needs Details", value: "\(store.needsDetailsCount)")
-                Text(store.lastAnnouncement)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Text(store.lastSyncStatus)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
+            if let match = store.snapshot.matches.filter({ $0.status == .scheduled }).sorted(by: { $0.date < $1.date }).first {
+                Section("Next match") { Text(TennisSummaryFormatter.match(match, tournaments: store.snapshot.tournaments)) }
+            }
+            if let tournament = store.upcomingTournament {
+                Section("Next tournament") { Text(TennisSummaryFormatter.tournament(tournament, style: .short)) }
+            }
+            if store.activeTraining != nil {
+                Button("Training in progress") { store.page = .live }
+            }
+            if store.activeMatch != nil {
+                Button("Match in progress") { store.page = .score }
+            }
+            if store.needsDetailsCount > 0 {
+                Section("Needs Details") { Text("\(store.needsDetailsCount) activities need details on iPhone.") }
+            }
+            Section("Sync") { Text(store.lastSyncStatus).font(.footnote) }
         }
-    }
-
-    private var activeText: String {
-        if let match = store.activeMatch {
-            return TennisSummaryFormatter.match(match, tournaments: store.snapshot.tournaments, style: .short)
-        }
-        if let training = store.activeTraining {
-            return TennisSummaryFormatter.training(training, style: .short)
-        }
-        return "Ready to track"
+        .navigationTitle("Today")
     }
 }
 
 private struct WatchTrackView: View {
-    @EnvironmentObject private var store: WatchTennisStore
-    @State private var choosingTrainingType = false
-    @State private var choosingMatchKind = false
-    @State private var choosingTournamentMatch = false
-
     var body: some View {
-        ScrollView {
-            VStack(spacing: 9) {
-                Text("Track Tennis Activity")
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-
-                Button("Track Training Session") {
-                    choosingTrainingType = true
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityHint("Choose the type of tennis training before starting.")
-
-                Button("Record Match") {
-                    choosingMatchKind = true
-                }
-                .buttonStyle(.bordered)
-
-                Button("Track Tournament") {
-                    if store.upcomingTournament == nil {
-                        store.trackTournament()
-                    } else {
-                        choosingTournamentMatch = true
-                    }
-                }
-                .buttonStyle(.bordered)
+        List {
+            Section("Track Tennis Activity") {
+                NavigationLink("Track Training Session") { WatchTrainingSetupView() }
+                NavigationLink("Record Match") { WatchMatchSetupView() }
+                NavigationLink("Track Tournament") { WatchTournamentSetupView() }
             }
-            .padding()
         }
-        .sheet(isPresented: $choosingTrainingType) {
-            WatchTrainingTypeSheet()
-                .environmentObject(store)
-        }
-        .sheet(isPresented: $choosingMatchKind) {
-            WatchMatchKindSheet(tournament: nil)
-                .environmentObject(store)
-        }
-        .sheet(isPresented: $choosingTournamentMatch) {
-            WatchTournamentSheet()
-                .environmentObject(store)
-        }
+        .navigationTitle("Track")
     }
 }
 
-private struct WatchTrainingTypeSheet: View {
-    @Environment(\.dismiss) private var dismiss
+private struct WatchTrainingSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var type: TrainingType = .singlesPractice
+    @State private var context = TennisActivityContext()
+    @State private var otherPlayers = false
 
     var body: some View {
-        List {
-            Section("Training Type") {
-                ForEach(TrainingType.allCases) { type in
-                    Button(type.rawValue) {
-                        store.trackTrainingSession(type: type)
-                        dismiss()
-                    }
-                    .accessibilityLabel(type.rawValue)
-                    .accessibilityHint("Starts this training session on Apple Watch.")
-                }
+        Form {
+            Picker("Training type", selection: $type) {
+                ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
-            Button("Cancel", role: .cancel) {
+            Picker("Coach", selection: $context.coachID) {
+                Text("Other or no coach").tag(Optional<UUID>.none)
+                ForEach(store.snapshot.setup.coaches) { Text($0.name).tag(Optional($0.id)) }
+            }
+            Picker("Venue", selection: $context.venueID) {
+                Text("Other").tag(Optional<UUID>.none)
+                ForEach(store.snapshot.setup.venues.filter(\.usedForTraining)) { Text($0.summary).tag(Optional($0.id)) }
+            }
+            NavigationLink("Players Present") {
+                List {
+                    ForEach(store.snapshot.players.filter { $0.id != store.selectedPlayer?.id }) { player in
+                        Toggle(player.displayName, isOn: Binding(
+                            get: { context.participantIDs.contains(player.id) },
+                            set: { selected in
+                                context.participantIDs.removeAll { $0 == player.id }
+                                if selected { context.participantIDs.append(player.id) }
+                            }
+                        ))
+                    }
+                    Toggle("Other", isOn: $otherPlayers)
+                }.navigationTitle("Players Present")
+            }
+            Picker("Tournament", selection: $context.tournamentID) {
+                Text("Other or no tournament").tag(Optional<UUID>.none)
+                ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { Text($0.name).tag(Optional($0.id)) }
+            }
+            Button("Begin Training Session") {
+                context.coachName = store.snapshot.setup.coaches.first { $0.id == context.coachID }?.name ?? ""
+                context.participantNames = store.snapshot.players.filter { context.participantIDs.contains($0.id) }.map(\.displayName)
+                let venue = store.snapshot.setup.venues.first { $0.id == context.venueID }
+                store.trackTrainingSession(type: type, context: context, venue: venue?.name ?? "", location: venue?.town ?? "")
                 dismiss()
             }
+            .disabled(store.selectedPlayer == nil || store.activeTraining != nil)
+            Button("Cancel", role: .cancel) { dismiss() }
         }
-        .navigationTitle("Training Type")
+        .navigationTitle("Training")
     }
 }
 
-private struct WatchMatchKindSheet: View {
-    @Environment(\.dismiss) private var dismiss
+private struct WatchMatchSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
-    let tournament: TournamentRecord?
+    @Environment(\.dismiss) private var dismiss
+    @State private var match = MatchRecord(playerID: UUID())
+    @State private var configured = false
 
     var body: some View {
-        List {
-            Button("Singles") {
-                store.recordMatch(kind: .singles, tournament: tournament)
+        Form {
+            Picker("Singles or doubles", selection: $match.matchType) {
+                ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
+            }
+            TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName)
+            if match.matchType == .doubles {
+                TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID }, selection: $match.partnerID, name: $match.partnerName, regularPartnersFirst: true)
+                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
+            }
+            Picker("Match format", selection: $match.matchFormat) {
+                ForEach(MatchFormat.allCases) { Text($0.rawValue).tag($0) }
+            }
+            Picker("Venue", selection: $match.venueID) {
+                Text("Other").tag(Optional<UUID>.none)
+                ForEach(store.snapshot.setup.venues.filter(\.usedForMatches)) { Text($0.summary).tag(Optional($0.id)) }
+            }
+            Picker("Tournament", selection: $match.tournamentID) {
+                Text("Other or no tournament").tag(Optional<UUID>.none)
+                ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { Text($0.name).tag(Optional($0.id)) }
+            }
+            Button("Begin Match Scoring") {
+                if let venue = store.snapshot.setup.venues.first(where: { $0.id == match.venueID }) {
+                    match.venue = venue.name; match.location = venue.town
+                }
+                match.needsDetails = match.opponentID == nil || (match.matchType == .doubles && (match.partnerID == nil || match.opponent2ID == nil)) || match.venueID == nil
+                store.beginMatch(match)
+                if match.needsDetails { store.announce("Match ready. Complete missing details later on iPhone.") }
                 dismiss()
             }
-            Button("Doubles") {
-                store.recordMatch(kind: .doubles, tournament: tournament)
-                dismiss()
-            }
-            Button("Set Up on iPhone") {
-                store.send(.requestSnapshot)
-                dismiss()
-            }
+            .disabled(!configured || store.activeMatch != nil)
+            Button("Cancel", role: .cancel) { dismiss() }
         }
         .navigationTitle("Record Match")
+        .onAppear {
+            guard !configured, let player = store.selectedPlayer else { return }
+            match = TennisWatchActivityFactory.match(player: player, kind: .singles)
+            match.opponentName = ""
+            configured = true
+        }
     }
 }
 
-private struct WatchTournamentSheet: View {
+private struct WatchTournamentSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
-
+    @Environment(\.dismiss) private var dismiss
+    @State private var templateID: UUID?
     var body: some View {
-        List {
-            if let tournament = store.upcomingTournament {
-                Section(tournament.name.fallback("Tournament")) {
-                    NavigationLink("Record Match") {
-                        WatchMatchKindSheet(tournament: tournament)
-                            .environmentObject(store)
-                    }
+        Form {
+            Section("Existing tournament") {
+                ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { tournament in
+                    Button(tournament.name) { store.beginTournament(tournament); dismiss() }
                 }
             }
-            Button("Create Tournament") {
-                store.trackTournament()
+            Section("New occurrence") {
+                Picker("Regular tournament", selection: $templateID) {
+                    Text("Other").tag(Optional<UUID>.none)
+                    ForEach(store.snapshot.setup.tournamentTemplates) { Text($0.name).tag(Optional($0.id)) }
+                }
+                Button("Begin Tournament") {
+                    guard let player = store.selectedPlayer else { return }
+                    var tournament = TennisWatchActivityFactory.tournament(playerID: player.id)
+                    if let template = store.snapshot.setup.tournamentTemplates.first(where: { $0.id == templateID }) {
+                        tournament.templateID = template.id; tournament.name = template.name
+                        tournament.format = template.format; tournament.venueID = template.venueID
+                        if let venue = store.snapshot.setup.venues.first(where: { $0.id == template.venueID }) {
+                            tournament.venue = venue.name; tournament.location = venue.town
+                        }
+                    }
+                    store.beginTournament(tournament)
+                    store.announce("Tournament started. Complete dates and details later on iPhone.")
+                    dismiss()
+                }
             }
+            Button("Cancel", role: .cancel) { dismiss() }
         }
-        .navigationTitle("Track Tournament")
+        .navigationTitle("Tournament")
     }
 }
 
 private struct WatchLiveView: View {
     @EnvironmentObject private var store: WatchTennisStore
-    @FocusState private var scoringFocus: PointWinner?
-
+    @State private var confirmFinish = false
     var body: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                Text("Live")
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
-
-                if let training = store.activeTraining {
-                    WatchSummaryLine(title: "Training", value: elapsedText(since: training.date))
-                    Button("Finish Training Session") {
-                        store.finishTrainingSession()
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else if let match = store.activeMatch {
-                    Text(scoreText)
-                        .font(.system(.title3, design: .rounded).bold())
-                        .multilineTextAlignment(.center)
-                        .accessibilityLabel("Score")
-                        .accessibilityValue(scoreText)
-                        .accessibilityAddTraits(.updatesFrequently)
-                        .accessibilityAction(named: "Undo Last Point") { store.undoLastPoint() }
-                        .accessibilityAction(named: "Save Match Progress") { store.saveMatchProgress() }
-                        .accessibilityAction(named: "Hear Full Score") { store.lastAnnouncement = scoreText }
-                        .accessibilityAction(named: "Start Tie-break") { store.startTieBreak() }
-                        .accessibilityAction(named: "Finish Match") { store.finishMatch() }
-
-                    Button("Record Point for \(teamName(.player, match: match))") {
-                        store.recordPoint(.player)
-                        scoringFocus = .player
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .focused($scoringFocus, equals: .player)
-                    .accessibilityHint("Records the point and keeps focus on this scoring button.")
-
-                    Button("Record Point for \(teamName(.opponent, match: match))") {
-                        store.recordPoint(.opponent)
-                        scoringFocus = .opponent
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .focused($scoringFocus, equals: .opponent)
-                    .accessibilityHint("Records the point and keeps focus on this scoring button.")
-
-                    Button("Hear Full Score") {
-                        store.lastAnnouncement = scoreText
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Undo Last Point") { store.undoLastPoint() }
-                        .buttonStyle(.bordered)
-
-                    Button("Save Match Progress") { store.saveMatchProgress() }
-                        .buttonStyle(.bordered)
-
-                    Button("Start Tie-break") { store.startTieBreak() }
-                        .buttonStyle(.bordered)
-
-                    Button("Finish Match") { store.finishMatch() }
-                        .buttonStyle(.borderedProminent)
-                } else {
-                    Text("No tennis activity in progress.")
-                        .foregroundStyle(.secondary)
-                    Button("Track Tennis Activity") {
-                        store.send(.requestSnapshot)
-                    }
-                    .buttonStyle(.bordered)
+        List {
+            if let training = store.activeTraining {
+                Text(training.trainingType.rawValue).font(.headline)
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(max(0, Int(context.date.timeIntervalSince(training.actualStart ?? training.date) / 60)).durationText)
+                        .accessibilityLabel("Elapsed duration")
+                        .accessibilityValue(max(0, Int(context.date.timeIntervalSince(training.actualStart ?? training.date) / 60)).durationText)
                 }
+                if !training.context.coachName.isBlank { Text("Coach \(training.context.coachName)") }
+                if !training.venue.isBlank { Text(training.venue) }
+                Button("Finish Training Session") { confirmFinish = true }.buttonStyle(.borderedProminent)
+            } else if let tournament = store.snapshot.tournaments.first(where: { $0.id == store.activeTournamentID }) {
+                Text(TennisSummaryFormatter.tournament(tournament, style: .short))
+                Button("Finish Tournament") { confirmFinish = true }
+            } else if let training = store.completedTraining {
+                Text(TennisSummaryFormatter.training(training, style: .detailed))
+                NavigationLink("View Details") { Text(TennisSummaryFormatter.training(training, style: .detailed)).padding() }
+                if training.trainingType == .matchPlay {
+                    NavigationLink("Record Practice Result") { WatchPracticeResultView() }
+                }
+                Button("Mark Complete") {
+                    store.send(.markTrainingDetailsComplete(training.id))
+                    store.announce("Marked training complete.")
+                }
+                Button("Complete Details on iPhone") { store.announce("Open this training session on iPhone to complete its details.") }
+            } else {
+                Text("No tennis activity in progress.")
             }
-            .padding()
+        }
+        .navigationTitle("Live")
+        .confirmationDialog("Finish this activity?", isPresented: $confirmFinish, titleVisibility: .visible) {
+            Button("Finish") {
+                if store.activeTraining != nil { store.finishTrainingSession() }
+                else { store.finishTournament() }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
+}
 
-    private var scoreText: String {
-        guard let match = store.activeMatch else { return "No match in progress." }
-        return store.scoreState.spokenScore(
-            playerName: teamName(.player, match: match),
-            opponentName: teamName(.opponent, match: match),
-            suddenDeathDeuce: match.suddenDeathDeuce
-        )
-    }
-
-    private func teamName(_ winner: PointWinner, match: MatchRecord) -> String {
-        if match.matchType == .doubles {
-            if winner == .player {
-                return [match.playerName, match.partnerName].filter { !$0.isBlank }.joined(separator: " and ").fallback("Your team")
+private struct WatchPracticeResultView: View {
+    @EnvironmentObject private var store: WatchTennisStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var result = TennisPracticeResult()
+    var body: some View {
+        Form {
+            Picker("Singles or doubles", selection: $result.kind) {
+                ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
             }
-            return [match.opponentName, match.opponent2Name].filter { !$0.isBlank }.joined(separator: " and ").fallback("Opponent team")
-        }
-        return winner == .player ? match.playerName.fallback("Player") : match.opponentName.fallback("Opponent")
-    }
-
-    private func elapsedText(since date: Date) -> String {
-        max(1, Int(Date().timeIntervalSince(date) / 60)).durationText
+            TennisPersonPicker(title: "Opponent", players: store.snapshot.players, selection: $result.opponentID, name: $result.opponentName)
+            if result.kind == .doubles {
+                TennisPersonPicker(title: "Partner", players: store.snapshot.players, selection: $result.partnerID, name: $result.partnerName, regularPartnersFirst: true)
+                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players, selection: $result.opponent2ID, name: $result.opponent2Name)
+            }
+            Picker("Your games", selection: $result.playerGames) { ForEach(0...30, id: \.self) { Text("\($0)").tag($0) } }
+            Picker("Opponent games", selection: $result.opponentGames) { ForEach(0...30, id: \.self) { Text("\($0)").tag($0) } }
+            Button("Save Practice Result") {
+                result.result = result.playerGames == result.opponentGames ? .draw : result.playerGames > result.opponentGames ? .win : .loss
+                store.savePracticeResult(result); dismiss()
+            }
+            Button("Cancel", role: .cancel) { dismiss() }
+        }.navigationTitle("Practice Result")
     }
 }
 
 private struct WatchRecentView: View {
     @EnvironmentObject private var store: WatchTennisStore
-
     var body: some View {
         List {
-            Section("Recent") {
-                if store.recentSummary.isEmpty {
-                    Text("No recent tennis activity.")
-                } else {
-                    ForEach(store.recentSummary, id: \.self) { item in
-                        Text(item)
-                    }
+            Section("Matches") {
+                ForEach(store.snapshot.matches.filter { $0.status == .completed }.sorted { $0.date > $1.date }.prefix(5)) { match in
+                    Text(TennisSummaryFormatter.match(match, tournaments: store.snapshot.tournaments, style: .short))
+                        .accessibilityAction(named: "Complete Match Details") { store.announce("Complete this match on iPhone.") }
+                }
+            }
+            Section("Training") {
+                ForEach(store.snapshot.trainingSessions.filter { !$0.isActive && ($0.actualFinish != nil || $0.expectedEndDate < Date()) }.sorted { $0.date > $1.date }.prefix(5)) { training in
+                    Text(TennisSummaryFormatter.training(training, style: .short))
+                        .accessibilityAction(named: "Complete Training Details") { store.announce("Complete this training session on iPhone.") }
+                }
+            }
+            Section("Tournaments") {
+                ForEach(store.snapshot.tournaments.filter(\.isCompleted).sorted { $0.date > $1.date }.prefix(3)) {
+                    Text(TennisSummaryFormatter.tournament($0, style: .short))
                 }
             }
             if store.needsDetailsCount > 0 {
-                Section("Needs Details") {
-                    Text("\(store.needsDetailsCount) activities need details.")
-                    Button("Mark Complete") {
-                        store.markDetailsComplete()
-                    }
-                }
+                Section("Needs Details") { Text("\(store.needsDetailsCount) activities need details on iPhone.") }
             }
-            Section("Resume") {
-                ForEach(store.snapshot.matches.filter { $0.status == .inProgress && $0.liveScore != nil }.prefix(5)) { match in
-                    Button("Resume Match Scoring, \(match.opponentSummary.fallback("opponent"))") {
-                        store.resume(match)
-                    }
-                }
-            }
-        }
-        .navigationTitle("Recent")
+        }.navigationTitle("Recent")
     }
 }
 
-private struct WatchSummaryLine: View {
-    let title: String
-    let value: String
-
+private struct WatchScoreView: View {
+    @EnvironmentObject private var store: WatchTennisStore
+    @AccessibilityFocusState private var pointFocus: PointWinner?
+    @State private var confirmFinish = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.body.bold())
+        List {
+            if let match = store.activeMatch {
+                Text(scoreText)
+                    .accessibilityLabel("Current match score")
+                    .accessibilityValue(scoreText)
+                    .accessibilityAction(named: "Undo Last Point") { store.undoLastPoint() }
+                    .accessibilityAction(named: "Save Match Progress") { store.saveMatchProgress() }
+                    .accessibilityAction(named: "Hear Full Score") { store.announce(scoreText) }
+                    .accessibilityAction(named: "Start Tie-break") { store.startTieBreak() }
+                    .accessibilityAction(named: "Finish Match") { confirmFinish = true }
+                Button("Record Point for \(match.playerTeam)") {
+                    store.recordPoint(.player); pointFocus = .player
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityFocused($pointFocus, equals: .player)
+                Button("Record Point for \(match.opponentSummary.fallback("Opponent"))") {
+                    store.recordPoint(.opponent); pointFocus = .opponent
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityFocused($pointFocus, equals: .opponent)
+                Button("Undo Last Point") { store.undoLastPoint() }
+                Button("Hear Full Score") { store.announce(scoreText) }
+                Button("Save Match Progress") { store.saveMatchProgress() }
+                Button("Start Tie-break") { store.startTieBreak() }
+                    .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
+                Button("Finish Match") { confirmFinish = true }
+            } else {
+                Text("No match in progress.")
+                ForEach(store.snapshot.matches.filter { $0.status == .scheduled || $0.status == .inProgress }) { match in
+                    Button("Score \(match.playerTeam) against \(match.opponentSummary)") { store.beginMatch(match) }
+                }
+                Button("Record Match") { store.page = .track }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .navigationTitle("Score")
+        .confirmationDialog("Finish match with the recorded score?", isPresented: $confirmFinish, titleVisibility: .visible) {
+            Button("Finish Match") { store.finishMatch() }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private var scoreText: String {
+        guard let match = store.activeMatch else { return "No match in progress." }
+        return store.scoreState.spokenScore(playerName: match.playerTeam, opponentName: match.opponentSummary.fallback("Opponent"), suddenDeathDeuce: match.suddenDeathDeuce)
     }
 }

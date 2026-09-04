@@ -57,6 +57,7 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertPlayer(_ player: PlayerProfile) {
+        guard !player.name.isBlank else { return }
         upsert(player, in: \.players)
         if data.selectedPlayerID == nil {
             data.selectedPlayerID = player.id
@@ -66,15 +67,19 @@ final class TennisStore: ObservableObject {
 
     func deletePlayer(_ player: PlayerProfile) {
         data.players.removeAll { $0.id == player.id }
-        data.matches.removeAll { $0.playerID == player.id }
-        data.trainingSessions.removeAll { $0.playerID == player.id }
-        data.tournaments.removeAll { $0.playerID == player.id }
-        data.selectedPlayerID = data.players.first?.id
-        saveAndAnnounce("Deleted player \(player.displayName) and their saved activity.")
+        if data.selectedPlayerID == player.id { data.selectedPlayerID = data.players.first?.id }
+        saveAndAnnounce("Deleted player \(player.displayName). Historical activity kept.")
+    }
+
+    func updateSetup(_ setup: TennisSetup) {
+        data.setup = setup
+        saveAndAnnounce("Saved Tennis Setup.")
     }
 
     func upsertMatch(_ match: MatchRecord) {
-        var saved = TennisRecordConflictResolver.prepareLocalMatch(match)
+        var latest = match
+        latest.revision = max(latest.revision, data.matches.first(where: { $0.id == match.id })?.revision ?? 0)
+        var saved = TennisRecordConflictResolver.prepareLocalMatch(latest)
         if saved.playerName.isBlank {
             saved.playerName = selectedPlayer?.displayName ?? "Player"
         }
@@ -94,7 +99,9 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertTraining(_ session: TrainingSession) {
-        let saved = TennisRecordConflictResolver.prepareLocalTraining(session)
+        var latest = session
+        latest.revision = max(latest.revision, data.trainingSessions.first(where: { $0.id == session.id })?.revision ?? 0)
+        let saved = TennisRecordConflictResolver.prepareLocalTraining(latest)
         upsert(saved, in: \.trainingSessions)
         saveAndAnnounce("Saved training at \(session.placeText).")
     }
@@ -105,7 +112,9 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertTournament(_ tournament: TournamentRecord) {
-        let saved = TennisRecordConflictResolver.prepareLocalTournament(tournament)
+        var latest = tournament
+        latest.revision = max(latest.revision, data.tournaments.first(where: { $0.id == tournament.id })?.revision ?? 0)
+        let saved = TennisRecordConflictResolver.prepareLocalTournament(latest)
         upsert(saved, in: \.tournaments)
         saveAndAnnounce("Saved tournament \(tournament.name.fallback("unnamed tournament")).")
     }
@@ -169,6 +178,8 @@ final class TennisStore: ObservableObject {
 
     func applyWatchCommand(_ command: TennisWatchSyncCommand) {
         switch command {
+        case .snapshotReceived:
+            break
         case .requestSnapshot:
             save()
             announce("Apple Watch sync refreshed.")
@@ -194,9 +205,10 @@ final class TennisStore: ObservableObject {
         guard let player = selectedPlayer else { return nil }
         var match = MatchRecord(playerID: player.id)
         match.playerName = player.displayName
+        match.matchFormat = player.defaultMatchFormat
         match.matchType = data.settings.defaultMatchType
         match.sightLevel = player.sightLevel
-        match.allowedBounces = player.sightLevel.allowedBounces
+        match.allowedBounces = player.bounceAllowance ?? player.sightLevel.allowedBounces
         match.suddenDeathDeuce = player.playerMode == .blindTennis
         match.tournamentID = tournamentID
         if let tournamentID, let tournament = data.tournaments.first(where: { $0.id == tournamentID }) {
@@ -229,7 +241,7 @@ final class TennisStore: ObservableObject {
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 8
+        data.dataVersion = 9
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings
@@ -327,15 +339,16 @@ final class TennisStore: ObservableObject {
     }
 
     private func migrateIfNeeded() {
-        if data.dataVersion < 3 {
-            data = AppData()
-            data.dataVersion = 8
-            lastAnnouncement = "Tennis Tracker is ready for first setup."
-            save()
-            return
-        }
-        if data.dataVersion < 8 {
-            data.dataVersion = 8
+        if data.dataVersion < 9 {
+            // Add reusable places without changing historical record IDs or text.
+            let places = data.matches.map { ($0.venue, $0.location) } + data.trainingSessions.map { ($0.venue, $0.location) }
+            for (name, town) in places where !name.isBlank {
+                if !data.setup.venues.contains(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame && $0.town == town }) {
+                    var venue = TennisVenue(); venue.name = name; venue.town = town
+                    data.setup.venues.append(venue)
+                }
+            }
+            data.dataVersion = 9
             save()
         }
     }

@@ -8,6 +8,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
     var trainingSessions: [TrainingSession] = []
     var tournaments: [TournamentRecord] = []
     var settings = AppSettings()
+    var setup = TennisSetup()
 
     static let empty = TennisWatchSnapshot()
 
@@ -18,6 +19,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
         selectedPlayerID = data.selectedPlayerID
         players = data.players
         settings = data.settings
+        setup = data.setup
 
         let recentLimit = Calendar.current.date(byAdding: .day, value: -60, to: now) ?? now
         matches = data.matches
@@ -36,10 +38,23 @@ struct TennisWatchSnapshot: Codable, Equatable {
             .prefix(20)
             .map { $0 }
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        generatedAt = try c.decodeIfPresent(Date.self, forKey: .generatedAt) ?? .distantPast
+        selectedPlayerID = try c.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
+        players = try c.decodeIfPresent([PlayerProfile].self, forKey: .players) ?? []
+        matches = try c.decodeIfPresent([MatchRecord].self, forKey: .matches) ?? []
+        trainingSessions = try c.decodeIfPresent([TrainingSession].self, forKey: .trainingSessions) ?? []
+        tournaments = try c.decodeIfPresent([TournamentRecord].self, forKey: .tournaments) ?? []
+        settings = try c.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
+        setup = try c.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
+    }
 }
 
 enum TennisWatchSyncCommand: Codable, Equatable {
     case requestSnapshot
+    case snapshotReceived(Date)
     case upsertMatch(MatchRecord)
     case upsertTraining(TrainingSession)
     case upsertTournament(TournamentRecord)
@@ -82,19 +97,20 @@ enum TennisWatchActivityFactory {
     static func trainingSession(playerID: UUID, type: TrainingType = .singlesPractice, startDate: Date = Date()) -> TrainingSession {
         var session = TrainingSession(playerID: playerID)
         session.date = startDate
+        session.actualStart = startDate
         session.hasStartTime = true
         session.durationMinutes = 1
         session.trainingType = type
         session.hasSessionDetails = false
         session.needsDetails = true
         session.focus = type.rawValue
-        session.notes = "Created on Apple Watch. Complete details on iPhone."
         return TennisRecordConflictResolver.prepareLocalTraining(session, now: startDate)
     }
 
     static func finishTrainingSession(_ session: TrainingSession, finishDate: Date = Date()) -> TrainingSession {
         var finished = session
-        let minutes = Int(ceil(finishDate.timeIntervalSince(session.date) / 60))
+        finished.actualFinish = max(session.actualStart ?? session.date, finishDate)
+        let minutes = Int(ceil(finishDate.timeIntervalSince(session.actualStart ?? session.date) / 60))
         finished.durationMinutes = max(1, minutes)
         finished.needsDetails = true
         finished.hasSessionDetails = false
@@ -103,15 +119,15 @@ enum TennisWatchActivityFactory {
 
     static func match(player: PlayerProfile, kind: MatchKind, tournament: TournamentRecord? = nil, startDate: Date = Date()) -> MatchRecord {
         var match = MatchRecord(playerID: player.id)
-        match.date = tournament?.date ?? startDate
+        match.date = startDate
         match.hasStartTime = true
         match.status = .inProgress
         match.matchType = kind
         match.playerName = player.displayName
         match.opponentName = "Opponent"
-        match.matchFormat = .bestOfThree
+        match.matchFormat = player.defaultMatchFormat
         match.sightLevel = player.sightLevel
-        match.allowedBounces = player.sightLevel.allowedBounces
+        match.allowedBounces = player.bounceAllowance ?? player.sightLevel.allowedBounces
         match.suddenDeathDeuce = player.playerMode == .blindTennis
         match.tournamentID = tournament?.id
         match.venue = tournament?.location ?? ""
@@ -137,8 +153,12 @@ enum TennisWatchActivityFactory {
         finished.liveScore = nil
         finished.yourSetsWon = score.playerSets
         finished.opponentSetsWon = score.opponentSets
-        finished.setScores = score.completedSetScores.joined(separator: ", ")
-        finished.result = score.playerSets >= score.opponentSets ? .win : .loss
+        var scores = score.completedSetScores
+        if score.playerGames != 0 || score.opponentGames != 0 { scores.append("\(score.playerGames)-\(score.opponentGames)") }
+        finished.setScores = scores.joined(separator: ", ")
+        if score.playerSets != score.opponentSets { finished.result = score.playerSets > score.opponentSets ? .win : .loss }
+        else if score.playerGames != score.opponentGames { finished.result = score.playerGames > score.opponentGames ? .win : .loss }
+        else { finished.result = .draw }
         finished.hadTiebreak = score.isTiebreak || finished.setScores.contains("7-6") || finished.setScores.contains("6-7")
         finished.needsDetails = true
         return TennisRecordConflictResolver.prepareLocalMatch(finished, now: now)
