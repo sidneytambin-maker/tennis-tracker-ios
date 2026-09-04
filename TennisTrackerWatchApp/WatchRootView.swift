@@ -45,6 +45,9 @@ private struct WatchTodayView: View {
                 Text(store.lastAnnouncement)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                Text(store.lastSyncStatus)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

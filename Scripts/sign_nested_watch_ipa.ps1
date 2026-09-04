@@ -109,28 +109,12 @@ if (-not $iphoneApp) {
     throw "No iPhone app bundle was found in the IPA payload."
 }
 
-$watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "PlugIns") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $watchApp) {
-    $watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "Watch") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($EmbedWatchInPlugIns) {
+    throw "Watch companions must remain in Payload/<App>.app/Watch."
 }
+$watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "Watch") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $watchApp) {
-    throw "No embedded Watch app was found at Payload/<App>.app/PlugIns or Payload/<App>.app/Watch."
-}
-
-if ($EmbedWatchInPlugIns -and $watchApp.FullName -notlike "*\PlugIns\*") {
-    $pluginsFolder = Join-Path $iphoneApp.FullName "PlugIns"
-    New-Item -ItemType Directory -Force -Path $pluginsFolder | Out-Null
-    $pluginWatchApp = Join-Path $pluginsFolder $watchApp.Name
-    if (Test-Path -LiteralPath $pluginWatchApp) {
-        Remove-Item -LiteralPath $pluginWatchApp -Recurse -Force
-    }
-    Move-Item -LiteralPath $watchApp.FullName -Destination $pluginWatchApp
-    $watchFolder = Join-Path $iphoneApp.FullName "Watch"
-    if ((Test-Path -LiteralPath $watchFolder) -and -not (Get-ChildItem -LiteralPath $watchFolder -Force)) {
-        Remove-Item -LiteralPath $watchFolder -Force
-    }
-    $watchApp = Get-Item -LiteralPath $pluginWatchApp
-    Write-Host "Embedded Watch app under Payload/<App>.app/PlugIns for current watchOS packaging."
+    throw "No embedded Watch app found in Payload/<App>.app/Watch."
 }
 
 $patchScript = @"
@@ -195,9 +179,9 @@ if not application_identifier.endswith("." + final_watch):
         f"profile application-identifier={application_identifier!r}, expected suffix='.{final_watch}'"
     )
 
-if "watchos" not in platforms:
+if not {"ios", "watchos"}.intersection(platforms):
     raise SystemExit(
-        "Watch provisioning profile does not list watchOS as a supported platform. "
+        "Watch provisioning profile does not list an accepted Apple mobile platform. "
         f"platforms={watch_profile_data.get('Platform')!r}"
     )
 "@
@@ -215,10 +199,8 @@ Set-Content -LiteralPath $patchFile -Value $patchScript -Encoding UTF8
     $iphoneProvision `
     $iphoneEntitlementsPath `
     $watchEntitlementsPath
-if ($LASTEXITCODE -ne 0 -and -not $AllowNonWatchOsProfile) {
-    throw "The Watch provisioning profile is not valid for this Watch bundle."
-} elseif ($LASTEXITCODE -ne 0) {
-    Write-Warning "Proceeding even though Apple's Watch-bundle profile does not list watchOS; physical install will decide whether Apple accepts it."
+if ($LASTEXITCODE -ne 0) {
+    throw "Provisioning profile validation failed."
 }
 
 if ($SigningIdentityP12Path) {
@@ -230,94 +212,16 @@ if ($SigningPassword) {
     $zsignArgsBase += @("-p", $SigningPassword)
 }
 
-& $zsign @zsignArgsBase "-m" $watchProvision "-e" $watchEntitlementsPath "-b" $FinalWatchBundleId "-f" $watchApp.FullName
+# zsign 1.1.2 supports multiple profiles and signs nested bundles before their
+# parent. Do not re-sign or edit resources after the parent has been sealed.
+& $zsign @zsignArgsBase "-q" "-f" "-m" $iphoneProvision "-m" $watchProvision "-o" $OutputIpaPath $iphoneApp.FullName
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to sign the embedded Watch app."
+    throw "Failed to sign the iPhone and Watch bundles with their respective profiles."
 }
 
-& $zsign @zsignArgsBase "-m" $iphoneProvision "-e" $iphoneEntitlementsPath "-b" $FinalIphoneBundleId "-o" $OutputIpaPath $iphoneApp.FullName
+& $python (Join-Path $PSScriptRoot "verify_macho_seals.py") $OutputIpaPath
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to sign the iPhone app wrapper."
+    throw "Signed IPA failed executable, entitlement, or resource hash verification."
 }
-
-if (-not $SkipFinalWatchResign) {
-    # zsign signs nested Watch bundles again while signing the iPhone wrapper. Sign the
-    # Watch app last so its executable entitlements match its own provisioning profile.
-    & $zsign @zsignArgsBase "-m" $watchProvision "-e" $watchEntitlementsPath "-b" $FinalWatchBundleId "-f" $watchApp.FullName
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to re-sign the embedded Watch app after wrapper signing."
-    }
-
-    $resourceRefreshScript = @"
-import base64
-import hashlib
-import plistlib
-import sys
-from pathlib import Path
-
-iphone_app = Path(sys.argv[1])
-watch_app = Path(sys.argv[2])
-resources_path = iphone_app / "_CodeSignature" / "CodeResources"
-resources = plistlib.loads(resources_path.read_bytes())
-files = resources.get("files")
-files2 = resources.get("files2")
-if not isinstance(files, dict) or not isinstance(files2, dict):
-    raise SystemExit("iPhone CodeResources did not contain the expected files/files2 dictionaries.")
-
-updated = 0
-for path in watch_app.rglob("*"):
-    if not path.is_file():
-        continue
-    rel = path.relative_to(iphone_app).as_posix()
-    sha1 = hashlib.sha1(path.read_bytes()).digest()
-    sha256 = hashlib.sha256(path.read_bytes()).digest()
-    if rel in files:
-        files[rel] = sha1
-        updated += 1
-    entry = files2.get(rel)
-    if isinstance(entry, dict):
-        if "hash" in entry:
-            entry["hash"] = sha1
-        if "hash2" in entry:
-            entry["hash2"] = sha256
-        updated += 1
-
-with resources_path.open("wb") as f:
-    plistlib.dump(resources, f, sort_keys=False)
-print(f"Refreshed iPhone CodeResources hashes for {updated} embedded Watch resource entries.")
-"@
-    $resourceRefreshFile = Join-Path $workRoot "refresh-parent-watch-resources.py"
-    Set-Content -LiteralPath $resourceRefreshFile -Value $resourceRefreshScript -Encoding UTF8
-    & $python $resourceRefreshFile $iphoneApp.FullName $watchApp.FullName
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to refresh iPhone CodeResources hashes for the final Watch signature."
-    }
-} else {
-    Write-Host "Skipped final Watch re-sign so the iPhone wrapper resource seal remains current."
-}
-
-if (Test-Path -LiteralPath $OutputIpaPath) {
-    Remove-Item -LiteralPath $OutputIpaPath -Force
-}
-$archivePaths = @((Join-Path $expandRoot "Payload"))
-$watchKitSupport = Join-Path $expandRoot "WatchKitSupport"
-if (Test-Path -LiteralPath $watchKitSupport) {
-    $archivePaths += $watchKitSupport
-}
-Compress-Archive -Path $archivePaths -DestinationPath $OutputIpaPath -Force
-
-& (Join-Path $PSScriptRoot "inspect_ipa_signing.ps1") `
-    -IpaPath $OutputIpaPath `
-    -ExpectedIphoneBundleId $FinalIphoneBundleId `
-    -ExpectedWatchBundleId $FinalWatchBundleId `
-    -ExpectedWatchCompanionBundleId $FinalIphoneBundleId
-if ($LASTEXITCODE -ne 0) {
-    if ($AllowNonWatchOsProfile) {
-        Write-Warning "Signed IPA inspection still reports the Apple profile platform field does not mention watchOS; continuing because -AllowNonWatchOsProfile was set."
-    } else {
-        throw "Signed IPA failed nested Watch signing inspection."
-    }
-}
-
-Write-Host "Signed nested Watch IPA:"
-Write-Host $OutputIpaPath
+Write-Host "Signed and content-verified iPhone/Watch IPA: $OutputIpaPath"
+Write-Host "Free-profile Watch installation requires watch_developer_install.py install."

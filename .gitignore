@@ -13,3 +13,5 @@ TennisTrackeriOS.xcodeproj/
 .zsign_cache/
 selfIdentity.plist
 work/
+__pycache__/
+*.pyc

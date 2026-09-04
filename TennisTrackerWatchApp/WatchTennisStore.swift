@@ -11,6 +11,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var activeMatch: MatchRecord?
     @Published var scoreState = TennisScoreState()
     @Published var lastAnnouncement = "Tennis Tracker ready."
+    @Published var lastSyncStatus = "Waiting for iPhone data."
 
     private let snapshotKey = "snapshotData"
     private let commandKey = "commandData"
@@ -213,7 +214,26 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        Task { @MainActor in self.flushQueue() }
+        let received = session.receivedApplicationContext["snapshotData"] as? Data
+        Task { @MainActor in
+            if let received { self.applySnapshotData(received) }
+            self.flushQueue()
+        }
+    }
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
+        guard session.isReachable else { return }
+        Task { @MainActor in self.send(.requestSnapshot) }
+    }
+
+    nonisolated func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+        guard error != nil, let data = userInfoTransfer.userInfo["commandData"] as? Data,
+              let command = try? JSONDecoder.tennisTracker.decode(TennisWatchSyncCommand.self, from: data) else { return }
+        Task { @MainActor in
+            self.queuedCommands.append(command)
+            self.persistQueue()
+            self.lastSyncStatus = "Saved on Watch. Waiting to sync with iPhone."
+        }
     }
 
     #if os(iOS)
@@ -261,7 +281,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         for command in pending {
             guard let data = try? JSONEncoder.tennisTracker.encode(command) else { continue }
             if session.isReachable {
-                session.sendMessageData(data, replyHandler: nil)
+                session.sendMessageData(data, replyHandler: nil, errorHandler: { _ in
+                    session.transferUserInfo(["commandData": data])
+                })
             } else {
                 session.transferUserInfo([commandKey: data])
             }
@@ -271,6 +293,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func applySnapshotData(_ data: Data) {
         guard let incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
         snapshot = incoming
+        lastSyncStatus = "Updated from iPhone at \(Date().formatted(date: .omitted, time: .shortened))."
         if activeMatch == nil {
             activeMatch = incoming.matches.first { $0.status == MatchStatus.inProgress && $0.liveScore != nil }
             if let activeMatch {

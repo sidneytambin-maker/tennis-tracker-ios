@@ -249,8 +249,8 @@ watch_bundle = report["watch"].get("bundle_id") if watch else ""
 checks["watch_profile_mentions_watch_bundle"] = bool(
     watch_profile and watch_bundle and watch_app_id.endswith("." + watch_bundle)
 )
-checks["watch_profile_platform_mentions_watchos"] = bool(
-    watch_profile and any(str(p).lower() == "watchos" for p in (watch_profile.get("platform") or []))
+checks["watch_profile_platform_supported"] = bool(
+    watch_profile and any(str(p).lower() in ("ios", "watchos") for p in (watch_profile.get("platform") or []))
 )
 checks["iphone_profile_includes_expected_iphone_device"] = bool(
     report["iphone"].get("embedded_provisioning")

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var settings = AppSettings()
     @State private var savedMessage = ""
+    @ObservedObject private var watchSync = IPhoneWatchSyncService.shared
 
     var body: some View {
         NavigationStack {
@@ -111,13 +112,12 @@ struct SettingsView: View {
                 Section("Apple Watch") {
                     WatchStatusView()
                     Button("Refresh Apple Watch Sync") {
-                        IPhoneWatchSyncService.shared.sendSnapshot(store.data)
-                        savedMessage = "Apple Watch sync refresh requested."
+                        watchSync.sendSnapshot(store.data)
+                        savedMessage = watchSync.syncMessage
                         UIAccessibility.post(notification: .announcement, argument: savedMessage)
                     }
                     .accessibilityHint("Sends the latest tennis data to the paired Apple Watch when the companion app is installed.")
-                    Text("If Tennis Tracker does not appear on Apple Watch after installation, open the iPhone Watch app, find Tennis Tracker, and enable Show App on Apple Watch. If it is missing there too, the IPA did not embed the Watch app correctly.")
-                        .accessibilityLabel("Apple Watch installation help")
+                    Text("This free development build requires a separate developer installation on Apple Watch. An app icon alone does not confirm installation. Background syncing remains available when the Watch app is closed.")
                 }
 
                 Section("Dashboard") {
@@ -131,7 +131,7 @@ struct SettingsView: View {
 
                 Section("Build") {
                     SummaryRow(title: "Version", value: "0.9.0")
-                    SummaryRow(title: "Build route", value: "GitHub Actions builds the unsigned app and embeds the Watch app in the Watch folder. Sideloadly signs and installs it with the free Apple account.")
+                    SummaryRow(title: "Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
                 }
 
             }
@@ -173,18 +173,12 @@ struct SettingsView: View {
 }
 
 private struct WatchStatusView: View {
-    var body: some View {
-        SummaryRow(title: "Watch status", value: statusText)
-    }
+    @ObservedObject private var sync = IPhoneWatchSyncService.shared
 
-    private var statusText: String {
-        guard WCSession.isSupported() else {
-            return "WatchConnectivity is not supported on this device."
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SummaryRow(title: "Watch status", value: sync.connectionDescription)
+            SummaryRow(title: "Sync status", value: sync.syncMessage)
         }
-        let session = WCSession.default
-        let paired = session.isPaired ? "paired" : "not paired"
-        let installed = session.isWatchAppInstalled ? "Watch app installed" : "Watch app not installed"
-        let reachable = session.isReachable ? "currently reachable" : "not currently reachable"
-        return "Apple Watch \(paired). \(installed). \(reachable)."
     }
 }
