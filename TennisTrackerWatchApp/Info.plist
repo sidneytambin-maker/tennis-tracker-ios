@@ -20,10 +20,6 @@
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>WKApplication</key>
   <true/>
-  <key>WKWatchKitApp</key>
-  <true/>
-  <key>WKRunsIndependentlyOfCompanionApp</key>
-  <false/>
   <key>WKCompanionAppBundleIdentifier</key>
   <string>com.inclusophy.tennistracker.dev</string>
 </dict>

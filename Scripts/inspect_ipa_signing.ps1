@@ -202,6 +202,10 @@ checks["watch_info_marks_watch_app"] = bool(
     watch
     and (report["watch"].get("wk_application") or report["watch"].get("wk_watchkit_app"))
 )
+checks["watch_info_uses_single_watch_app_key"] = bool(
+    watch
+    and not (report["watch"].get("wk_application") and report["watch"].get("wk_watchkit_app"))
+)
 checks["watch_supported_platform_is_watchos"] = bool(
     watch
     and any(str(p).lower() == "watchos" for p in (report["watch"].get("supported_platforms") or []))
