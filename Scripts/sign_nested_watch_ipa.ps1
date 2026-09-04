@@ -108,12 +108,15 @@ if (-not $iphoneApp) {
     throw "No iPhone app bundle was found in the IPA payload."
 }
 
-$watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "Watch") -Directory -Filter "*.app" | Select-Object -First 1
+$watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "PlugIns") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $watchApp) {
-    throw "No embedded Watch app was found at Payload/<App>.app/Watch."
+    $watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "Watch") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if (-not $watchApp) {
+    throw "No embedded Watch app was found at Payload/<App>.app/PlugIns or Payload/<App>.app/Watch."
 }
 
-if ($EmbedWatchInPlugIns) {
+if ($EmbedWatchInPlugIns -and $watchApp.FullName -notlike "*\PlugIns\*") {
     $pluginsFolder = Join-Path $iphoneApp.FullName "PlugIns"
     New-Item -ItemType Directory -Force -Path $pluginsFolder | Out-Null
     $pluginWatchApp = Join-Path $pluginsFolder $watchApp.Name
