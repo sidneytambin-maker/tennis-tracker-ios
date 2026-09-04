@@ -1,7 +1,6 @@
 name: TennisTrackeriOS
 options:
   minimumXcodeGenVersion: 2.42.0
-  postGenCommand: sed -i '' -e 's|dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";|dstPath = "";|' -e 's|dstSubfolderSpec = 16;|dstSubfolderSpec = 13;|' TennisTrackeriOS.xcodeproj/project.pbxproj
   deploymentTarget:
     iOS: "17.0"
     watchOS: "10.0"
@@ -16,9 +15,6 @@ targets:
     sources:
       - TennisTracker
       - TennisTrackerShared
-    dependencies:
-      - target: TennisTrackerWatchApp
-        embed: true
     info:
       path: TennisTracker/Info.plist
       properties:

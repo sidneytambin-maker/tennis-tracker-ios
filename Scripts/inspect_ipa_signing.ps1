@@ -5,6 +5,8 @@ param(
     [string]$ExpectedIphoneBundleId = "",
     [string]$ExpectedWatchBundleId = "",
     [string]$ExpectedWatchCompanionBundleId = "",
+    [string]$ExpectedIphoneDeviceUdid = "",
+    [string]$ExpectedWatchDeviceUdid = "",
     [switch]$ReportOnly
 )
 
@@ -88,6 +90,8 @@ def arg_value(index):
 expected_iphone = arg_value(2)
 expected_watch = arg_value(3)
 expected_companion = arg_value(4)
+expected_iphone_device = arg_value(5)
+expected_watch_device = arg_value(6)
 
 def read_plist(path):
     if not path.exists():
@@ -117,6 +121,8 @@ def decode_mobileprovision(path):
         "expiration_date": str(profile.get("ExpirationDate")),
         "platform": profile.get("Platform"),
         "provisioned_device_count": len(devices),
+        "includes_expected_iphone_device": (not expected_iphone_device) or expected_iphone_device in devices,
+        "includes_expected_watch_device": (not expected_watch_device) or expected_watch_device in devices,
         "developer_certificate_count": len(certs),
         "entitlements": entitlements,
     }
@@ -172,7 +178,7 @@ if (
     watch = iphone
 
 report = {
-    "input": sys.argv[5],
+    "input": sys.argv[7],
     "iphone": bundle_report(iphone),
     "watch": bundle_report(watch) if watch else {"exists": False},
     "checks": {},
@@ -201,6 +207,20 @@ checks["watch_profile_mentions_watch_bundle"] = bool(
 checks["watch_profile_platform_mentions_watchos"] = bool(
     watch_profile and any(str(p).lower() == "watchos" for p in (watch_profile.get("platform") or []))
 )
+checks["iphone_profile_includes_expected_iphone_device"] = bool(
+    report["iphone"].get("embedded_provisioning")
+    and report["iphone"]["embedded_provisioning"].get("includes_expected_iphone_device")
+)
+checks["iphone_profile_includes_expected_watch_device"] = bool(
+    report["iphone"].get("embedded_provisioning")
+    and report["iphone"]["embedded_provisioning"].get("includes_expected_watch_device")
+)
+checks["watch_profile_includes_expected_iphone_device"] = bool(
+    watch_profile and watch_profile.get("includes_expected_iphone_device")
+)
+checks["watch_profile_includes_expected_watch_device"] = bool(
+    watch_profile and watch_profile.get("includes_expected_watch_device")
+)
 
 print(json.dumps(report, indent=2, sort_keys=True))
 
@@ -219,8 +239,10 @@ Set-Content -LiteralPath $scriptPath -Value $inspector -Encoding UTF8
 $expectedIphoneArg = if ($ExpectedIphoneBundleId) { $ExpectedIphoneBundleId } else { "__EMPTY__" }
 $expectedWatchArg = if ($ExpectedWatchBundleId) { $ExpectedWatchBundleId } else { "__EMPTY__" }
 $expectedCompanionArg = if ($ExpectedWatchCompanionBundleId) { $ExpectedWatchCompanionBundleId } else { "__EMPTY__" }
+$expectedIphoneDeviceArg = if ($ExpectedIphoneDeviceUdid) { $ExpectedIphoneDeviceUdid } else { "__EMPTY__" }
+$expectedWatchDeviceArg = if ($ExpectedWatchDeviceUdid) { $ExpectedWatchDeviceUdid } else { "__EMPTY__" }
 
-& $python.Source $scriptPath $expandRoot $expectedIphoneArg $expectedWatchArg $expectedCompanionArg $inputDescription
+& $python.Source $scriptPath $expandRoot $expectedIphoneArg $expectedWatchArg $expectedCompanionArg $expectedIphoneDeviceArg $expectedWatchDeviceArg $inputDescription
 $inspectionExitCode = $LASTEXITCODE
 
 if ($ReportOnly -and $inspectionExitCode -ne 0) {

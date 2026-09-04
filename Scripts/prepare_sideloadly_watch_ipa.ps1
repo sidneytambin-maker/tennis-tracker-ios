@@ -38,23 +38,23 @@ $watchAppName = "TennisTrackerWatchApp.app"
 $pluginsWatchApp = Join-Path $iphoneApp "PlugIns\$watchAppName"
 $legacyWatchApp = Join-Path $iphoneApp "Watch\$watchAppName"
 
-if ((Test-Path -LiteralPath $legacyWatchApp) -and -not (Test-Path -LiteralPath $pluginsWatchApp)) {
-    New-Item -ItemType Directory -Force -Path (Join-Path $iphoneApp "PlugIns") | Out-Null
-    Move-Item -LiteralPath $legacyWatchApp -Destination $pluginsWatchApp
-    $legacyWatchFolder = Join-Path $iphoneApp "Watch"
-    if ((Test-Path -LiteralPath $legacyWatchFolder) -and -not (Get-ChildItem -LiteralPath $legacyWatchFolder -Force)) {
-        Remove-Item -LiteralPath $legacyWatchFolder -Force
+if ((Test-Path -LiteralPath $pluginsWatchApp) -and -not (Test-Path -LiteralPath $legacyWatchApp)) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $iphoneApp "Watch") | Out-Null
+    Move-Item -LiteralPath $pluginsWatchApp -Destination $legacyWatchApp
+    $pluginsFolder = Join-Path $iphoneApp "PlugIns"
+    if ((Test-Path -LiteralPath $pluginsFolder) -and -not (Get-ChildItem -LiteralPath $pluginsFolder -Force)) {
+        Remove-Item -LiteralPath $pluginsFolder -Force
     }
 }
 
-$watchInfo = Join-Path $pluginsWatchApp "Info.plist"
+$watchInfo = Join-Path $legacyWatchApp "Info.plist"
 
 if (-not (Test-Path -LiteralPath $iphoneInfo)) {
     throw "The iPhone Info.plist was not found in the IPA."
 }
 
 if (-not (Test-Path -LiteralPath $watchInfo)) {
-    throw "The embedded Watch app was not found at Payload/TennisTracker.app/PlugIns/TennisTrackerWatchApp.app."
+    throw "The embedded Watch app was not found at Payload/TennisTracker.app/Watch/TennisTrackerWatchApp.app."
 }
 
 $pythonCandidates = @()
