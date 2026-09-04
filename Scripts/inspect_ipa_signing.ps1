@@ -44,12 +44,14 @@ if ($IpaPath) {
     $inputDescription = $AppPath
 }
 
-$pythonCandidates = @(
-    (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"),
-    (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe"),
-    "python",
-    "py"
-)
+$pythonCandidates = @()
+if ($env:LOCALAPPDATA) {
+    $pythonCandidates += @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe")
+    )
+}
+$pythonCandidates += @("python3", "python", "py")
 
 $python = $null
 foreach ($candidate in $pythonCandidates) {
