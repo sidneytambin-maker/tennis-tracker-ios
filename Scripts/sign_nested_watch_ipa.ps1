@@ -249,7 +249,12 @@ if ($LASTEXITCODE -ne 0) {
 if (Test-Path -LiteralPath $OutputIpaPath) {
     Remove-Item -LiteralPath $OutputIpaPath -Force
 }
-Compress-Archive -Path (Join-Path $expandRoot "Payload") -DestinationPath $OutputIpaPath -Force
+$archivePaths = @((Join-Path $expandRoot "Payload"))
+$watchKitSupport = Join-Path $expandRoot "WatchKitSupport"
+if (Test-Path -LiteralPath $watchKitSupport) {
+    $archivePaths += $watchKitSupport
+}
+Compress-Archive -Path $archivePaths -DestinationPath $OutputIpaPath -Force
 
 & (Join-Path $PSScriptRoot "inspect_ipa_signing.ps1") `
     -IpaPath $OutputIpaPath `
