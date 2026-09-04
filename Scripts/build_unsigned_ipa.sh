@@ -1,24 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-python3 <<'PY'
-from pathlib import Path
-
-project = Path("TennisTrackeriOS.xcodeproj/project.pbxproj")
-if project.exists():
-    text = project.read_text()
-    updated = text.replace(
-        'dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";\n',
-        'dstPath = "";\n',
-    ).replace(
-        "dstSubfolderSpec = 16;",
-        "dstSubfolderSpec = 13;",
-    )
-    if updated != text:
-        project.write_text(updated)
-        print("Adjusted embedded Watch destination for Xcode 26 PlugIns packaging.")
-PY
-
 xcodebuild clean build \
   -project "TennisTrackeriOS.xcodeproj" \
   -scheme "TennisTracker" \
@@ -29,13 +11,33 @@ xcodebuild clean build \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY=""
 
+xcodebuild build \
+  -project "TennisTrackeriOS.xcodeproj" \
+  -target "TennisTrackerWatchApp" \
+  -sdk watchos \
+  -destination "generic/platform=watchOS" \
+  -configuration Release \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY=""
+
 mkdir -p artifacts/Payload
 APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Release-iphoneos/TennisTracker.app" -type d | head -n 1)"
+BUILT_WATCH_APP_PATH="$(find build "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Release-watchos/TennisTrackerWatchApp.app" -type d 2>/dev/null | head -n 1)"
 
 if [ -z "$APP_PATH" ]; then
   echo "Could not find the unsigned Tennis Tracker.app build output." >&2
   exit 1
 fi
+
+if [ -z "$BUILT_WATCH_APP_PATH" ]; then
+  echo "Could not find the unsigned TennisTrackerWatchApp.app build output." >&2
+  exit 1
+fi
+
+rm -rf "$APP_PATH/Watch" "$APP_PATH/PlugIns"
+mkdir -p "$APP_PATH/PlugIns"
+cp -R "$BUILT_WATCH_APP_PATH" "$APP_PATH/PlugIns/"
 
 rm -rf artifacts/Payload/* artifacts/WatchKitSupport
 cp -R "$APP_PATH" artifacts/Payload/

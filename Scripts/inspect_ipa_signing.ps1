@@ -142,7 +142,9 @@ def bundle_report(path):
         "executable_present": bool(executable_path and executable_path.exists()),
         "minimum_os": info.get("MinimumOSVersion"),
         "supported_platforms": info.get("CFBundleSupportedPlatforms"),
+        "device_families": info.get("UIDeviceFamily"),
         "wk_companion_app_bundle_identifier": info.get("WKCompanionAppBundleIdentifier"),
+        "wk_application": info.get("WKApplication"),
         "wk_watchkit_app": info.get("WKWatchKitApp"),
         "embedded_provisioning_present": bool(profile),
         "embedded_provisioning": profile,
@@ -195,6 +197,18 @@ checks["watch_bundle_matches_expected"] = (not expected_watch) or (watch and rep
 checks["watch_companion_matches_expected"] = (
     (not expected_companion)
     or (watch and report["watch"]["wk_companion_app_bundle_identifier"] == expected_companion)
+)
+checks["watch_info_marks_watch_app"] = bool(
+    watch
+    and (report["watch"].get("wk_application") or report["watch"].get("wk_watchkit_app"))
+)
+checks["watch_supported_platform_is_watchos"] = bool(
+    watch
+    and any(str(p).lower() == "watchos" for p in (report["watch"].get("supported_platforms") or []))
+)
+checks["watch_device_family_is_watch"] = bool(
+    watch
+    and "4" in [str(family) for family in (report["watch"].get("device_families") or [])]
 )
 
 watch_profile = report["watch"].get("embedded_provisioning") if watch else None
