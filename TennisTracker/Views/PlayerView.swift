@@ -96,7 +96,7 @@ struct PlayerEditorView: View {
                 }
                 Section("Player defaults") {
                     Picker("Default Match Format", selection: $player.defaultMatchFormat) {
-                        ForEach(MatchFormat.allCases) { Text($0.rawValue).tag($0) }
+                        ForEach(MatchFormat.allCases) { Text($0.label).tag($0) }
                     }
                     .accessibilityIdentifier("playerDefaultFormatPicker")
                     Picker("Preferred match type", selection: $player.preferredMatchType) {

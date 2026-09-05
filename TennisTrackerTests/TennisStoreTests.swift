@@ -43,7 +43,7 @@ final class TennisStoreTests: XCTestCase {
         XCTAssertEqual(match?.tournamentID, tournament.id)
         XCTAssertEqual(match?.date, tournament.date)
         XCTAssertEqual(match?.hasStartTime, true)
-        XCTAssertEqual(match?.venue, "Brighton Tennis Centre")
+        XCTAssertEqual(match?.location, "Brighton Tennis Centre")
         XCTAssertEqual(match?.matchPosition, .roundRobin)
         XCTAssertEqual(match?.allowedBounces, 3)
         XCTAssertEqual(match?.suddenDeathDeuce, true)

@@ -43,6 +43,7 @@ final class TennisIntegrationPlanningTests: XCTestCase {
         let playerID = UUID()
         var match = MatchRecord(playerID: playerID)
         match.opponentName = "Klaudia"
+        match.playerName = "Alex"
         match.venue = "Indoor Centre"
         match.location = "London"
         match.expectedDurationMinutes = 75
@@ -51,7 +52,7 @@ final class TennisIntegrationPlanningTests: XCTestCase {
 
         let event = TennisCalendarMapper.event(for: match)
 
-        XCTAssertEqual(event.title, "Tennis match: Klaudia")
+        XCTAssertEqual(event.title, "Tennis: Alex versus Klaudia")
         XCTAssertEqual(event.location, "Indoor Centre, London")
         XCTAssertEqual(event.endDate.timeIntervalSince(event.startDate), 75 * 60)
         XCTAssertTrue(event.deepLink.absoluteString.contains("tennistracker://match/"))

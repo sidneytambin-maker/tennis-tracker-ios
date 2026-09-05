@@ -40,15 +40,40 @@ struct DashboardView: View {
                     )
                 }
 
-                Section("Current record") {
-                    SummaryRow(title: "Match record", value: stats.matchCount == 0 ? "No matches recorded yet." : "\(stats.winCount) wins, \(stats.lossCount) losses, \(Int((stats.winRate * 100).rounded())) percent win rate.")
+                Section("Current activity") {
+                    if let training = store.selectedTraining.first(where: \.isActive) {
+                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                            NavigationLink(TennisSummaryFormatter.training(training, now: context.date)) {
+                                TrainingDetailView(session: training)
+                            }
+                        }
+                    }
+                    if let match = store.selectedMatches.first(where: { $0.status == .inProgress }) {
+                        Button(TennisSummaryFormatter.match(match)) {
+                            resumeMatch = match
+                            showingLiveScorer = true
+                        }
+                        .accessibilityHint("Resumes match scoring.")
+                    }
+                    if !store.selectedTraining.contains(where: \.isActive) && !store.selectedMatches.contains(where: { $0.status == .inProgress }) {
+                        Text("No activity in progress.")
+                    }
+                }
+
+                Section("Next activity") {
+                    if let training = store.selectedTraining.filter({ $0.actualStart == nil && $0.date >= Date() }).min(by: { $0.date < $1.date }) {
+                        NavigationLink(TennisSummaryFormatter.training(training)) { TrainingDetailView(session: training) }
+                    }
+                    if let match = store.selectedMatches.filter({ $0.status == .scheduled && $0.date >= Date() }).min(by: { $0.date < $1.date }) {
+                        NavigationLink(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments)) { MatchDetailView(match: match) }
+                    }
                 }
 
                 Section("Recent matches") {
-                    if store.selectedMatches.isEmpty {
+                    if !store.selectedMatches.contains(where: { $0.status == .completed }) {
                         Text("No recent matches recorded.")
                     } else {
-                        ForEach(store.selectedMatches.prefix(3)) { match in
+                        ForEach(store.selectedMatches.filter { $0.status == .completed }.prefix(3)) { match in
                             NavigationLink(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .long)) {
                                 MatchDetailView(match: match)
                             }
@@ -77,9 +102,6 @@ struct DashboardView: View {
                     SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
                         .accessibilityAction(named: "Track Training Session") {
                             showingNewTraining = true
-                        }
-                        .accessibilityAction(named: "Complete Training Details") {
-                            trainingToEdit = store.selectedTraining.first
                         }
                 }
 
@@ -134,6 +156,9 @@ struct DashboardView: View {
 
                 Section("Next focus") {
                     Text(nextFocus)
+                }
+                Section("Match record") {
+                    Text(stats.matchCount == 0 ? "No matches recorded yet." : "\(stats.winCount) wins, \(stats.lossCount) losses, \(Int((stats.winRate * 100).rounded())) percent win rate.")
                 }
             }
             .tennisThemedList()

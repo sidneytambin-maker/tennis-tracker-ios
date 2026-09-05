@@ -27,16 +27,26 @@ struct TennisWatchSnapshot: Codable, Equatable {
             .sorted { $0.date > $1.date }
             .prefix(30)
             .map { $0 }
+        // History limits must never drop an active record or an offline edit awaiting details.
+        matches += data.matches.filter { record in
+            (record.status == .inProgress || record.needsDetails) && !matches.contains { $0.id == record.id }
+        }
         trainingSessions = data.trainingSessions
-            .filter { $0.needsDetails || $0.date >= recentLimit || $0.expectedEndDate >= now }
+            .filter { $0.isActive || $0.needsDetails || $0.date >= recentLimit || $0.expectedEndDate >= now }
             .sorted { $0.date > $1.date }
             .prefix(30)
             .map { $0 }
+        trainingSessions += data.trainingSessions.filter { record in
+            (record.isActive || record.needsDetails) && !trainingSessions.contains { $0.id == record.id }
+        }
         tournaments = data.tournaments
             .filter { !$0.isCompleted || $0.needsDetails || $0.endDate >= recentLimit }
             .sorted { $0.date > $1.date }
             .prefix(20)
             .map { $0 }
+        tournaments += data.tournaments.filter { record in
+            (!record.isCompleted || record.needsDetails) && !tournaments.contains { $0.id == record.id }
+        }
     }
 
     init(from decoder: Decoder) throws {
@@ -68,7 +78,10 @@ enum TennisRecordConflictResolver {
         if incomingRevision != existingRevision {
             return incomingRevision > existingRevision
         }
-        return incomingModifiedAt >= existingModifiedAt
+        // The existing wire format carries whole seconds. Compare at that precision
+        // so an encoded acknowledgement can acknowledge its local source record.
+        return incomingModifiedAt.timeIntervalSince1970.rounded(.down)
+            >= existingModifiedAt.timeIntervalSince1970.rounded(.down)
     }
 
     static func prepareLocalMatch(_ match: MatchRecord, now: Date = Date()) -> MatchRecord {
@@ -130,7 +143,9 @@ enum TennisWatchActivityFactory {
         match.allowedBounces = player.bounceAllowance ?? player.sightLevel.allowedBounces
         match.suddenDeathDeuce = player.playerMode == .blindTennis
         match.tournamentID = tournament?.id
-        match.venue = tournament?.location ?? ""
+        match.venueID = tournament?.venueID
+        match.venue = tournament?.venue ?? ""
+        match.location = tournament?.location ?? ""
         match.needsDetails = true
         match.liveScore = TennisScoreState().snapshot
         return TennisRecordConflictResolver.prepareLocalMatch(match, now: startDate)

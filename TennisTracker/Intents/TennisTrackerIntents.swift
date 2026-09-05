@@ -8,8 +8,8 @@ enum TennisIntentRoute {
 }
 
 struct StartLiveScoringIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Live Scoring"
-    static var description = IntentDescription("Open Tennis Tracker ready to start live scoring.")
+    static var title: LocalizedStringResource = "Resume Match Scoring"
+    static var description = IntentDescription("Open your saved matches to choose a score to resume.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -63,7 +63,7 @@ struct ShowNextTournamentIntent: AppIntent {
 }
 
 struct ShowRecentRecordIntent: AppIntent {
-    static var title: LocalizedStringResource = "Show Recent Record"
+    static var title: LocalizedStringResource = "Show Recent Result"
     static var description = IntentDescription("Open Tennis Tracker to recent tennis activity.")
     static var openAppWhenRun = true
 
@@ -75,7 +75,7 @@ struct ShowRecentRecordIntent: AppIntent {
 
 struct TennisTrackerShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        AppShortcut(intent: StartLiveScoringIntent(), phrases: ["Track match scoring in \(.applicationName)"], shortTitle: "Track Match Scoring", systemImageName: "figure.tennis")
+        AppShortcut(intent: StartLiveScoringIntent(), phrases: ["Resume match scoring in \(.applicationName)"], shortTitle: "Resume Match Scoring", systemImageName: "figure.tennis")
         AppShortcut(intent: AddMatchIntent(), phrases: ["Record a match in \(.applicationName)"], shortTitle: "Record Match", systemImageName: "plus.circle")
         AppShortcut(intent: AddTrainingSessionIntent(), phrases: ["Add training in \(.applicationName)"], shortTitle: "Add Training", systemImageName: "figure.run")
         AppShortcut(intent: AddTournamentIntent(), phrases: ["Track a tournament in \(.applicationName)"], shortTitle: "Track Tournament", systemImageName: "trophy")

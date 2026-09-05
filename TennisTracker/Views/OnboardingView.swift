@@ -111,7 +111,7 @@ struct OnboardingView: View {
             if player.playerMode == .blindTennis {
                 Picker("Sight level", selection: $player.sightLevel) {
                     ForEach(SightLevel.allCases) { level in
-                        Text(level.rawValue).tag(level)
+                        Text(level.label).tag(level)
                     }
                 }
                 .accessibilityIdentifier("sightLevelPicker")
@@ -210,9 +210,9 @@ struct OnboardingView: View {
         player.preferredMatchType = settings.defaultMatchType.rawValue
         if player.playerMode == .standardTennis {
             player.sightLevel = .fullySighted
-            player.bCategory = "Fully Sighted"
+            player.bCategory = "Sighted"
         } else {
-            player.bCategory = String(player.sightLevel.rawValue.prefix(2))
+            player.bCategory = player.sightLevel.label
         }
         settings.applyModeDefaults()
         settings.announceScores = settings.scoreAnnouncementMode != .off

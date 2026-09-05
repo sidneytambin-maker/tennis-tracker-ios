@@ -28,12 +28,11 @@ enum TennisNotificationPlanner {
         }
 
         if settings.trainingRemindersEnabled {
-            for session in data.trainingSessions where session.hasStartTime && session.date > now {
-                let player = data.players.first { $0.id == session.playerID }
+            for session in data.trainingSessions where session.hasStartTime && session.date > now && session.actualStart == nil {
                 requests.append(PlannedNotification(
                     identifier: "training-\(session.id)",
                     title: "Upcoming training",
-                    body: "Training starts in \(settings.reminderLeadMinutes.durationText)\(player.map { ", \($0.displayName)" } ?? "").",
+                    body: TennisSummaryFormatter.training(session),
                     fireDate: max(now.addingTimeInterval(60), session.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))
@@ -42,9 +41,8 @@ enum TennisNotificationPlanner {
 
         if settings.tournamentRemindersEnabled {
             for tournament in data.tournaments where tournament.date > now && !tournament.isCompleted {
-                let body = tournament.isAllDay || !tournament.hasStartTime
-                    ? "\(tournament.name.fallback("Tournament")) is on \(tournament.date.fullTennisDate)."
-                    : "\(tournament.name.fallback("Tournament")) starts at \(tournament.date.shortTennisTime)."
+                let body = TennisSummaryFormatter.tournament(tournament, style: .short)
+                    + (tournament.isAllDay || !tournament.hasStartTime ? "" : " Starts at \(tournament.date.shortTennisTime).")
                 requests.append(PlannedNotification(
                     identifier: "tournament-\(tournament.id)",
                     title: "Upcoming tournament",
@@ -57,11 +55,11 @@ enum TennisNotificationPlanner {
 
         if settings.postSessionRemindersEnabled {
             let delay = TimeInterval(settings.postSessionDelayMinutes * 60)
-            for session in data.trainingSessions where session.hasStartTime && session.expectedEndDate <= now && session.expectedEndDate.addingTimeInterval(delay) > now {
+            for session in data.trainingSessions where !session.isActive && session.hasStartTime && session.expectedEndDate <= now && session.expectedEndDate.addingTimeInterval(delay) > now {
                 requests.append(PlannedNotification(
                     identifier: "training-reflection-\(session.id)",
                     title: "Training reflection",
-                    body: "Your training session finished \(settings.postSessionDelayMinutes.durationText) ago. Add your notes?",
+                    body: "\(TennisSummaryFormatter.training(session, style: .short)) Add your training notes.",
                     fireDate: session.expectedEndDate.addingTimeInterval(delay),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))

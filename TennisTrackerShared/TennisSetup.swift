@@ -44,6 +44,7 @@ struct TennisActivityContext: Codable, Equatable {
     var coachName = ""
     var participantIDs: [UUID] = []
     var participantNames: [String] = []
+    var participantsNeedDetails: Bool?
     var venueID: UUID?
     var tournamentID: UUID?
 }

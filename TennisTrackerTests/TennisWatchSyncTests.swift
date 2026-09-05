@@ -70,7 +70,7 @@ final class TennisWatchSyncTests: XCTestCase {
 
         XCTAssertEqual(match.tournamentID, tournament.id)
         XCTAssertEqual(match.date, now)
-        XCTAssertEqual(match.venue, "Brighton")
+        XCTAssertEqual(match.location, "Brighton")
         XCTAssertEqual(match.matchType, .doubles)
     }
 

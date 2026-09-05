@@ -21,13 +21,18 @@ struct WatchRootView: View {
 
 private struct WatchTodayView: View {
     @EnvironmentObject private var store: WatchTennisStore
+    @State private var trainingToStart: TrainingSession?
+    @State private var confirmHealth = false
     var body: some View {
         List {
             if let training = store.snapshot.trainingSessions.filter({ !$0.isActive && $0.actualFinish == nil && $0.expectedEndDate >= Date() }).sorted(by: { $0.date < $1.date }).first {
                 Section("Next training") {
                     Text(TennisSummaryFormatter.training(training))
-                    Button("Start Training Session") { store.beginTraining(training) }
-                        .disabled(store.activeTraining != nil)
+                    Button("Start Training Session") {
+                        if store.healthClient.available { trainingToStart = training; confirmHealth = true }
+                        else { store.beginTraining(training) }
+                    }
+                    .disabled(store.activeTraining != nil || store.isFinishingWorkout)
                 }
             }
             if let match = store.snapshot.matches.filter({ $0.status == .scheduled }).sorted(by: { $0.date < $1.date }).first {
@@ -48,6 +53,17 @@ private struct WatchTodayView: View {
             Section("Sync") { Text(store.lastSyncStatus).font(.footnote) }
         }
         .navigationTitle("Today")
+        .confirmationDialog("Record this tennis session in Apple Health?", isPresented: $confirmHealth, titleVisibility: .visible) {
+            Button("Begin with Health Workout") {
+                if let trainingToStart { store.beginTraining(trainingToStart, useHealth: true) }
+            }
+            Button("Begin without Health") {
+                if let trainingToStart { store.beginTraining(trainingToStart) }
+            }
+            Button("Cancel", role: .cancel) { trainingToStart = nil }
+        } message: {
+            Text("With permission, Tennis Tracker records workout duration, heart rate and active energy. Training still works without Health access.")
+        }
     }
 }
 
@@ -70,6 +86,7 @@ private struct WatchTrainingSetupView: View {
     @State private var type: TrainingType = .singlesPractice
     @State private var context = TennisActivityContext()
     @State private var otherPlayers = false
+    @State private var useHealth = false
 
     var body: some View {
         Form {
@@ -102,14 +119,21 @@ private struct WatchTrainingSetupView: View {
                 Text("Other or no tournament").tag(Optional<UUID>.none)
                 ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { Text($0.name).tag(Optional($0.id)) }
             }
+            if store.healthClient.available {
+                Section("Apple Health") {
+                    Toggle("Record tennis workout", isOn: $useHealth)
+                    Text("Tennis Tracker can record workout duration, heart rate and active energy in Apple Health during training. Tennis tracking still works if you decline.")
+                }
+            }
             Button("Begin Training Session") {
                 context.coachName = store.snapshot.setup.coaches.first { $0.id == context.coachID }?.name ?? ""
                 context.participantNames = store.snapshot.players.filter { context.participantIDs.contains($0.id) }.map(\.displayName)
+                context.participantsNeedDetails = otherPlayers
                 let venue = store.snapshot.setup.venues.first { $0.id == context.venueID }
-                store.trackTrainingSession(type: type, context: context, venue: venue?.name ?? "", location: venue?.town ?? "")
+                store.trackTrainingSession(type: type, context: context, venue: venue?.name ?? "", location: venue?.town ?? "", useHealth: useHealth)
                 dismiss()
             }
-            .disabled(store.selectedPlayer == nil || store.activeTraining != nil)
+            .disabled(store.selectedPlayer == nil || store.activeTraining != nil || store.isFinishingWorkout)
             Button("Cancel", role: .cancel) { dismiss() }
         }
         .navigationTitle("Training")
@@ -133,7 +157,7 @@ private struct WatchMatchSetupView: View {
                 TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
             }
             Picker("Match format", selection: $match.matchFormat) {
-                ForEach(MatchFormat.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(MatchFormat.allCases) { Text($0.label).tag($0) }
             }
             Picker("Venue", selection: $match.venueID) {
                 Text("Other").tag(Optional<UUID>.none)
@@ -216,7 +240,10 @@ private struct WatchLiveView: View {
                 }
                 if !training.context.coachName.isBlank { Text("Coach \(training.context.coachName)") }
                 if !training.venue.isBlank { Text(training.venue) }
+                WatchHealthMetricsView(client: store.healthClient)
+                if !store.workoutMessage.isBlank { Text(store.workoutMessage) }
                 Button("Finish Training Session") { confirmFinish = true }.buttonStyle(.borderedProminent)
+                    .disabled(store.isPreparingWorkout)
             } else if let tournament = store.snapshot.tournaments.first(where: { $0.id == store.activeTournamentID }) {
                 Text(TennisSummaryFormatter.tournament(tournament, style: .short))
                 Button("Finish Tournament") { confirmFinish = true }
@@ -246,6 +273,18 @@ private struct WatchLiveView: View {
     }
 }
 
+private struct WatchHealthMetricsView: View {
+    @ObservedObject var client: WatchHealthWorkout
+    var body: some View {
+        if let heart = client.latestHeartRate {
+            Text("Heart rate \(Int(heart.rounded())) BPM")
+        }
+        if let energy = client.activeEnergy {
+            Text("Active energy \(Int(energy.rounded())) calories")
+        }
+    }
+}
+
 private struct WatchPracticeResultView: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
@@ -255,10 +294,10 @@ private struct WatchPracticeResultView: View {
             Picker("Singles or doubles", selection: $result.kind) {
                 ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
             }
-            TennisPersonPicker(title: "Opponent", players: store.snapshot.players, selection: $result.opponentID, name: $result.opponentName)
+            TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != store.selectedPlayer?.id && $0.id != result.partnerID && $0.id != result.opponent2ID }, selection: $result.opponentID, name: $result.opponentName)
             if result.kind == .doubles {
-                TennisPersonPicker(title: "Partner", players: store.snapshot.players, selection: $result.partnerID, name: $result.partnerName, regularPartnersFirst: true)
-                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players, selection: $result.opponent2ID, name: $result.opponent2Name)
+                TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != store.selectedPlayer?.id && $0.id != result.opponentID && $0.id != result.opponent2ID }, selection: $result.partnerID, name: $result.partnerName, regularPartnersFirst: true)
+                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != store.selectedPlayer?.id && $0.id != result.partnerID && $0.id != result.opponentID }, selection: $result.opponent2ID, name: $result.opponent2Name)
             }
             Picker("Your games", selection: $result.playerGames) { ForEach(0...30, id: \.self) { Text("\($0)").tag($0) } }
             Picker("Opponent games", selection: $result.opponentGames) { ForEach(0...30, id: \.self) { Text("\($0)").tag($0) } }

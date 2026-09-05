@@ -136,7 +136,7 @@ struct MatchDetailView: View {
                 SummaryRow(title: TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .short), value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
                 SummaryRow(title: "Players", value: "\(match.playerTeam) against \(match.opponentSummary.fallback("opponent not recorded")).")
                 SummaryRow(title: "Score", value: TennisSummaryFormatter.matchSummary(match).scoreText)
-                SummaryRow(title: "Rules", value: "\(match.sightLevel.rawValue). \(match.allowedBounces) bounces. Sudden-death deuce \(match.suddenDeathDeuce ? "on" : "off").")
+                SummaryRow(title: "Rules", value: "\(match.sightLevel.label). \(match.allowedBounces) bounces. Sudden-death deuce \(match.suddenDeathDeuce ? "on" : "off").")
                 SummaryRow(title: "Place", value: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", ").fallback("not recorded"))
             }
 
@@ -238,14 +238,14 @@ struct MatchEditorView: View {
 
                 Section("Format") {
                     Picker("Match format", selection: $match.matchFormat) {
-                        ForEach(MatchFormat.allCases) { format in Text(format.rawValue).tag(format) }
+                        ForEach(MatchFormat.allCases) { format in Text(format.label).tag(format) }
                     }
                     .accessibilityIdentifier("matchFormatPicker")
                     .onChange(of: match.matchFormat) { _, newValue in
                         setCount = min(max(setCount, newValue.defaultSetsToEnter), newValue.maximumSetsToEnter)
                     }
                     Picker("Sight level", selection: $match.sightLevel) {
-                        ForEach(SightLevel.allCases) { level in Text(level.rawValue).tag(level) }
+                        ForEach(SightLevel.allCases) { level in Text(level.label).tag(level) }
                     }
                     .onChange(of: match.sightLevel) { _, newValue in
                         match.allowedBounces = newValue.allowedBounces
@@ -362,6 +362,9 @@ struct MatchEditorView: View {
                     Button("Save") {
                         keepDateInsideLinkedTournament()
                         applyCalculatedScoreIfNeeded()
+                        match.needsDetails = match.opponentName.isBlank || match.opponentName == "Opponent"
+                            || (match.matchType == .doubles && (match.partnerName.isBlank || match.opponent2Name.isBlank))
+                            || (match.status == .completed && match.setScores.isBlank)
                         store.upsertMatch(match)
                         dismiss()
                     }
@@ -399,7 +402,9 @@ struct MatchEditorView: View {
         guard let tournament = linkedTournament else { return }
         match.date = tournament.date
         match.hasStartTime = tournament.hasStartTime && !tournament.isAllDay
-        match.venue = tournament.location
+        match.venueID = tournament.venueID
+        match.venue = tournament.venue
+        match.location = tournament.location
         match.sightLevel = sightLevel(from: tournament.category) ?? match.sightLevel
         match.allowedBounces = match.sightLevel.allowedBounces
         if tournament.format == .roundRobin {
@@ -609,7 +614,7 @@ struct LiveMatchView: View {
     private func setupSections(match: MatchRecord) -> some View {
         Section("Format") {
             Picker("Match format", selection: binding(\.matchFormat)) {
-                ForEach(MatchFormat.allCases) { format in Text(format.rawValue).tag(format) }
+                ForEach(MatchFormat.allCases) { format in Text(format.label).tag(format) }
             }
             Picker("Match type", selection: binding(\.matchType)) {
                 ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
@@ -639,7 +644,7 @@ struct LiveMatchView: View {
 
         Section("Rules") {
             Picker("Sight level", selection: binding(\.sightLevel)) {
-                ForEach(SightLevel.allCases) { level in Text(level.rawValue).tag(level) }
+                ForEach(SightLevel.allCases) { level in Text(level.label).tag(level) }
             }
             .onChange(of: match.sightLevel) { _, newValue in
                 self.match?.allowedBounces = newValue.allowedBounces

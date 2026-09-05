@@ -214,7 +214,9 @@ final class TennisStore: ObservableObject {
         if let tournamentID, let tournament = data.tournaments.first(where: { $0.id == tournamentID }) {
             match.date = tournament.date
             match.hasStartTime = tournament.hasStartTime && !tournament.isAllDay
-            match.venue = tournament.location
+            match.venueID = tournament.venueID
+            match.venue = tournament.venue
+            match.location = tournament.location
             match.sightLevel = sightLevel(from: tournament.category) ?? player.sightLevel
             match.allowedBounces = match.sightLevel.allowedBounces
             match.matchPosition = tournament.format == .roundRobin ? .roundRobin : .notSpecified

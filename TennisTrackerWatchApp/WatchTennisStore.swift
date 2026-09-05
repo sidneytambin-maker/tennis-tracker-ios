@@ -1,5 +1,6 @@
 import Foundation
 import Accessibility
+import WidgetKit
 import WatchConnectivity
 #if os(watchOS)
 import WatchKit
@@ -16,6 +17,11 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var page: TennisWatchPage = .today
     @Published var completedTraining: TrainingSession?
     @Published var activeTournamentID: UUID?
+    let healthClient = WatchHealthWorkout()
+    lazy var workoutCoordinator = TennisWorkoutCoordinator(client: healthClient)
+    @Published var workoutMessage = ""
+    @Published var isPreparingWorkout = false
+    @Published var isFinishingWorkout = false
 
     private let snapshotKey = "snapshotData"
     private let commandKey = "commandData"
@@ -63,16 +69,17 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.requestSnapshot)
     }
 
-    func trackTrainingSession(type: TrainingType = .singlesPractice, context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "") {
+    func trackTrainingSession(type: TrainingType = .singlesPractice, context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
         }
-        guard activeTraining == nil else { page = .live; return }
+        guard activeTraining == nil && !isFinishingWorkout else { page = .live; return }
         var session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
         session.context = context
         session.venue = venue
         session.location = location
+        healthClient.clearMetrics()
         activeTraining = session
         completedTraining = nil
         page = .live
@@ -80,20 +87,43 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.upsertTraining(session))
         haptic(.start)
         announce("\(type.rawValue) tracking started.")
+        isPreparingWorkout = true
+        Task {
+            await workoutCoordinator.start(useHealth: useHealth, at: session.actualStart ?? session.date)
+            isPreparingWorkout = false
+            workoutMessage = workoutCoordinator.message
+            if useHealth { announce(workoutMessage) }
+        }
     }
 
     func finishTrainingSession() {
+        guard !isPreparingWorkout else { announce("Waiting for the Health permission response."); return }
         guard let activeTraining else {
             announce("No training session in progress.")
             return
         }
-        let finished = TennisWatchActivityFactory.finishTrainingSession(activeTraining)
+        let finishDate = Date()
+        let finished = TennisWatchActivityFactory.finishTrainingSession(activeTraining, finishDate: finishDate)
         self.activeTraining = nil
         completedTraining = finished
         mergeTraining(finished)
         send(.upsertTraining(finished))
         haptic(.success)
         announce("Finished training session. Complete details on iPhone when ready.")
+        isFinishingWorkout = true
+        Task {
+            defer { isFinishingWorkout = false }
+            if let result = await workoutCoordinator.finish(at: finishDate) {
+                var updated = snapshot.trainingSessions.first(where: { $0.id == finished.id }) ?? finished
+                updated.workout = result
+                updated = TennisRecordConflictResolver.prepareLocalTraining(updated)
+                completedTraining = updated
+                mergeTraining(updated)
+                send(.upsertTraining(updated))
+                workoutMessage = workoutCoordinator.message
+                announce(TennisSummaryFormatter.training(updated, style: .detailed) + " " + workoutMessage)
+            }
+        }
     }
 
     func recordMatch(kind: MatchKind, tournament: TournamentRecord? = nil) {
@@ -102,6 +132,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         let match = TennisWatchActivityFactory.match(player: player, kind: kind, tournament: tournament)
+        pointHistory = []
+        persistPointHistory()
         activeMatch = match
         page = .score
         scoreState = TennisScoreState(snapshot: match.liveScore ?? TennisScoreState().snapshot)
@@ -124,7 +156,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func resume(_ match: MatchRecord) {
-        if activeMatch?.id != match.id { pointHistory = [] }
+        if activeMatch?.id != match.id || activeMatch?.liveScore != match.liveScore {
+            pointHistory = []
+            persistPointHistory()
+        }
         activeMatch = match
         page = .score
         scoreState = TennisScoreState(snapshot: match.liveScore ?? TennisScoreState().snapshot)
@@ -141,8 +176,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         resume(match)
     }
 
-    func beginTraining(_ planned: TrainingSession) {
-        guard activeTraining == nil else { page = .live; return }
+    func beginTraining(_ planned: TrainingSession, useHealth: Bool = false) {
+        guard activeTraining == nil && !isFinishingWorkout else { page = .live; return }
+        healthClient.clearMetrics()
         var session = planned
         session.actualStart = Date()
         session.actualFinish = nil
@@ -154,6 +190,13 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         page = .live
         haptic(.start)
         announce("Training started.")
+        isPreparingWorkout = true
+        Task {
+            await workoutCoordinator.start(useHealth: useHealth, at: session.actualStart ?? session.date)
+            isPreparingWorkout = false
+            workoutMessage = workoutCoordinator.message
+            if useHealth { announce(workoutMessage) }
+        }
     }
 
     func beginTournament(_ tournament: TournamentRecord) {
@@ -247,7 +290,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func startTieBreak() {
         guard var match = activeMatch else { return }
+        guard !scoreState.isMatchComplete && !scoreState.isTiebreak else { return }
         var scorer = scoringEngine(for: match)
+        pointHistory.append(scoreState.snapshot)
+        persistPointHistory()
         announce(scorer.startTieBreak())
         scoreState = scorer.state
         match.liveScore = scoreState.snapshot
@@ -371,6 +417,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     private func applySnapshotData(_ data: Data) {
         guard let incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
+        let previousMatch = activeMatch
         let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: queuedCommands)
         snapshot = result.snapshot
         queuedCommands = result.pending
@@ -383,6 +430,17 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             activeMatch = snapshot.matches.first { $0.status == MatchStatus.inProgress && $0.liveScore != nil }
         }
         activeTraining = snapshot.trainingSessions.first(where: \.isActive)
+        if previousMatch?.id != activeMatch?.id || previousMatch?.liveScore != activeMatch?.liveScore {
+            pointHistory = []
+            persistPointHistory()
+        }
+        if let id = completedTraining?.id {
+            completedTraining = snapshot.trainingSessions.first { $0.id == id }
+        }
+        if let id = activeTournamentID, !snapshot.tournaments.contains(where: { $0.id == id && $0.finalResult == .inProgress }) {
+            activeTournamentID = nil
+            UserDefaults.standard.removeObject(forKey: "activeTournamentID")
+        }
         if activeMatch != nil {
             if let activeMatch {
                 scoreState = TennisScoreState(snapshot: activeMatch.liveScore ?? TennisScoreState().snapshot)
@@ -417,6 +475,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func haptic(_ type: WatchHaptic) {
+        guard snapshot.settings.hapticsEnabled else { return }
         #if os(watchOS)
         let watchType: WKHapticType
         switch type {
@@ -456,6 +515,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func persistSnapshot() {
         guard let data = try? JSONEncoder.tennisTracker.encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: localSnapshotKey)
+        do {
+            try TennisSharedSnapshotFile.write(snapshot)
+            WidgetCenter.shared.reloadAllTimelines()
+        } catch { lastSyncStatus = "Saved on Watch. Complication update could not be saved." }
     }
 
     private func persistQueue() {

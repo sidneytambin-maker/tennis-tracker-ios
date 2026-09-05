@@ -122,6 +122,14 @@ enum MatchFormat: String, Codable, CaseIterable, Identifiable {
     case custom = "Custom"
 
     var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .oneSet: return "One set"
+        case .bestOfThree: return "Best of 3 sets"
+        case .bestOfFive: return "Best of 5 sets"
+        case .custom: return "Custom"
+        }
+    }
 
     var defaultSetsToEnter: Int {
         switch self {

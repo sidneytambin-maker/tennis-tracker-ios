@@ -122,6 +122,7 @@ struct TournamentsView: View {
 
 struct TournamentDetailView: View {
     @EnvironmentObject private var store: TennisStore
+    @Environment(\.dismiss) private var dismiss
     @State var tournament: TournamentRecord
     @State private var showingEditor = false
     @State private var showingNewMatch = false
@@ -188,6 +189,10 @@ struct TournamentDetailView: View {
         }
         .tennisThemedList()
         .navigationTitle(tournament.name.fallback("Tournament"))
+        .onChange(of: store.data.tournaments) { _, tournaments in
+            if let updated = tournaments.first(where: { $0.id == tournament.id }) { tournament = updated }
+            else { dismiss() }
+        }
         .toolbar {
             Button("Edit") { showingEditor = true }
         }

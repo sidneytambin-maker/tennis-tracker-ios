@@ -150,6 +150,7 @@ struct TrainingEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State var session: TrainingSession
     @State private var validationMessage = ""
+    @State private var participantName = ""
 
     var body: some View {
         NavigationStack {
@@ -188,6 +189,21 @@ struct TrainingEditorView: View {
                                     }
                                 ))
                             }
+                            TextField("Other player name", text: $participantName)
+                            Button("Add Player") {
+                                var player = PlayerProfile()
+                                player.name = participantName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                player.sightLevel = .notKnown
+                                player.bCategory = "Not known"
+                                store.upsertPlayer(player)
+                                session.context.participantIDs.append(player.id)
+                                session.context.participantNames.append(player.displayName)
+                                participantName = ""
+                            }.disabled(participantName.isBlank)
+                            Toggle("All participants recorded", isOn: Binding(
+                                get: { session.context.participantsNeedDetails != true },
+                                set: { session.context.participantsNeedDetails = !$0 }
+                            ))
                         }.navigationTitle("Players Present")
                     }
                     Picker("Tournament", selection: $session.context.tournamentID) {
@@ -248,7 +264,7 @@ struct TrainingEditorView: View {
             UIAccessibility.post(notification: .announcement, argument: validationMessage)
             return
         }
-        session.needsDetails = false
+        session.needsDetails = session.context.participantsNeedDetails == true
         store.upsertTraining(session)
         dismiss()
     }

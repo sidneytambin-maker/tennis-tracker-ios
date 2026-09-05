@@ -140,6 +140,85 @@ final class TennisProductIntegrationTests: XCTestCase {
         XCTAssertFalse(finished.isActive)
     }
 
+    func testEqualRevisionOlderPhoneRecordsDoNotEraseWatchEdits() {
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        var training = TrainingSession(playerID: UUID())
+        training.revision = 3; training.modifiedAt = newer
+        var recordedMatch = match(.win); recordedMatch.revision = 3; recordedMatch.modifiedAt = newer
+        var tournament = TournamentRecord(playerID: training.playerID)
+        tournament.revision = 3; tournament.modifiedAt = newer
+        var incoming = TennisWatchSnapshot()
+        var oldTraining = training; oldTraining.modifiedAt = older
+        var oldMatch = recordedMatch; oldMatch.modifiedAt = older
+        var oldTournament = tournament; oldTournament.modifiedAt = older
+        incoming.trainingSessions = [oldTraining]
+        incoming.matches = [oldMatch]
+        incoming.tournaments = [oldTournament]
+        let pending: [TennisWatchSyncCommand] = [.upsertTraining(training), .upsertMatch(recordedMatch), .upsertTournament(tournament)]
+        let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: pending)
+        XCTAssertEqual(result.pending, pending)
+        XCTAssertEqual(result.snapshot.trainingSessions, [training])
+        XCTAssertEqual(result.snapshot.matches, [recordedMatch])
+        XCTAssertEqual(result.snapshot.tournaments, [tournament])
+    }
+
+    func testHistoryLimitsPreserveActiveAndNeedsDetailsRecords() {
+        var data = AppData()
+        let now = Date(timeIntervalSince1970: 10_000_000)
+        let playerID = UUID()
+        for _ in 0..<40 {
+            var training = TrainingSession(playerID: playerID); training.date = now
+            var recordedMatch = match(.win); recordedMatch.date = now
+            data.trainingSessions.append(training)
+            data.matches.append(recordedMatch)
+        }
+        var active = TrainingSession(playerID: playerID)
+        active.date = .distantPast; active.actualStart = now
+        var unfinished = match(.win)
+        unfinished.date = .distantPast; unfinished.status = .inProgress
+        data.trainingSessions.append(active)
+        data.matches.append(unfinished)
+        let snapshot = TennisWatchSnapshot(data: data, now: now)
+        XCTAssertTrue(snapshot.trainingSessions.contains { $0.id == active.id })
+        XCTAssertTrue(snapshot.matches.contains { $0.id == unfinished.id })
+        XCTAssertEqual(Set(snapshot.matches.map(\.id)).count, snapshot.matches.count)
+    }
+
+    func testActiveTrainingSummaryUsesActualElapsedDuration() {
+        var session = TrainingSession(playerID: UUID())
+        session.date = Date(timeIntervalSince1970: 0)
+        session.actualStart = Date(timeIntervalSince1970: 1_000)
+        session.durationMinutes = 120
+        let text = TennisSummaryFormatter.training(session, now: Date(timeIntervalSince1970: 3_880))
+        XCTAssertTrue(text.contains("48 minutes elapsed"))
+        XCTAssertFalse(text.contains("2 hours"))
+    }
+
+    func testWireRoundTripAcknowledgesFractionalLocalTimestamp() throws {
+        var training = TrainingSession(playerID: UUID())
+        training.modifiedAt = Date(timeIntervalSince1970: 1_000.875)
+        training.revision = 4
+        var incoming = TennisWatchSnapshot()
+        incoming.trainingSessions = [training]
+        let restored = try JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: JSONEncoder.tennisTracker.encode(incoming))
+        let result = TennisWatchReconciliation.reconcile(incoming: restored, pending: [.upsertTraining(training)])
+        XCTAssertTrue(result.pending.isEmpty)
+        XCTAssertEqual(result.snapshot.trainingSessions.count, 1)
+    }
+
+    func testWatchMatchUsesStructuredTournamentVenueWithoutReplacingActualStart() {
+        let player = PlayerProfile()
+        var tournament = TournamentRecord(playerID: player.id)
+        tournament.venueID = UUID(); tournament.venue = "Tennis Centre"; tournament.location = "London"
+        let now = Date(timeIntervalSince1970: 1_000)
+        let match = TennisWatchActivityFactory.match(player: player, kind: .singles, tournament: tournament, startDate: now)
+        XCTAssertEqual(match.date, now)
+        XCTAssertEqual(match.venueID, tournament.venueID)
+        XCTAssertEqual(match.venue, "Tennis Centre")
+        XCTAssertEqual(match.location, "London")
+    }
+
     func testFiveWatchPagesAndDeepLinks() {
         XCTAssertEqual(TennisWatchPage.allCases.map(\.rawValue), ["Today", "Track", "Live", "Recent", "Score"])
         for page in TennisWatchPage.allCases { XCTAssertEqual(TennisWatchPage.destination(for: page.url), page) }

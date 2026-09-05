@@ -2,6 +2,16 @@ name: iOS free development build
 
 on:
   workflow_dispatch:
+    inputs:
+      stage:
+        description: Capability stage to compile; never installs a physical device
+        required: true
+        default: core
+        type: choice
+        options:
+          - core
+          - health
+          - widgets
   push:
     branches:
       - codex/ios-poc
@@ -44,10 +54,20 @@ jobs:
             CODE_SIGN_IDENTITY=""
 
       - name: Build unsigned device IPA
+        env:
+          BUILD_STAGE: ${{ inputs.stage || 'core' }}
         run: |
-          xcodegen generate --spec project.yml
+          set -euo pipefail
+          case "$BUILD_STAGE" in
+            core) SPEC=project.yml ;;
+            health) SPEC=project-health.yml ;;
+            widgets) SPEC=project-widgets.yml ;;
+            *) echo "Unsupported capability stage" >&2; exit 1 ;;
+          esac
+          xcodegen generate --spec "$SPEC"
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
+          printf '\nCapability stage: %s\nPhysical acceptance: not tested by this workflow\n' "$BUILD_STAGE" >> artifacts/build-summary.txt
 
       - name: Report iPhone and Watch signing status
         shell: pwsh

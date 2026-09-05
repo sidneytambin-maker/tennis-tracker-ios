@@ -71,7 +71,7 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
         }
         connectionDescription = session.isReachable
             ? "Apple Watch paired. Tennis Tracker installed. Live connection available."
-            : "Apple Watch paired. Tennis Tracker installed. Background sync available."
+            : "Apple Watch paired. Tennis Tracker installed. Live connection not currently reachable. Updates can still be queued for background delivery."
     }
 
     private func flushSnapshot() {

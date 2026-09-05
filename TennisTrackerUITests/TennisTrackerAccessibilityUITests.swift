@@ -81,6 +81,46 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(textContaining("Singles practice").waitForExistence(timeout: 5))
     }
 
+    func testTennisSetupAddsCoachAndRegularPartner() throws {
+        completeOnboarding()
+        openDestination("Settings")
+        app.buttons["tennisSetupLink"].tap()
+        app.buttons["Coaches"].tap()
+        app.buttons["Add Coach"].tap()
+        let coachName = app.textFields["Name"]
+        XCTAssertTrue(coachName.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Save"].isEnabled)
+        coachName.tap()
+        coachName.typeText("Chris")
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["Chris"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["Regular Doubles Partners"].tap()
+        app.buttons["addPlayerButton"].tap()
+        let playerName = app.textFields["playerNameField"]
+        XCTAssertTrue(playerName.waitForExistence(timeout: 5))
+        playerName.tap()
+        playerName.typeText("Jo")
+        app.buttons["savePlayerButton"].tap()
+        XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Jo")).firstMatch.waitForExistence(timeout: 5))
+    }
+
+    func testOneSetEditorDoesNotExposeAdditionalSets() throws {
+        completeOnboarding()
+        openDestination("Matches")
+        app.buttons["addMatchButton"].tap()
+        let setOne = app.staticTexts["Set 1"]
+        for _ in 0..<8 {
+            if setOne.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(setOne.exists)
+        XCTAssertFalse(app.staticTexts["Set 2"].exists)
+        XCTAssertFalse(app.buttons["Sets played"].exists)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["addMatchButton"].waitForExistence(timeout: 5))
+    }
+
     private func completeOnboarding() {
         app.buttons["setupProfileButton"].tap()
         let nameField = app.textFields["playerNameField"]

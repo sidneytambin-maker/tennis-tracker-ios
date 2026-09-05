@@ -14,7 +14,7 @@ struct CalendarEventDraft: Equatable {
 enum TennisCalendarMapper {
     static func event(for match: MatchRecord) -> CalendarEventDraft {
         CalendarEventDraft(
-            title: "Tennis match: \(match.opponentSummary.fallback("opponent not recorded"))",
+            title: "Tennis: \(match.playerTeam) versus \(match.opponentSummary.fallback("opponent not recorded"))",
             notes: "Tennis Tracker match. \(TennisSummaryFormatter.match(match, style: .long)) \(match.notes)",
             startDate: match.date,
             endDate: match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60)),
@@ -26,7 +26,7 @@ enum TennisCalendarMapper {
     static func event(for session: TrainingSession) -> CalendarEventDraft {
         CalendarEventDraft(
             title: "Tennis training: \(session.trainingType.rawValue)",
-            notes: "Tennis Tracker training. Focus: \(session.focus). \(session.notes)",
+            notes: "\(TennisSummaryFormatter.training(session, style: .detailed)) \(session.notes)",
             startDate: session.date,
             endDate: session.expectedEndDate,
             location: session.placeText,
@@ -37,12 +37,12 @@ enum TennisCalendarMapper {
     static func event(for tournament: TournamentRecord) -> CalendarEventDraft {
         CalendarEventDraft(
             title: "Tennis tournament: \(tournament.name.fallback("Unnamed tournament"))",
-            notes: "Tennis Tracker tournament. Goal: \(tournament.goal). \(tournament.notes)",
+            notes: "\(TennisSummaryFormatter.tournament(tournament, style: .short)) \(tournament.goal) \(tournament.notes)",
             startDate: tournament.date,
             endDate: tournament.isAllDay
                 ? Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: max(tournament.endDate, tournament.date))) ?? tournament.endDate
                 : max(tournament.endDate, tournament.date.addingTimeInterval(60 * 60)),
-            location: tournament.location,
+            location: [tournament.venue, tournament.location].filter { !$0.isBlank }.joined(separator: ", "),
             deepLink: URL(string: "tennistracker://tournament/\(tournament.id.uuidString)")!,
             isAllDay: tournament.isAllDay || !tournament.hasStartTime
         )

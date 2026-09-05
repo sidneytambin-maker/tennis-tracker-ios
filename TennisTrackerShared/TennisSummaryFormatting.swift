@@ -16,7 +16,7 @@ enum TennisSummaryFormatter {
         case .short: return summary.shortText
         case .long, .accessibility: return summary.longText
         case .detailed:
-            return "\(summary.longText) \(match.matchType.rawValue). \(match.matchFormat.rawValue), \(match.suddenDeathDeuce ? "sudden-death deuce" : "advantage deuce")."
+            return "\(summary.longText) \(match.matchType.rawValue). \(match.matchFormat.label), \(match.suddenDeathDeuce ? "sudden-death deuce" : "advantage deuce"). Player classification: \(match.sightLevel.label). \(match.allowedBounces) bounces allowed."
         }
     }
 
@@ -55,16 +55,20 @@ enum TennisSummaryFormatter {
         return TennisMatchSummary(shortText: compact + ".", longText: standard, accessibilityText: standard, scoreText: score.fallback("Score not recorded"))
     }
 
-    static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long) -> String {
+    static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date()) -> String {
         var parts = [session.trainingType.rawValue]
         if !session.context.coachName.isBlank { parts[0] += " with coach \(session.context.coachName)" }
-        parts.append(session.durationMinutes.durationText)
+        if let start = session.actualStart {
+            let minutes = session.isActive ? max(0, Int(now.timeIntervalSince(start) / 60)) : session.durationMinutes
+            parts.append(minutes.durationText + (session.isActive ? " elapsed" : ""))
+        } else { parts.append(session.durationMinutes.durationText) }
         if style != .short && !session.context.participantNames.isEmpty {
             parts.append("with " + session.context.participantNames.joined(separator: " and "))
         }
         parts += unique([session.venue, session.location])
         if style != .short {
-            parts.append(session.date.tennisSummaryDate + (session.hasStartTime ? " at \(session.date.shortTennisTime)" : ""))
+            let date = session.actualStart ?? session.date
+            parts.append(date.tennisSummaryDate + (session.hasStartTime || session.actualStart != nil ? " at \(date.shortTennisTime)" : ""))
         }
         if style == .detailed, let result = session.workout {
             if let heart = result.averageHeartRate { parts.append("Average heart rate \(Int(heart.rounded())) BPM") }

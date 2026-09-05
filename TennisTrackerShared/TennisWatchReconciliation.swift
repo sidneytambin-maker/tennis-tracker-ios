@@ -19,13 +19,13 @@ enum TennisWatchReconciliation {
             let acknowledged: Bool
             switch command {
             case .upsertMatch(let record):
-                acknowledged = snapshot.matches.contains { $0.id == record.id && $0.revision >= record.revision }
+                acknowledged = snapshot.matches.contains { $0.id == record.id && TennisRecordConflictResolver.shouldReplace(incomingRevision: $0.revision, incomingModifiedAt: $0.modifiedAt, existingRevision: record.revision, existingModifiedAt: record.modifiedAt) }
                 if !acknowledged { snapshot.matches.removeAll { $0.id == record.id }; snapshot.matches.insert(record, at: 0) }
             case .upsertTraining(let record):
-                acknowledged = snapshot.trainingSessions.contains { $0.id == record.id && $0.revision >= record.revision }
+                acknowledged = snapshot.trainingSessions.contains { $0.id == record.id && TennisRecordConflictResolver.shouldReplace(incomingRevision: $0.revision, incomingModifiedAt: $0.modifiedAt, existingRevision: record.revision, existingModifiedAt: record.modifiedAt) }
                 if !acknowledged { snapshot.trainingSessions.removeAll { $0.id == record.id }; snapshot.trainingSessions.insert(record, at: 0) }
             case .upsertTournament(let record):
-                acknowledged = snapshot.tournaments.contains { $0.id == record.id && $0.revision >= record.revision }
+                acknowledged = snapshot.tournaments.contains { $0.id == record.id && TennisRecordConflictResolver.shouldReplace(incomingRevision: $0.revision, incomingModifiedAt: $0.modifiedAt, existingRevision: record.revision, existingModifiedAt: record.modifiedAt) }
                 if !acknowledged { snapshot.tournaments.removeAll { $0.id == record.id }; snapshot.tournaments.insert(record, at: 0) }
             default: acknowledged = false
             }
