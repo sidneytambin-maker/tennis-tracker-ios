@@ -19,6 +19,15 @@ private enum SetupKind: String {
     case coach = "Coach", trainingVenue = "Training Venue", matchVenue = "Match Venue"
     case tournament = "Regular Tournament", location = "Location"
     var isVenue: Bool { self == .trainingVenue || self == .matchVenue }
+    var listTitle: String {
+        switch self {
+        case .coach: return "Coaches"
+        case .trainingVenue: return "Training Venues"
+        case .matchVenue: return "Match Venues"
+        case .tournament: return "Regular Tournaments"
+        case .location: return "Regular Locations"
+        }
+    }
 }
 
 private struct SetupDraft: Identifiable {
@@ -65,7 +74,7 @@ private struct SetupRecordsView: View {
             }
             Button("Add \(kind.rawValue)") { editing = SetupDraft() }
         }
-        .navigationTitle(kind.rawValue)
+        .navigationTitle(kind.listTitle)
         .sheet(item: $editing) { draft in
             SetupRecordEditor(kind: kind, draft: draft, save: save)
         }
