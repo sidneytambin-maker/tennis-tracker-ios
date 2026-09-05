@@ -94,8 +94,12 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         coachName.typeText("Chris")
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Chris"].waitForExistence(timeout: 5))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.buttons["Regular Doubles Partners"].tap()
+        let coachesNavigation = app.navigationBars["Coaches"]
+        XCTAssertTrue(coachesNavigation.waitForExistence(timeout: 5))
+        coachesNavigation.buttons.element(boundBy: 0).tap()
+        let partners = app.buttons["Regular Doubles Partners"]
+        XCTAssertTrue(partners.waitForExistence(timeout: 5))
+        partners.tap()
         app.buttons["addPlayerButton"].tap()
         let playerName = app.textFields["playerNameField"]
         XCTAssertTrue(playerName.waitForExistence(timeout: 5))
