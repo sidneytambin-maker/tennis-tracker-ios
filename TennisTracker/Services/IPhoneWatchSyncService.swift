@@ -21,6 +21,12 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
     @Published private(set) var connectionDescription = "Checking Apple Watch."
     @Published private(set) var syncMessage = "Waiting for the connection."
     @Published private(set) var lastSuccessfulSync = UserDefaults.standard.object(forKey: "lastWatchSyncReceipt") as? Date
+    @Published private(set) var healthStatus: TennisWatchHealthStatus?
+
+    var pairedDescription: String { supported && session.activationState == .activated ? (session.isPaired ? "Yes" : "No") : "Checking" }
+    var installedDescription: String { supported && session.activationState == .activated ? (session.isWatchAppInstalled ? "Yes" : "No") : "Checking" }
+    var liveDescription: String { session.isReachable ? "Available" : "Not currently reachable" }
+    var backgroundDescription: String { supported && session.activationState == .activated && session.isPaired && session.isWatchAppInstalled ? "Available" : "Not available yet" }
 
     private weak var store: TennisStore?
     private let session: TennisWatchSessionTransport
@@ -33,6 +39,9 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
         self.session = session
         self.supported = supported
         super.init()
+        if let data = UserDefaults.standard.data(forKey: "lastWatchHealthStatus") {
+            healthStatus = try? JSONDecoder.tennisTracker.decode(TennisWatchHealthStatus.self, from: data)
+        }
     }
 
     func configure(store: TennisStore) {
@@ -104,6 +113,7 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
     }
 
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        receiveHealthStatus(session.receivedApplicationContext)
         Task { @MainActor [weak self] in
             guard let self else { return }
             if error != nil {
@@ -136,11 +146,13 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
     }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        receiveHealthStatus(userInfo)
         guard let data = userInfo["commandData"] as? Data else { return }
         handleCommandData(data)
     }
 
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        receiveHealthStatus(applicationContext)
         guard let data = applicationContext["commandData"] as? Data else { return }
         handleCommandData(data)
     }
@@ -155,6 +167,16 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
                 UserDefaults.standard.set(now, forKey: "lastWatchSyncReceipt")
                 self?.syncMessage = "Apple Watch confirmed receipt of tennis data."
             }
+        }
+    }
+
+    nonisolated private func receiveHealthStatus(_ context: [String: Any]) {
+        guard let data = context["healthStatusData"] as? Data,
+              let status = try? JSONDecoder.tennisTracker.decode(TennisWatchHealthStatus.self, from: data) else { return }
+        Task { @MainActor [weak self] in
+            guard let self, self.healthStatus == nil || status.reportedAt > self.healthStatus!.reportedAt else { return }
+            self.healthStatus = status
+            UserDefaults.standard.set(data, forKey: "lastWatchHealthStatus")
         }
     }
 }

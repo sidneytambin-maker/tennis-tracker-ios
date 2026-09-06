@@ -32,7 +32,7 @@ enum TennisNotificationPlanner {
                 requests.append(PlannedNotification(
                     identifier: "training-\(session.id)",
                     title: "Upcoming training",
-                    body: TennisSummaryFormatter.training(session),
+                    body: TennisSummaryFormatter.training(session, coaches: data.setup.coaches, players: data.players),
                     fireDate: max(now.addingTimeInterval(60), session.date.addingTimeInterval(-lead)),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))
@@ -59,7 +59,7 @@ enum TennisNotificationPlanner {
                 requests.append(PlannedNotification(
                     identifier: "training-reflection-\(session.id)",
                     title: "Training reflection",
-                    body: "\(TennisSummaryFormatter.training(session, style: .short)) Add your training notes.",
+                    body: "\(TennisSummaryFormatter.training(session, style: .short, coaches: data.setup.coaches, players: data.players)) Add your training notes.",
                     fireDate: session.expectedEndDate.addingTimeInterval(delay),
                     deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
                 ))

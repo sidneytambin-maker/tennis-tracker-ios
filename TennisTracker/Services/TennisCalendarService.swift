@@ -23,10 +23,10 @@ enum TennisCalendarMapper {
         )
     }
 
-    static func event(for session: TrainingSession) -> CalendarEventDraft {
+    static func event(for session: TrainingSession, coaches: [TennisCoach] = [], players: [PlayerProfile] = []) -> CalendarEventDraft {
         CalendarEventDraft(
             title: "Tennis training: \(session.trainingType.rawValue)",
-            notes: "\(TennisSummaryFormatter.training(session, style: .detailed)) \(session.notes)",
+            notes: "\(TennisSummaryFormatter.training(session, style: .detailed, coaches: coaches, players: players)) \(session.notes)",
             startDate: session.date,
             endDate: session.expectedEndDate,
             location: session.placeText,

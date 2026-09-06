@@ -125,6 +125,62 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["addMatchButton"].waitForExistence(timeout: 5))
     }
 
+    func testThemeAndSetupHaveNoDuplicateNavigationControls() throws {
+        completeOnboarding()
+        openDestination("Settings")
+        let theme = app.buttons["settingsThemePicker"]
+        for _ in 0..<5 { if theme.isHittable { break }; app.swipeUp() }
+        XCTAssertEqual(app.buttons.matching(identifier: "settingsThemePicker").count, 1)
+        XCTAssertLessThanOrEqual(app.staticTexts.matching(identifier: "Theme").count, 1)
+        for _ in 0..<5 { if app.buttons["tennisSetupLink"].isHittable { break }; app.swipeDown() }
+        app.buttons["tennisSetupLink"].tap()
+        for destination in ["Players", "Coaches", "Training Venues", "Match Venues"] {
+            app.buttons[destination].tap()
+            let bar = app.navigationBars[destination]
+            XCTAssertTrue(bar.waitForExistence(timeout: 5))
+            XCTAssertEqual(bar.buttons.count, 1, "Expected one Back action on \(destination)")
+            bar.buttons.firstMatch.tap()
+            XCTAssertTrue(app.navigationBars["Tennis Setup"].waitForExistence(timeout: 5))
+        }
+    }
+
+    func testTrainingMultiSelectionIsAnnouncedAndCancelDiscardsDraftPeople() throws {
+        completeOnboarding()
+        openDestination("Training")
+        app.buttons["addTrainingButton"].tap()
+        tapPossiblyScrolledButton("Coaches")
+        for name in ["Chris", "Sarah"] {
+            let field = app.textFields["New coach name"]
+            field.tap(); field.typeText(name)
+            app.buttons["Add Coach"].tap()
+            let selected = app.switches[name]
+            XCTAssertTrue(selected.waitForExistence(timeout: 5))
+            XCTAssertTrue(["Selected", "1"].contains(selected.value as? String ?? ""))
+        }
+        app.switches["Chris"].tap()
+        XCTAssertTrue(["Not selected", "0"].contains(app.switches["Chris"].value as? String ?? ""))
+        app.switches["Chris"].tap()
+        app.navigationBars["Coaches"].buttons.firstMatch.tap()
+        tapPossiblyScrolledButton("Players Present")
+        for name in ["Ben", "Lucy"] {
+            let field = app.textFields["Other player name"]
+            field.tap(); field.typeText(name)
+            app.buttons["Add Player"].tap()
+            XCTAssertTrue(app.switches[name].waitForExistence(timeout: 5))
+        }
+        app.navigationBars["Players Present"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["saveTrainingButton"].exists)
+        app.buttons["Cancel"].tap()
+        app.buttons["addTrainingButton"].tap()
+        tapPossiblyScrolledButton("Coaches")
+        XCTAssertFalse(app.switches["Chris"].exists)
+        XCTAssertFalse(app.switches["Sarah"].exists)
+        app.navigationBars["Coaches"].buttons.firstMatch.tap()
+        tapPossiblyScrolledButton("Players Present")
+        XCTAssertFalse(app.switches["Ben"].exists)
+        XCTAssertFalse(app.switches["Lucy"].exists)
+    }
+
     private func completeOnboarding() {
         app.buttons["setupProfileButton"].tap()
         let nameField = app.textFields["playerNameField"]
@@ -138,34 +194,22 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     }
 
     private func openDestination(_ name: String) {
+        if name == "Player" {
+            app.tabBars.buttons["Settings"].tap()
+            app.buttons["Players"].tap()
+            return
+        }
         let visibleTab = app.tabBars.buttons[name]
         if visibleTab.waitForExistence(timeout: 2) {
             visibleTab.tap()
             return
         }
-        let more = app.tabBars.buttons["More"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), "Missing More tab for \(name)")
-        more.tap()
-        let rowText = app.tables.staticTexts[name]
-        if rowText.waitForExistence(timeout: 2) {
-            rowText.tap()
-            return
-        }
-        let rowButton = app.tables.buttons[name]
-        if rowButton.waitForExistence(timeout: 2) {
-            rowButton.tap()
-            return
-        }
-        let rowCell = app.tables.cells.containing(.staticText, identifier: name).firstMatch
-        XCTAssertTrue(rowCell.waitForExistence(timeout: 5), "Missing More row for \(name)")
-        rowCell.tap()
+        XCTFail("Missing tab for \(name)")
     }
 
     private func tapPossiblyScrolledButton(_ identifier: String) {
         let button = app.buttons[identifier]
-        if !button.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
+        for _ in 0..<8 { if button.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing button \(identifier)")
         button.tap()
     }

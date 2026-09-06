@@ -9,7 +9,7 @@ struct PlayerView: View {
 
     var body: some View {
         List {
-            Section(partnersOnly ? "Regular Doubles Partners" : "Players") {
+            Section {
                 ForEach(store.data.players.filter { !partnersOnly || $0.isRegularPartner }) { player in
                     Button { editingPlayer = player } label: {
                         VStack(alignment: .leading) {
@@ -18,7 +18,7 @@ struct PlayerView: View {
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
-                    .accessibilityValue(player.isRegularPartner ? "Regular doubles partner" : player.sightLevel.label)
+                    .accessibilityValue(player.isRegularPartner ? "Regular doubles partner" : "")
                     .accessibilityAction(named: "Edit Player") { editingPlayer = player }
                     .accessibilityAction(named: "Delete Player") { deletingPlayer = player; confirmDelete = true }
                 }
@@ -69,9 +69,7 @@ struct PlayerEditorView: View {
                 Section("Player") {
                     TextField("Full name", text: $player.name)
                         .accessibilityIdentifier("playerNameField")
-                    Picker("Sight classification", selection: $player.sightLevel) {
-                        ForEach(SightLevel.allCases) { Text($0.label).tag($0) }
-                    }
+                    OrderedChoicePicker(title: "Sight classification", selection: $player.sightLevel, values: SightLevel.allCases) { $0.label }
                     .accessibilityIdentifier("editSightLevelPicker")
                     .onChange(of: player.sightLevel) { _, level in
                         player.bCategory = level.label
@@ -95,9 +93,7 @@ struct PlayerEditorView: View {
                     TextField("Notes", text: $player.profileNotes, axis: .vertical)
                 }
                 Section("Player defaults") {
-                    Picker("Default Match Format", selection: $player.defaultMatchFormat) {
-                        ForEach(MatchFormat.allCases) { Text($0.label).tag($0) }
-                    }
+                    OrderedChoicePicker(title: "Default Match Format", selection: $player.defaultMatchFormat, values: MatchFormat.allCases) { $0.label }
                     .accessibilityIdentifier("playerDefaultFormatPicker")
                     Picker("Preferred match type", selection: $player.preferredMatchType) {
                         ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0.rawValue) }

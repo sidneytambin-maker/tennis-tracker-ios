@@ -16,7 +16,7 @@ extension AppTheme {
                 background: Color(red: 0.90, green: 0.97, blue: 0.82),
                 groupedBackground: Color(red: 0.10, green: 0.31, blue: 0.20),
                 rowBackground: Color(red: 0.98, green: 1.0, blue: 0.92),
-                accent: Color(red: 0.62, green: 0.83, blue: 0.08),
+                accent: Color(red: 0.08, green: 0.36, blue: 0.17),
                 strongSurface: Color(red: 0.04, green: 0.16, blue: 0.12)
             )
         case .classic:
@@ -72,7 +72,6 @@ struct SummaryRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.headline)
-                .accessibilityAddTraits(.isHeader)
             Text(value)
                 .font(.body)
         }
@@ -254,28 +253,12 @@ struct DurationFields: View {
     private let minuteChoices = Array(stride(from: 0, through: 55, by: 5))
 
     var body: some View {
-        Picker("Hours", selection: hoursBinding) {
-            ForEach(0...8, id: \.self) { hour in
-                Text(hour == 1 ? "1 hour" : "\(hour) hours").tag(hour)
-            }
+        OrderedChoicePicker(title: "Duration hours", selection: hoursBinding, values: Array(0...max(8, minutes / 60))) {
+            $0 == 1 ? "1 hour" : "\($0) hours"
         }
-        .accessibilityValue("\(hoursBinding.wrappedValue)")
-
-        Picker("Minutes", selection: minutesBinding) {
-            ForEach(minuteChoices, id: \.self) { value in
-                Text(value == 1 ? "1 minute" : "\(value) minutes").tag(value)
-            }
+        OrderedChoicePicker(title: "Duration minutes", selection: minutesBinding, values: minuteChoices) {
+            "\($0) minutes"
         }
-        .accessibilityValue("\(minutesBinding.wrappedValue)")
-
-        HStack {
-            Button("1 hour") { minutes = 60 }
-            Button("90 minutes") { minutes = 90 }
-            Button("2 hours") { minutes = 120 }
-        }
-        .buttonStyle(.bordered)
-
-        SummaryRow(title: "Duration", value: minutes.durationText)
     }
 
     private var hoursBinding: Binding<Int> {
@@ -304,14 +287,7 @@ struct NumberChoicePicker: View {
     var suffix: String = ""
 
     var body: some View {
-        Picker(title, selection: $value) {
-            ForEach(Array(range), id: \.self) { number in
-                Text(label(for: number)).tag(number)
-            }
-        }
-        .accessibilityLabel(title)
-        .accessibilityValue(label(for: value))
-        .accessibilityHint("Double tap to choose a value.")
+        OrderedChoicePicker(title: title, selection: $value, values: Array(range), label: label)
     }
 
     private func label(for number: Int) -> String {

@@ -43,7 +43,7 @@ struct DashboardView: View {
                 Section("Current activity") {
                     if let training = store.selectedTraining.first(where: \.isActive) {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            NavigationLink(TennisSummaryFormatter.training(training, now: context.date)) {
+                            NavigationLink(store.trainingSummary(training, now: context.date)) {
                                 TrainingDetailView(session: training)
                             }
                         }
@@ -62,7 +62,7 @@ struct DashboardView: View {
 
                 Section("Next activity") {
                     if let training = store.selectedTraining.filter({ $0.actualStart == nil && $0.date >= Date() }).min(by: { $0.date < $1.date }) {
-                        NavigationLink(TennisSummaryFormatter.training(training)) { TrainingDetailView(session: training) }
+                        NavigationLink(store.trainingSummary(training)) { TrainingDetailView(session: training) }
                     }
                     if let match = store.selectedMatches.filter({ $0.status == .scheduled && $0.date >= Date() }).min(by: { $0.date < $1.date }) {
                         NavigationLink(TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments)) { MatchDetailView(match: match) }
@@ -97,7 +97,7 @@ struct DashboardView: View {
 
                 Section("Training activity") {
                     if let recent = store.selectedTraining.filter({ !$0.isActive && ($0.actualFinish != nil || $0.expectedEndDate < Date()) }).first {
-                        NavigationLink(TennisSummaryFormatter.training(recent)) { TrainingDetailView(session: recent) }
+                        NavigationLink(store.trainingSummary(recent)) { TrainingDetailView(session: recent) }
                     }
                     SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
                         .accessibilityAction(named: "Track Training Session") {

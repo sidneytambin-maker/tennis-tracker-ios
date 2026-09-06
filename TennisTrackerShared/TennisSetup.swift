@@ -38,15 +38,82 @@ struct TennisSetup: Codable, Equatable {
     var tournamentTemplates: [TennisTournamentTemplate] = []
 }
 
-// IDs link reusable records; names preserve the historical context after setup edits.
+// IDs are authoritative. Legacy names remain only for older wire data and deleted profiles.
 struct TennisActivityContext: Codable, Equatable {
-    var coachID: UUID?
+    var coachIDs: [UUID] = []
+    var coachID: UUID? {
+        get { coachIDs.first }
+        set { coachIDs = newValue.map { [$0] } ?? [] }
+    }
     var coachName = ""
+    var coachesNeedDetails: Bool?
     var participantIDs: [UUID] = []
     var participantNames: [String] = []
     var participantsNeedDetails: Bool?
     var venueID: UUID?
     var tournamentID: UUID?
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case coachIDs, coachID, coachName, coachesNeedDetails, participantIDs, participantNames
+        case participantsNeedDetails, venueID, tournamentID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let legacyID = try c.decodeIfPresent(UUID.self, forKey: .coachID)
+        coachIDs = Self.unique(try c.decodeIfPresent([UUID].self, forKey: .coachIDs) ?? legacyID.map { [$0] } ?? [])
+        coachName = try c.decodeIfPresent(String.self, forKey: .coachName) ?? ""
+        coachesNeedDetails = try c.decodeIfPresent(Bool.self, forKey: .coachesNeedDetails)
+        participantIDs = Self.unique(try c.decodeIfPresent([UUID].self, forKey: .participantIDs) ?? [])
+        participantNames = try c.decodeIfPresent([String].self, forKey: .participantNames) ?? []
+        participantsNeedDetails = try c.decodeIfPresent(Bool.self, forKey: .participantsNeedDetails)
+        venueID = try c.decodeIfPresent(UUID.self, forKey: .venueID)
+        tournamentID = try c.decodeIfPresent(UUID.self, forKey: .tournamentID)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(Self.unique(coachIDs), forKey: .coachIDs)
+        try c.encodeIfPresent(coachID, forKey: .coachID)
+        try c.encode(coachName, forKey: .coachName)
+        try c.encodeIfPresent(coachesNeedDetails, forKey: .coachesNeedDetails)
+        try c.encode(Self.unique(participantIDs), forKey: .participantIDs)
+        try c.encode(participantNames, forKey: .participantNames)
+        try c.encodeIfPresent(participantsNeedDetails, forKey: .participantsNeedDetails)
+        try c.encodeIfPresent(venueID, forKey: .venueID)
+        try c.encodeIfPresent(tournamentID, forKey: .tournamentID)
+    }
+
+    func coachSummary(in coaches: [TennisCoach]) -> String {
+        let names = Self.unique(coachIDs).compactMap { id in coaches.first { $0.id == id }?.name }
+        return !coachIDs.isEmpty && names.count == Self.unique(coachIDs).count ? Self.names(names) : coachName
+    }
+
+    func participantSummary(in players: [PlayerProfile]) -> String {
+        let names = Self.unique(participantIDs).compactMap { id in players.first { $0.id == id }?.displayName }
+        return Self.names(!participantIDs.isEmpty && names.count == Self.unique(participantIDs).count ? names : participantNames)
+    }
+
+    mutating func captureLegacyNames(coaches: [TennisCoach], players: [PlayerProfile]) {
+        coachIDs = Self.unique(coachIDs)
+        participantIDs = Self.unique(participantIDs)
+        if !coachIDs.isEmpty { coachName = coachSummary(in: coaches) }
+        let resolved = participantIDs.compactMap { id in players.first { $0.id == id }?.displayName }
+        if !participantIDs.isEmpty && resolved.count == participantIDs.count { participantNames = resolved }
+    }
+
+    static func names(_ values: [String]) -> String {
+        let names = values.filter { !$0.isBlank }
+        guard names.count > 1, let last = names.last else { return names.first ?? "" }
+        return names.dropLast().joined(separator: ", ") + " and " + last
+    }
+
+    private static func unique(_ ids: [UUID]) -> [UUID] {
+        var seen = Set<UUID>()
+        return ids.filter { seen.insert($0).inserted }
+    }
 }
 
 struct TennisWorkoutResult: Codable, Equatable {

@@ -10,11 +10,64 @@ private final class MockWorkoutClient: TennisWorkoutClient {
     var permissionRequests = 0
     var result = TennisWorkoutResult(durationSeconds: 600)
     func requestPermission() async throws -> Bool { permissionRequests += 1; return permission }
-    func begin(at date: Date) async throws { begins += 1 }
-    func finish(at date: Date) async throws -> TennisWorkoutResult { finishes += 1; return result }
+    var begunActivityID: UUID?
+    var canRecover = false
+    var failStart = false
+    var failFinish = false
+    func begin(activityID: UUID, at date: Date) async throws {
+        if failStart { throw NSError(domain: "TestWorkout", code: 1) }
+        begins += 1; begunActivityID = activityID
+    }
+    func finish(at date: Date) async throws -> TennisWorkoutResult {
+        finishes += 1
+        if failFinish { throw NSError(domain: "TestWorkout", code: 2) }
+        return result
+    }
+    func recover(activityID: UUID) async throws -> Bool { canRecover }
 }
 
 final class TennisWorkoutTests: XCTestCase {
+    @MainActor
+    func testWorkoutUsesTrainingIDAndRecoveryDoesNotStartAnotherWorkout() async {
+        let client = MockWorkoutClient()
+        let id = UUID()
+        let coordinator = TennisWorkoutCoordinator(client: client)
+        await coordinator.start(useHealth: true, activityID: id)
+        XCTAssertEqual(client.begunActivityID, id)
+        let restored = TennisWorkoutCoordinator(client: client)
+        client.canRecover = true
+        await restored.restore(activityID: id, startedAt: Date())
+        XCTAssertEqual(restored.state, .recording)
+        XCTAssertEqual(client.begins, 1)
+    }
+
+    @MainActor
+    func testRestartWithoutHealthRetainsElapsedTime() async {
+        let client = MockWorkoutClient()
+        let coordinator = TennisWorkoutCoordinator(client: client)
+        let start = Date(timeIntervalSince1970: 100)
+        await coordinator.restore(activityID: UUID(), startedAt: start)
+        let result = await coordinator.finish(at: start.addingTimeInterval(900))
+        XCTAssertEqual(result?.durationSeconds, 900)
+        XCTAssertNil(result?.workoutID)
+        XCTAssertEqual(client.begins, 0)
+    }
+
+    @MainActor
+    func testHealthFailuresRetainTrainingWithoutInventedMetrics() async {
+        for failStart in [true, false] {
+            let client = MockWorkoutClient()
+            client.failStart = failStart; client.failFinish = !failStart
+            let coordinator = TennisWorkoutCoordinator(client: client)
+            let start = Date(timeIntervalSince1970: 100)
+            await coordinator.start(useHealth: true, at: start)
+            let result = await coordinator.finish(at: start.addingTimeInterval(600))
+            XCTAssertEqual(result?.durationSeconds, 600)
+            XCTAssertNil(result?.workoutID)
+            XCTAssertNil(result?.averageHeartRate)
+            XCTAssertNil(result?.activeEnergyKcal)
+        }
+    }
     @MainActor
     func testDeclinedPermissionKeepsTrackingWithoutFakeMetrics() async {
         let client = MockWorkoutClient(); client.permission = false

@@ -678,7 +678,7 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 9
+    var dataVersion = 10
     var setup = TennisSetup()
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []

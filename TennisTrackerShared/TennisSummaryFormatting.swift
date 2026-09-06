@@ -55,15 +55,17 @@ enum TennisSummaryFormatter {
         return TennisMatchSummary(shortText: compact + ".", longText: standard, accessibilityText: standard, scoreText: score.fallback("Score not recorded"))
     }
 
-    static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date()) -> String {
+    static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date(), coaches: [TennisCoach] = [], players: [PlayerProfile] = []) -> String {
         var parts = [session.trainingType.rawValue]
-        if !session.context.coachName.isBlank { parts[0] += " with coach \(session.context.coachName)" }
+        let coaches = session.context.coachSummary(in: coaches)
+        if !coaches.isBlank { parts[0] += " with \(coaches)" }
         if let start = session.actualStart {
             let minutes = session.isActive ? max(0, Int(now.timeIntervalSince(start) / 60)) : session.durationMinutes
             parts.append(minutes.durationText + (session.isActive ? " elapsed" : ""))
         } else { parts.append(session.durationMinutes.durationText) }
-        if style != .short && !session.context.participantNames.isEmpty {
-            parts.append("with " + session.context.participantNames.joined(separator: " and "))
+        let participants = session.context.participantSummary(in: players)
+        if style != .short && !participants.isBlank {
+            parts.append("with " + participants)
         }
         parts += unique([session.venue, session.location])
         if style != .short {

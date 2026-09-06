@@ -29,9 +29,23 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private let queuedCommandsKey = "queuedWatchCommands"
     private var queuedCommands: [TennisWatchSyncCommand] = []
     private var pointHistory: [TennisScoreSnapshot] = []
+    private var isRestoringWorkout = false
 
     override init() {
         super.init()
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-watch") {
+            var data = AppData()
+            var player = PlayerProfile(); player.name = "Alex"
+            data.players = [player]
+            data.setup.coaches = [TennisCoach(name: "Chris"), TennisCoach(name: "Sarah")]
+            data.selectedPlayerID = player.id
+            snapshot = TennisWatchSnapshot(data: data)
+            if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-watch-page=") }),
+               let destination = TennisWatchPage(rawValue: String(argument.dropFirst("-watch-page=".count))) { page = destination }
+            return
+        }
+        #endif
         loadLocalState()
     }
 
@@ -57,11 +71,19 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     var recentSummary: [String] {
         let matches = snapshot.matches.prefix(3).map { TennisSummaryFormatter.match($0, tournaments: snapshot.tournaments, style: .short) }
-        let training = snapshot.trainingSessions.prefix(3).map { TennisSummaryFormatter.training($0, style: .short) }
+        let training = snapshot.trainingSessions.prefix(3).map { trainingSummary($0, style: .short) }
         return Array((matches + training).prefix(5))
     }
 
+    func trainingSummary(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date()) -> String {
+        TennisSummaryFormatter.training(session, style: style, now: now, coaches: snapshot.setup.coaches, players: snapshot.players)
+    }
+
     func activate() {
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-watch") { return }
+        #endif
+        restoreWorkoutIfNeeded()
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         session.delegate = self
@@ -69,12 +91,20 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.requestSnapshot)
     }
 
+    func sendHealthStatus() {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
+        let status = TennisWatchHealthStatus(access: healthClient.accessDescription,
+            enabledByDefault: UserDefaults.standard.bool(forKey: "trackTrainingAsWorkout"), reportedAt: Date())
+        guard let data = try? JSONEncoder.tennisTracker.encode(status) else { return }
+        try? WCSession.default.updateApplicationContext(["healthStatusData": data])
+    }
+
     func trackTrainingSession(type: TrainingType = .singlesPractice, context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
         }
-        guard activeTraining == nil && !isFinishingWorkout else { page = .live; return }
+        guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         var session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
         session.context = context
         session.venue = venue
@@ -89,10 +119,12 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         announce("\(type.rawValue) tracking started.")
         isPreparingWorkout = true
         Task {
-            await workoutCoordinator.start(useHealth: useHealth, at: session.actualStart ?? session.date)
+            await workoutCoordinator.start(useHealth: useHealth, activityID: session.id, at: session.actualStart ?? session.date)
             isPreparingWorkout = false
             workoutMessage = workoutCoordinator.message
             if useHealth { announce(workoutMessage) }
+            sendHealthStatus()
+            finishRemotelyCompletedWorkoutIfNeeded()
         }
     }
 
@@ -110,20 +142,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.upsertTraining(finished))
         haptic(.success)
         announce("Finished training session. Complete details on iPhone when ready.")
-        isFinishingWorkout = true
-        Task {
-            defer { isFinishingWorkout = false }
-            if let result = await workoutCoordinator.finish(at: finishDate) {
-                var updated = snapshot.trainingSessions.first(where: { $0.id == finished.id }) ?? finished
-                updated.workout = result
-                updated = TennisRecordConflictResolver.prepareLocalTraining(updated)
-                completedTraining = updated
-                mergeTraining(updated)
-                send(.upsertTraining(updated))
-                workoutMessage = workoutCoordinator.message
-                announce(TennisSummaryFormatter.training(updated, style: .detailed) + " " + workoutMessage)
-            }
-        }
+        finishWorkout(for: finished.id, at: finishDate)
     }
 
     func recordMatch(kind: MatchKind, tournament: TournamentRecord? = nil) {
@@ -177,7 +196,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func beginTraining(_ planned: TrainingSession, useHealth: Bool = false) {
-        guard activeTraining == nil && !isFinishingWorkout else { page = .live; return }
+        guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         healthClient.clearMetrics()
         var session = planned
         session.actualStart = Date()
@@ -192,11 +211,74 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         announce("Training started.")
         isPreparingWorkout = true
         Task {
-            await workoutCoordinator.start(useHealth: useHealth, at: session.actualStart ?? session.date)
+            await workoutCoordinator.start(useHealth: useHealth, activityID: session.id, at: session.actualStart ?? session.date)
             isPreparingWorkout = false
             workoutMessage = workoutCoordinator.message
             if useHealth { announce(workoutMessage) }
+            sendHealthStatus()
+            finishRemotelyCompletedWorkoutIfNeeded()
         }
+    }
+
+    func restoreWorkoutIfNeeded() {
+        sendHealthStatus()
+        guard !isRestoringWorkout, !isPreparingWorkout, !isFinishingWorkout else { return }
+        isRestoringWorkout = true
+        Task {
+            defer { isRestoringWorkout = false }
+            let tracked = healthClient.activeTrainingID.flatMap { id in snapshot.trainingSessions.first { $0.id == id } } ?? activeTraining
+            if let tracked, workoutCoordinator.state == .idle || workoutCoordinator.state == .finished {
+                isPreparingWorkout = true
+                await workoutCoordinator.restore(activityID: tracked.id, startedAt: tracked.actualStart ?? tracked.date)
+                isPreparingWorkout = false
+                workoutMessage = workoutCoordinator.message
+            }
+            finishRemotelyCompletedWorkoutIfNeeded()
+            for id in healthClient.pendingWorkoutIDs {
+                guard let training = snapshot.trainingSessions.first(where: { $0.id == id }), training.actualFinish != nil else { continue }
+                if training.workout?.workoutID != nil { healthClient.acknowledgeSavedWorkout(id); continue }
+                if let result = try? await healthClient.savedWorkout(activityID: id) {
+                    attachWorkout(result, to: id)
+                    healthClient.acknowledgeSavedWorkout(id)
+                }
+            }
+        }
+    }
+
+    private func finishRemotelyCompletedWorkoutIfNeeded() {
+        guard !isPreparingWorkout, !isFinishingWorkout,
+              let id = workoutCoordinator.activityID,
+              let training = snapshot.trainingSessions.first(where: { $0.id == id }),
+              let finishDate = training.actualFinish,
+              workoutCoordinator.state == .recording || workoutCoordinator.state == .recordingWithoutHealth else { return }
+        finishWorkout(for: id, at: finishDate)
+    }
+
+    private func finishWorkout(for id: UUID, at date: Date) {
+        guard !isFinishingWorkout else { return }
+        isFinishingWorkout = true
+        Task {
+            defer { isFinishingWorkout = false }
+            if let result = await workoutCoordinator.finish(at: date) {
+                attachWorkout(result, to: id)
+                if result.workoutID != nil { healthClient.acknowledgeSavedWorkout(id) }
+            }
+            workoutMessage = workoutCoordinator.message
+            if let training = snapshot.trainingSessions.first(where: { $0.id == id }) {
+                announce(trainingSummary(training, style: .detailed) + " " + workoutMessage)
+            }
+        }
+    }
+
+    private func attachWorkout(_ result: TennisWorkoutResult, to id: UUID) {
+        guard var training = snapshot.trainingSessions.first(where: { $0.id == id }) else { return }
+        // A delayed save must not replace a previously confirmed Health relationship.
+        guard training.workout?.workoutID == nil else { return }
+        training.workout = result
+        training = TennisRecordConflictResolver.prepareLocalTraining(training)
+        if completedTraining?.id == id { completedTraining = training }
+        mergeTraining(training)
+        send(.upsertTraining(training))
     }
 
     func beginTournament(_ tournament: TournamentRecord) {
@@ -343,6 +425,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         Task { @MainActor in
             if let received { self.applySnapshotData(received) }
             self.flushQueue()
+            self.sendHealthStatus()
         }
     }
 
@@ -447,6 +530,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             }
         }
         persistSnapshot()
+        finishRemotelyCompletedWorkoutIfNeeded()
     }
 
     private func mergeMatch(_ match: MatchRecord) {

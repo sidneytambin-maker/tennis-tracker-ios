@@ -207,25 +207,11 @@ struct MatchEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Match details") {
-                    AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $match.date, hasStartTime: $match.hasStartTime)
-                        .accessibilityIdentifier("matchDatePicker")
-                    Toggle("Expected duration known", isOn: $match.hasExpectedDuration)
-                    if match.hasExpectedDuration {
-                        DurationFields(minutes: $match.expectedDurationMinutes, minimumMinutes: 15)
-                    }
-                    Picker("Status", selection: $match.status) {
-                        ForEach(MatchStatus.allCases) { status in Text(status.rawValue).tag(status) }
-                    }
+                Section("Players") {
+                    TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName, fieldIdentifier: "matchOpponentNameField")
                     Picker("Match type", selection: $match.matchType) {
                         ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
                     }
-                }
-
-                Section("Players") {
-                    TextField("Player name", text: $match.playerName)
-                        .accessibilityIdentifier("matchPlayerNameField")
-                    TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName, fieldIdentifier: "matchOpponentNameField")
                     if match.matchType == .doubles {
                         TennisPersonPicker(title: "Partner", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.opponentID }, selection: $match.partnerID, name: $match.partnerName, regularPartnersFirst: true)
                         TennisPersonPicker(title: "Second opponent", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
@@ -236,40 +222,13 @@ struct MatchEditorView: View {
                     StoredVenuePicker(id: $match.venueID, venue: $match.venue, location: $match.location)
                 }
 
-                Section("Format") {
-                    Picker("Match format", selection: $match.matchFormat) {
-                        ForEach(MatchFormat.allCases) { format in Text(format.label).tag(format) }
-                    }
+                Section("Schedule & Format") {
+                    AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $match.date, hasStartTime: $match.hasStartTime)
+                        .accessibilityIdentifier("matchDatePicker")
+                    OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
                     .accessibilityIdentifier("matchFormatPicker")
                     .onChange(of: match.matchFormat) { _, newValue in
                         setCount = min(max(setCount, newValue.defaultSetsToEnter), newValue.maximumSetsToEnter)
-                    }
-                    Picker("Sight level", selection: $match.sightLevel) {
-                        ForEach(SightLevel.allCases) { level in Text(level.label).tag(level) }
-                    }
-                    .onChange(of: match.sightLevel) { _, newValue in
-                        match.allowedBounces = newValue.allowedBounces
-                        match.suddenDeathDeuce = newValue != .fullySighted
-                    }
-                    Picker("Allowed bounces", selection: $match.allowedBounces) {
-                        Text("1").tag(1)
-                        Text("2").tag(2)
-                        Text("3").tag(3)
-                    }
-                    .accessibilityValue("\(match.allowedBounces)")
-                    Toggle("Sudden-death deuce", isOn: $match.suddenDeathDeuce)
-                        .accessibilityIdentifier("matchSuddenDeathToggle")
-                    Picker("Tie-break rule", selection: $match.tieBreakRule) {
-                        ForEach(TieBreakRule.allCases) { rule in Text(rule.rawValue).tag(rule) }
-                    }
-                    if match.tieBreakRule == .manual {
-                        Picker("Tie-break target", selection: $match.tieBreakTarget) {
-                            ForEach([7, 10, 12, 21], id: \.self) { target in
-                                Text("\(target)").tag(target)
-                            }
-                        }
-                        .accessibilityValue("\(match.tieBreakTarget)")
-                        Toggle("Win tie-break by two", isOn: $match.tieBreakWinByTwo)
                     }
                 }
 
@@ -289,17 +248,13 @@ struct MatchEditorView: View {
                             SummaryRow(title: "Tournament date range", value: tournamentDateRange(tournament))
                         }
 
-                        Picker("Training session", selection: $match.trainingSessionID) {
-                            Text("No training session").tag(Optional<UUID>.none)
-                            ForEach(store.selectedTraining) { session in
-                                Text("\(session.date.shortTennisDate), \(session.trainingType.rawValue)").tag(Optional(session.id))
-                            }
-                        }
-                        .accessibilityIdentifier("matchTrainingPicker")
                     }
                 }
 
                 Section("Result") {
+                    Picker("Status", selection: $match.status) {
+                        ForEach(MatchStatus.allCases) { status in Text(status.rawValue).tag(status) }
+                    }
                     if match.status == .completed {
                         if match.matchFormat == .custom {
                             Picker("Result", selection: $match.result) {
@@ -327,6 +282,36 @@ struct MatchEditorView: View {
                     } else {
                         Text("No result needed for a scheduled match.")
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    DisclosureGroup("Additional match details") {
+                        TextField("Player name", text: $match.playerName)
+                            .accessibilityIdentifier("matchPlayerNameField")
+                        Toggle("Expected duration known", isOn: $match.hasExpectedDuration)
+                        if match.hasExpectedDuration { DurationFields(minutes: $match.expectedDurationMinutes, minimumMinutes: 15) }
+                        OrderedChoicePicker(title: "Sight classification", selection: $match.sightLevel, values: SightLevel.allCases) { $0.label }
+                            .onChange(of: match.sightLevel) { _, value in
+                                match.allowedBounces = value.allowedBounces
+                                match.suddenDeathDeuce = value != .fullySighted
+                            }
+                        OrderedChoicePicker(title: "Allowed bounces", selection: $match.allowedBounces, values: [1, 2, 3]) { "\($0) bounces" }
+                        Toggle("Sudden-death deuce", isOn: $match.suddenDeathDeuce)
+                            .accessibilityIdentifier("matchSuddenDeathToggle")
+                        Picker("Tie-break rule", selection: $match.tieBreakRule) {
+                            ForEach(TieBreakRule.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        if match.tieBreakRule == .manual {
+                            OrderedChoicePicker(title: "Tie-break target", selection: $match.tieBreakTarget, values: [7, 10, 12, 21]) { "\($0) points" }
+                            Toggle("Win tie-break by two", isOn: $match.tieBreakWinByTwo)
+                        }
+                        if !store.selectedTraining.isEmpty {
+                            Picker("Training session", selection: $match.trainingSessionID) {
+                                Text("No training session").tag(Optional<UUID>.none)
+                                ForEach(store.selectedTraining) { Text("\($0.date.shortTennisDate), \($0.trainingType.rawValue)").tag(Optional($0.id)) }
+                            }.accessibilityIdentifier("matchTrainingPicker")
+                        }
                     }
                 }
 
@@ -529,18 +514,8 @@ struct SetScoreEntryRow: View {
             Text("Set \(setNumber)")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            Picker("Player games", selection: $playerGames) {
-                ForEach(0...30, id: \.self) { games in
-                    Text("\(games)").tag(games)
-                }
-            }
-            .accessibilityValue("\(playerGames)")
-            Picker("Opponent games", selection: $opponentGames) {
-                ForEach(0...30, id: \.self) { games in
-                    Text("\(games)").tag(games)
-                }
-            }
-            .accessibilityValue("\(opponentGames)")
+            OrderedChoicePicker(title: "Your games", selection: $playerGames, values: Array(0...max(30, playerGames))) { "\($0) games" }
+            OrderedChoicePicker(title: "Opponent games", selection: $opponentGames, values: Array(0...max(30, opponentGames))) { "\($0) games" }
             Toggle("Set decided by tie-break", isOn: $hadTiebreak)
         }
         .accessibilityElement(children: .contain)
@@ -584,10 +559,7 @@ struct LiveMatchView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    if isScoring {
-                        Button("Save Match Progress") { saveProgress(dismissAfterSave: false) }
-                            .accessibilityLabel("Save Match Progress")
-                    } else {
+                    if !isScoring {
                         Button("Track Match Scoring") { startScoring() }
                             .disabled(match == nil)
                             .accessibilityIdentifier("startConfiguredLiveScoringButton")
@@ -613,9 +585,7 @@ struct LiveMatchView: View {
     @ViewBuilder
     private func setupSections(match: MatchRecord) -> some View {
         Section("Format") {
-            Picker("Match format", selection: binding(\.matchFormat)) {
-                ForEach(MatchFormat.allCases) { format in Text(format.label).tag(format) }
-            }
+            OrderedChoicePicker(title: "Match format", selection: binding(\.matchFormat), values: MatchFormat.allCases) { $0.label }
             Picker("Match type", selection: binding(\.matchType)) {
                 ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
             }
@@ -643,19 +613,12 @@ struct LiveMatchView: View {
         }
 
         Section("Rules") {
-            Picker("Sight level", selection: binding(\.sightLevel)) {
-                ForEach(SightLevel.allCases) { level in Text(level.label).tag(level) }
-            }
+            OrderedChoicePicker(title: "Sight classification", selection: binding(\.sightLevel), values: SightLevel.allCases) { $0.label }
             .onChange(of: match.sightLevel) { _, newValue in
                 self.match?.allowedBounces = newValue.allowedBounces
                 self.match?.suddenDeathDeuce = newValue != .fullySighted
             }
-            Picker("Allowed bounces", selection: binding(\.allowedBounces)) {
-                Text("1").tag(1)
-                Text("2").tag(2)
-                Text("3").tag(3)
-            }
-            .accessibilityValue("\(match.allowedBounces)")
+            OrderedChoicePicker(title: "Allowed bounces", selection: binding(\.allowedBounces), values: [1, 2, 3]) { "\($0)" }
             Toggle("Sudden-death deuce", isOn: binding(\.suddenDeathDeuce))
                 .accessibilityIdentifier("liveSuddenDeathToggle")
             Picker("Tie-break rule", selection: binding(\.tieBreakRule)) {

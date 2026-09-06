@@ -27,7 +27,7 @@ struct TennisGlance: Equatable {
         }
         if let session = training.filter({ $0.actualFinish == nil && $0.date >= now }).sorted(by: { $0.date < $1.date }).first {
             return Self(title: "Training", detail: session.date.shortTennisTime,
-                        accessibilitySummary: TennisSummaryFormatter.training(session), destination: .today, isStale: false)
+                        accessibilitySummary: TennisSummaryFormatter.training(session, coaches: snapshot.setup.coaches, players: snapshot.players), destination: .today, isStale: false)
         }
         if let tournament = snapshot.tournaments.filter({ $0.endDate >= Calendar.current.startOfDay(for: now) && $0.finalResult != .completed && $0.finalResult != .withdrawn }).sorted(by: { $0.date < $1.date }).first {
             return Self(title: tournament.name.fallback("Tournament"), detail: tournament.date.shortTennisDate,

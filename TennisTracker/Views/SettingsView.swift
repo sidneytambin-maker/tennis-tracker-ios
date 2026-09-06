@@ -4,18 +4,22 @@ import WatchConnectivity
 
 struct SettingsView: View {
     @EnvironmentObject private var store: TennisStore
+    @EnvironmentObject private var router: AppRouter
     @State private var settings = AppSettings()
     @State private var savedMessage = ""
+    @State private var editingDefaults: PlayerProfile?
+    @State private var loaded = false
     @ObservedObject private var watchSync = IPhoneWatchSyncService.shared
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $router.settingsPath) {
             Form {
-                Section("Tennis Setup") {
-                    NavigationLink("Tennis Setup") { TennisSetupView() }
+                Section {
+                    NavigationLink("Players", value: TennisSettingsDestination.players)
+                    NavigationLink("Tennis Setup", value: TennisSettingsDestination.setup)
                         .accessibilityIdentifier("tennisSetupLink")
                     if let player = store.selectedPlayer {
-                        NavigationLink("Player Defaults") { PlayerEditorView(player: player) }
+                        Button("Player Defaults") { editingDefaults = player }
                     }
                 }
                 Section("Save") {
@@ -31,7 +35,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Tracking") {
+                Section("Tracking & Health") {
                     Picker("Mode", selection: $settings.trackingMode) {
                         ForEach(TrackingMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -39,17 +43,24 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settingsTrackingModePicker")
                     Text(settings.trackingMode.description)
+                    if let health = watchSync.healthStatus {
+                        SummaryRow(title: "Watch Health access", value: health.access)
+                        SummaryRow(title: "Track Training as Workout on Watch", value: health.enabledByDefault ? "On" : "Off")
+                        SummaryRow(title: "Health status reported", value: health.reportedAt.formatted(date: .abbreviated, time: .shortened))
+                    } else {
+                        Text("Watch Health access has not been reported yet.")
+                    }
+                    Text("Health permissions and workout selection are managed on Apple Watch when starting training.")
                 }
 
-                Section("Theme") {
+                Section("Appearance & Accessibility") {
                     Picker("Theme", selection: $settings.theme) {
                         ForEach(AppTheme.allCases) { theme in
                             Text(theme.rawValue).tag(theme)
                         }
                     }
-                    .pickerStyle(.inline)
+                    .pickerStyle(.menu)
                     .accessibilityIdentifier("settingsThemePicker")
-                    Text(themeDescription)
                 }
 
                 Section("Defaults") {
@@ -82,23 +93,14 @@ struct SettingsView: View {
                     Toggle("Tournament reminders", isOn: $settings.tournamentRemindersEnabled)
                     Toggle("Post-session reflection", isOn: $settings.postSessionRemindersEnabled)
                     Toggle("Weekly summary", isOn: $settings.weeklySummaryEnabled)
-                    Picker("Reminder lead time", selection: $settings.reminderLeadMinutes) {
-                        Text("15 minutes").tag(15)
-                        Text("30 minutes").tag(30)
-                        Text("1 hour").tag(60)
-                        Text("2 hours").tag(120)
-                        Text("1 day").tag(1440)
-                    }
-                    Picker("Reflection delay", selection: $settings.postSessionDelayMinutes) {
-                        Text("1 hour").tag(60)
-                        Text("2 hours").tag(120)
-                        Text("4 hours").tag(240)
-                    }
+                    OrderedChoicePicker(title: "Reminder lead time", selection: $settings.reminderLeadMinutes, values: [15, 30, 60, 120, 1440]) { $0.durationText }
+                    OrderedChoicePicker(title: "Reflection delay", selection: $settings.postSessionDelayMinutes, values: [60, 120, 240]) { $0.durationText }
                     Button("Allow iPhone notifications") {
                         Task {
                             let granted = await TennisNotificationService.shared.requestAuthorization()
+                            saveSettings(announce: false)
                             savedMessage = granted ? "Notifications are allowed." : "Notifications were not allowed."
-                            saveSettings(announce: true)
+                            UIAccessibility.post(notification: .announcement, argument: savedMessage)
                         }
                     }
                 }
@@ -109,8 +111,9 @@ struct SettingsView: View {
                         Task {
                             let granted = await TennisCalendarService.shared.requestAccess()
                             settings.calendarIntegrationEnabled = granted
+                            saveSettings(announce: false)
                             savedMessage = granted ? "Apple Calendar is connected." : "Apple Calendar was not allowed."
-                            saveSettings(announce: true)
+                            UIAccessibility.post(notification: .announcement, argument: savedMessage)
                         }
                     }
                 }
@@ -136,7 +139,7 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settingsUpcomingTournamentsToggle")
                 }
 
-                Section("Build") {
+                Section("About") {
                     SummaryRow(title: "Version", value: "0.9.0")
                     SummaryRow(title: "Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
                 }
@@ -144,8 +147,17 @@ struct SettingsView: View {
             }
             .tennisThemedList()
             .navigationTitle("Settings")
+            .navigationDestination(for: TennisSettingsDestination.self) { destination in
+                switch destination {
+                case .players: PlayerView()
+                case .setup: TennisSetupView()
+                }
+            }
+            .sheet(item: $editingDefaults) { PlayerEditorView(player: $0) }
             .onAppear {
+                guard !loaded else { return }
                 settings = store.data.settings
+                loaded = true
             }
             .onChange(of: settings.trackingMode) { _, _ in
                 settings.applyModeDefaults()
@@ -154,19 +166,6 @@ struct SettingsView: View {
             .onChange(of: settings.theme) { _, _ in
                 saveSettings(announce: false)
             }
-        }
-    }
-
-    private var themeDescription: String {
-        switch settings.theme {
-        case .tennis:
-            return "Tennis uses bright ball accents, deep court green, and high-contrast surfaces."
-        case .classic:
-            return "Classic uses a clean blue iOS style."
-        case .highContrast:
-            return "High Contrast uses dark surfaces and bright controls."
-        case .system:
-            return "System follows the iPhone appearance."
         }
     }
 
@@ -184,8 +183,11 @@ private struct WatchStatusView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SummaryRow(title: "Watch status", value: sync.connectionDescription)
-            SummaryRow(title: "Sync status", value: sync.syncMessage)
+            SummaryRow(title: "Apple Watch paired", value: sync.pairedDescription)
+            SummaryRow(title: "Tennis Tracker installed", value: sync.installedDescription)
+            SummaryRow(title: "Live connection", value: sync.liveDescription)
+            SummaryRow(title: "Background sync", value: sync.backgroundDescription)
+            Text(sync.syncMessage)
         }
     }
 }

@@ -76,6 +76,10 @@ final class TennisStore: ObservableObject {
         saveAndAnnounce("Saved Tennis Setup.")
     }
 
+    func trainingSummary(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date()) -> String {
+        TennisSummaryFormatter.training(session, style: style, now: now, coaches: data.setup.coaches, players: data.players)
+    }
+
     func upsertMatch(_ match: MatchRecord) {
         var latest = match
         latest.revision = max(latest.revision, data.matches.first(where: { $0.id == match.id })?.revision ?? 0)
@@ -98,8 +102,15 @@ final class TennisStore: ObservableObject {
         saveAndAnnounce("Deleted match.")
     }
 
-    func upsertTraining(_ session: TrainingSession) {
+    func upsertTraining(_ session: TrainingSession, newPlayers: [PlayerProfile] = [], newCoaches: [TennisCoach] = []) {
+        for player in newPlayers where !player.name.isBlank && !data.players.contains(where: { $0.id == player.id }) {
+            data.players.append(player)
+        }
+        for coach in newCoaches where !coach.name.isBlank && !data.setup.coaches.contains(where: { $0.id == coach.id }) {
+            data.setup.coaches.append(coach)
+        }
         var latest = session
+        latest.context.captureLegacyNames(coaches: data.setup.coaches, players: data.players)
         latest.revision = max(latest.revision, data.trainingSessions.first(where: { $0.id == session.id })?.revision ?? 0)
         let saved = TennisRecordConflictResolver.prepareLocalTraining(latest)
         upsert(saved, in: \.trainingSessions)
@@ -351,6 +362,19 @@ final class TennisStore: ObservableObject {
                 }
             }
             data.dataVersion = 9
+            save()
+        }
+        if data.dataVersion < 10 {
+            for index in data.trainingSessions.indices {
+                let context = data.trainingSessions[index].context
+                guard context.coachIDs.isEmpty, !context.coachName.isBlank else { continue }
+                let name = context.coachName.trimmingCharacters(in: .whitespacesAndNewlines)
+                var coach = data.setup.coaches.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame } ?? TennisCoach()
+                coach.name = name
+                if !data.setup.coaches.contains(where: { $0.id == coach.id }) { data.setup.coaches.append(coach) }
+                data.trainingSessions[index].context.coachIDs = [coach.id]
+            }
+            data.dataVersion = 10
             save()
         }
     }

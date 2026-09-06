@@ -5,8 +5,13 @@ import Combine
 protocol TennisWorkoutClient: AnyObject {
     var available: Bool { get }
     func requestPermission() async throws -> Bool
-    func begin(at date: Date) async throws
+    func begin(activityID: UUID, at date: Date) async throws
     func finish(at date: Date) async throws -> TennisWorkoutResult
+    func recover(activityID: UUID) async throws -> Bool
+}
+
+extension TennisWorkoutClient {
+    func recover(activityID: UUID) async throws -> Bool { false }
 }
 
 enum TennisWorkoutState: Equatable {
@@ -19,12 +24,14 @@ final class TennisWorkoutCoordinator: ObservableObject {
     @Published private(set) var message = ""
     private let client: TennisWorkoutClient
     private var startedAt: Date?
+    private(set) var activityID: UUID?
 
     init(client: TennisWorkoutClient) { self.client = client }
 
-    func start(useHealth: Bool, at date: Date = Date()) async {
+    func start(useHealth: Bool, activityID: UUID = UUID(), at date: Date = Date()) async {
         guard state == .idle || state == .finished else { return }
         startedAt = date
+        self.activityID = activityID
         guard useHealth && client.available else {
             state = .recordingWithoutHealth
             message = useHealth ? "Health is unavailable. Tennis tracking continues." : "Training started."
@@ -37,12 +44,27 @@ final class TennisWorkoutCoordinator: ObservableObject {
                 message = "Health permission was not granted. Tennis tracking continues."
                 return
             }
-            try await client.begin(at: date)
+            try await client.begin(activityID: activityID, at: date)
             state = .recording
             message = "Tennis workout started."
         } catch {
             state = .recordingWithoutHealth
             message = "Health workout could not start. Tennis tracking continues."
+        }
+    }
+
+    func restore(activityID: UUID, startedAt: Date) async {
+        guard state == .idle || state == .finished else { return }
+        self.activityID = activityID
+        self.startedAt = startedAt
+        state = .authorizing
+        do {
+            let recovered = client.available ? try await client.recover(activityID: activityID) : false
+            state = recovered ? .recording : .recordingWithoutHealth
+            message = recovered ? "Tennis workout recovered." : "Training restored without an active Health workout."
+        } catch {
+            state = .recordingWithoutHealth
+            message = "Health workout recovery failed. Tennis tracking continues."
         }
     }
 
