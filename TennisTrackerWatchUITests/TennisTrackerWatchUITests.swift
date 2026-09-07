@@ -1,12 +1,13 @@
 import XCTest
 
 final class TennisTrackerWatchUITests: XCTestCase {
-    private func launch(page: String, completedTraining: Bool = false, accessibleNavigation: Bool = false, scheduledTraining: Bool = false) -> XCUIApplication {
+    private func launch(page: String, completedTraining: Bool = false, accessibleNavigation: Bool = false, scheduledTraining: Bool = false, activeMatch: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing-watch", "-watch-page=\(page)"]
         if completedTraining { app.launchArguments.append("-watch-completed-training") }
         if accessibleNavigation { app.launchArguments.append("-watch-accessibility-navigation") }
         if scheduledTraining { app.launchArguments.append("-watch-scheduled-training") }
+        if activeMatch { app.launchArguments.append("-watch-active-match") }
         app.launch()
         return app
     }
@@ -101,6 +102,17 @@ final class TennisTrackerWatchUITests: XCTestCase {
         capture(app, name: "Watch empty Live with accessible navigation")
     }
 
+    func testLiveScoreKeepsPointButtonsAndHidesDuplicateRotorActions() {
+        let app = launch(page: "Score", accessibleNavigation: true, activeMatch: true)
+        XCTAssertTrue(app.staticTexts["Current match score"].waitForExistence(timeout: 10))
+        for title in ["Edit Match", "Delete", "Finish Match", "Save Match Progress", "Undo Last Point", "Start Tie-break"] {
+            XCTAssertFalse(app.buttons[title].exists)
+        }
+        XCTAssertTrue(app.buttons["Record Point for Alex"].exists)
+        XCTAssertTrue(app.buttons["Record Point for Sam"].exists)
+        capture(app, name: "Watch live score with rotor actions")
+    }
+
     func testScheduledQuickStartShowsSavedDetailsWithoutStartingOnOpen() {
         let app = launch(page: "Track", scheduledTraining: true)
         app.buttons["Track Training Session"].tap()
@@ -130,7 +142,8 @@ final class TennisTrackerWatchUITests: XCTestCase {
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {
-            if element.exists && element.isHittable { return }
+            // A partially visible Watch control may be hittable beneath the page indicator.
+            if element.exists && element.isHittable && element.frame.midY < app.frame.maxY - 32 { return }
             app.swipeUp()
         }
         XCTAssertTrue(element.isHittable)

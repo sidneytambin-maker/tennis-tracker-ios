@@ -59,6 +59,16 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
                 data.trainingSessions = [training]
                 completedTraining = training
             }
+            if ProcessInfo.processInfo.arguments.contains("-watch-active-match") {
+                var match = MatchRecord(playerID: player.id)
+                match.playerName = "Alex"
+                match.opponentName = "Sam"
+                match.actualStart = Date()
+                match.status = .inProgress
+                match.liveScore = scoreState.snapshot
+                data.matches = [match]
+                activeMatch = match
+            }
             snapshot = TennisWatchSnapshot(data: data)
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-watch-page=") }),
                let destination = TennisWatchPage(rawValue: String(argument.dropFirst("-watch-page=".count))) { page = destination }

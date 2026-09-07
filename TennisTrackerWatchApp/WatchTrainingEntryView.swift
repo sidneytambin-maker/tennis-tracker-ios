@@ -21,15 +21,15 @@ struct WatchTrainingEntryView: View {
             } else if let selection, let current = store.snapshot.trainingSessions.first(where: { $0.id == selection.id }) {
                 List {
                     Text(store.trainingSummary(current)).accessibilityIdentifier("Scheduled training preview")
-                    Toggle("Track Training as Workout", isOn: $useHealth).disabled(!store.healthClient.available)
                     Button("Start Training") {
                         store.beginTraining(current, useHealth: useHealth)
                         dismiss()
                     }.buttonStyle(.borderedProminent).tint(TennisSportStyle.ball).foregroundStyle(TennisSportStyle.ink)
                         .disabled(store.isPreparingWorkout || store.isFinishingWorkout)
+                    Toggle("Track Training as Workout", isOn: $useHealth).disabled(!store.healthClient.available)
                     Button("Edit Details") { editing = true }
                     Button("Start a Different Session") { newSession = true }
-                }.navigationTitle("Scheduled Training")
+                }.navigationTitle("Scheduled")
                 .sheet(isPresented: $editing) { NavigationStack { WatchTrainingEditor(draft: current) } }
             } else {
                 List {

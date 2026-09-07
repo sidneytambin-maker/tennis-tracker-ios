@@ -194,12 +194,22 @@ struct WatchTournamentRow: View {
 }
 
 struct WatchDeleteConfirmation: ViewModifier {
-    @EnvironmentObject private var store: WatchTennisStore
     @Binding var isPresented: Bool
     let deletion: TennisRecordDeletion
 
     func body(content: Content) -> some View {
         content.sheet(isPresented: $isPresented) {
+            WatchDeleteSheet(isPresented: $isPresented, deletion: deletion)
+        }
+    }
+}
+
+struct WatchDeleteSheet: View {
+    @EnvironmentObject private var store: WatchTennisStore
+    @Binding var isPresented: Bool
+    let deletion: TennisRecordDeletion
+
+    var body: some View {
             NavigationStack {
                 List {
                     Text(deletion.kind == .training
@@ -220,6 +230,5 @@ struct WatchDeleteConfirmation: ViewModifier {
                 }.navigationTitle("Delete \(deletion.kind == .training ? "Session" : deletion.kind.rawValue.capitalized)")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { isPresented = false } } }
             }
-        }
     }
 }

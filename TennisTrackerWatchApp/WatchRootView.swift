@@ -374,13 +374,19 @@ private struct WatchScoreView: View {
                 .accessibilityFocused($pointFocus, equals: .opponent)
                 Group {
                     Button("Undo Last Point") { store.undoLastPoint() }
+                        .accessibilityHidden(hideScoreActions)
                     Button("Edit Match") { editingMatch = match }
+                        .accessibilityHidden(hideScoreActions)
                     Button("Save Match Progress") { store.saveMatchProgress() }
+                        .accessibilityHidden(hideScoreActions)
                     Button("Start Tie-break") { store.startTieBreak() }
                         .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
+                        .accessibilityHidden(hideScoreActions)
                     Button("Finish Match") { confirmFinish = true }
+                        .accessibilityHidden(hideScoreActions)
                     Button("Delete", role: .destructive) { deletingMatch = true }
-                }.accessibilityHidden(voiceOver || WatchAccessibilityNavigation.testingEnabled)
+                        .accessibilityHidden(hideScoreActions)
+                }
             } else {
                 Text("No match in progress.")
                 ForEach(store.snapshot.matches.filter { $0.status == .scheduled || $0.status == .inProgress }) { match in
@@ -391,17 +397,18 @@ private struct WatchScoreView: View {
         }
         .navigationTitle("Score")
         .sheet(item: $editingMatch) { match in NavigationStack { WatchMatchEditor(draft: match) } }
-        .confirmationDialog("Delete this match?", isPresented: $deletingMatch, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                if let match = store.activeMatch { store.deleteActivity(TennisRecordDeletion(id: match.id, kind: .match)) }
+        .sheet(isPresented: $deletingMatch) {
+            if let match = store.activeMatch {
+                WatchDeleteSheet(isPresented: $deletingMatch, deletion: TennisRecordDeletion(id: match.id, kind: .match))
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("Stops scoring and deletes this match on Watch and iPhone.") }
+        }
         .confirmationDialog("Finish match with the recorded score?", isPresented: $confirmFinish, titleVisibility: .visible) {
             Button("Finish Match") { store.finishMatch() }
             Button("Cancel", role: .cancel) {}
         }
     }
+
+    private var hideScoreActions: Bool { voiceOver || WatchAccessibilityNavigation.testingEnabled }
 
     private var scoreText: String {
         guard let match = store.activeMatch else { return "No match in progress." }
