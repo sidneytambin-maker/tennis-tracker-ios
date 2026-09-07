@@ -64,6 +64,10 @@ private struct TennisComplicationView: View {
 
 struct TennisTrackerComplication: Widget {
     let selection: TennisGlanceKind
+
+    init() { self.init(selection: .current) }
+    init(selection: TennisGlanceKind) { self.selection = selection }
+
     var kind: String { selection.widgetKind }
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TennisTimeline(kind: selection)) { TennisComplicationView(entry: $0) }
