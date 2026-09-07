@@ -315,6 +315,16 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         announce("Saved practice result with training.")
     }
 
+    func markTrainingComplete(_ id: UUID) {
+        guard var training = snapshot.trainingSessions.first(where: { $0.id == id }) else { return }
+        training.markDetailsComplete()
+        training = TennisRecordConflictResolver.prepareLocalTraining(training)
+        if completedTraining?.id == id { completedTraining = training }
+        mergeTraining(training)
+        send(.upsertTraining(training))
+        announce("Marked complete. Saved on Watch and queued for iPhone.")
+    }
+
     func recordPoint(_ winner: PointWinner) {
         guard var match = activeMatch else {
             announce("No match in progress.")

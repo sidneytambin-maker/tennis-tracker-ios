@@ -118,6 +118,9 @@ struct TrainingDetailView: View {
         }
         .tennisThemedList()
         .navigationTitle("Training detail")
+        .onChange(of: store.data.trainingSessions) { _, records in
+            if let updated = records.first(where: { $0.id == session.id }) { session = updated }
+        }
         .onChange(of: store.data.trainingSessions) { _, sessions in
             if let updated = sessions.first(where: { $0.id == session.id }) { session = updated }
             else { dismiss() }

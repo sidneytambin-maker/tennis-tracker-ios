@@ -110,6 +110,14 @@ final class TennisStore: ObservableObject {
             data.setup.coaches.append(coach)
         }
         var latest = session
+        let existing = data.trainingSessions.first { $0.id == session.id }
+        // An older editor cannot erase the live workout completed on the Watch.
+        if latest.workout == nil { latest.workout = existing?.workout }
+        if latest.actualStart == nil { latest.actualStart = existing?.actualStart }
+        if latest.actualFinish == nil, let finished = existing?.actualFinish {
+            latest.actualFinish = finished
+            latest.durationMinutes = existing?.durationMinutes ?? latest.durationMinutes
+        }
         latest.context.captureLegacyNames(coaches: data.setup.coaches, players: data.players)
         latest.revision = max(latest.revision, data.trainingSessions.first(where: { $0.id == session.id })?.revision ?? 0)
         let saved = TennisRecordConflictResolver.prepareLocalTraining(latest)
@@ -174,8 +182,7 @@ final class TennisStore: ObservableObject {
 
     func completeTrainingDetails(_ id: UUID) {
         guard let index = data.trainingSessions.firstIndex(where: { $0.id == id }) else { return }
-        data.trainingSessions[index].needsDetails = false
-        data.trainingSessions[index].hasSessionDetails = true
+        data.trainingSessions[index].markDetailsComplete()
         data.trainingSessions[index] = TennisRecordConflictResolver.prepareLocalTraining(data.trainingSessions[index])
         saveAndAnnounce("Marked training details complete.")
     }

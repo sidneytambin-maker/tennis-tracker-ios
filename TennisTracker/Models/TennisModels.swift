@@ -378,6 +378,12 @@ struct TrainingSession: Identifiable, Codable, Equatable {
 
     var isActive: Bool { actualStart != nil && actualFinish == nil }
 
+    mutating func markDetailsComplete() {
+        needsDetails = false
+        context.coachesNeedDetails = false
+        context.participantsNeedDetails = false
+    }
+
     var placeText: String {
         [venue, location, surface == .notSpecified ? "" : surface.rawValue].filter { !$0.isBlank }.joined(separator: ", ").fallback("location not recorded")
     }

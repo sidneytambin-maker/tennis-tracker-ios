@@ -3,6 +3,47 @@ import XCTest
 
 @MainActor
 final class TennisStoreTests: XCTestCase {
+    func testMarkingTrainingCompleteDoesNotInventBodyRatings() {
+        let store = TennisStore(storeURL: temporaryStoreURL())
+        var session = TrainingSession(playerID: UUID())
+        session.needsDetails = true
+        session.hasSessionDetails = false
+        session.context.coachesNeedDetails = true
+        session.context.participantsNeedDetails = true
+        store.upsertTraining(session)
+        store.completeTrainingDetails(session.id)
+        let saved = store.data.trainingSessions.first!
+        XCTAssertFalse(saved.needsDetails)
+        XCTAssertFalse(saved.hasSessionDetails)
+        XCTAssertEqual(saved.context.coachesNeedDetails, false)
+        XCTAssertEqual(saved.context.participantsNeedDetails, false)
+        XCTAssertNil(saved.workout)
+    }
+
+    func testStaleTrainingEditorPreservesReceivedWorkout() {
+        let store = TennisStore(storeURL: temporaryStoreURL())
+        let draft = TrainingSession(playerID: UUID())
+        store.upsertTraining(draft)
+        var completed = store.data.trainingSessions.first!
+        completed.actualStart = Date(timeIntervalSince1970: 100)
+        completed.actualFinish = Date(timeIntervalSince1970: 700)
+        completed.durationMinutes = 10
+        completed.workout = TennisWorkoutResult(workoutID: UUID(), durationSeconds: 600, averageHeartRate: 120, activeEnergyKcal: 50)
+        completed = TennisRecordConflictResolver.prepareLocalTraining(completed)
+        store.applyWatchCommand(.upsertTraining(completed))
+        var edited = draft
+        edited.notes = "Notes entered while the Watch was saving"
+        store.upsertTraining(edited)
+        let saved = store.data.trainingSessions.first!
+        XCTAssertEqual(saved.id, draft.id)
+        XCTAssertEqual(saved.workout, completed.workout)
+        XCTAssertEqual(saved.actualStart, completed.actualStart)
+        XCTAssertEqual(saved.actualFinish, completed.actualFinish)
+        XCTAssertEqual(saved.durationMinutes, 10)
+        XCTAssertEqual(saved.notes, edited.notes)
+        XCTAssertEqual(store.data.trainingSessions.count, 1)
+    }
+
     func testSettingsThemeAndAnnouncementModePersist() {
         let url = temporaryStoreURL()
         let store = TennisStore(storeURL: url)

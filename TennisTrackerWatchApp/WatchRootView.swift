@@ -265,8 +265,7 @@ private struct WatchLiveView: View {
                 }
                 if training.needsDetails {
                     Button("Mark Complete") {
-                        store.send(.markTrainingDetailsComplete(training.id))
-                        store.announce("Completion queued for iPhone.")
+                        store.markTrainingComplete(training.id)
                     }
                     Text("Needs Details on iPhone")
                 }
