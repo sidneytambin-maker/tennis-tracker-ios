@@ -104,12 +104,19 @@ final class TennisTrackerWatchUITests: XCTestCase {
 
     func testLiveScoreKeepsPointButtonsAndHidesDuplicateRotorActions() {
         let app = launch(page: "Score", accessibleNavigation: true, activeMatch: true)
-        XCTAssertTrue(app.staticTexts["Current match score"].waitForExistence(timeout: 10))
-        for title in ["Edit Match", "Delete", "Finish Match", "Save Match Progress", "Undo Last Point", "Start Tie-break"] {
-            XCTAssertFalse(app.buttons[title].exists)
+        let score = app.buttons["Current match score"]
+        XCTAssertTrue(score.waitForExistence(timeout: 10))
+        XCTAssertTrue((score.value as? String)?.contains("Alex against Sam") == true)
+        for name in ["Alex", "Sam"] {
+            reveal(app.buttons["Record Point for \(name)"], in: app)
+            XCTAssertTrue(app.buttons["Record Point for \(name)"].isHittable)
         }
-        XCTAssertTrue(app.buttons["Record Point for Alex"].exists)
-        XCTAssertTrue(app.buttons["Record Point for Sam"].exists)
+        for _ in 0..<6 {
+            for title in ["Edit Match", "Delete", "Finish Match", "Save Match Progress", "Undo Last Point", "Start Tie-break"] {
+                XCTAssertFalse(app.buttons[title].exists)
+            }
+            app.swipeUp()
+        }
         capture(app, name: "Watch live score with rotor actions")
     }
 
@@ -143,7 +150,8 @@ final class TennisTrackerWatchUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {
             // A partially visible Watch control may be hittable beneath the page indicator.
-            if element.exists && element.isHittable && element.frame.midY < app.frame.maxY - 32 { return }
+            let lowerEdge = app.buttons["Pages"].exists ? app.buttons["Pages"].frame.minY - 10 : app.frame.maxY - 32
+            if element.exists && element.isHittable && element.frame.midY < lowerEdge { return }
             app.swipeUp()
         }
         XCTAssertTrue(element.isHittable)

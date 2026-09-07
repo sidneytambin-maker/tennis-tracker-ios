@@ -366,11 +366,13 @@ private struct WatchScoreView: View {
                     store.recordPoint(.player); pointFocus = .player
                 }
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
                 .accessibilityFocused($pointFocus, equals: .player)
                 Button("Record Point for \(match.opponentSummary.fallback("Opponent"))") {
                     store.recordPoint(.opponent); pointFocus = .opponent
                 }
                 .buttonStyle(.borderedProminent)
+                .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
                 .accessibilityFocused($pointFocus, equals: .opponent)
                 Group {
                     Button("Undo Last Point") { store.undoLastPoint() }
