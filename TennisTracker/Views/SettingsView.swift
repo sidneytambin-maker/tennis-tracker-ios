@@ -22,7 +22,7 @@ struct SettingsView: View {
                         Button("Player Defaults") { editingDefaults = player }
                     }
                 }
-                Section("Save") {
+                Section {
                     Button("Save Settings") {
                         saveSettings(announce: true)
                     }

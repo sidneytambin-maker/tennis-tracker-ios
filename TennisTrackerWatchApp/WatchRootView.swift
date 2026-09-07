@@ -75,7 +75,7 @@ private struct WatchTodayView: View {
 private struct WatchTrackView: View {
     var body: some View {
         List {
-            Section("Track Tennis Activity") {
+            Section {
                 NavigationLink("Track Training Session") { WatchTrainingSetupView() }
                 NavigationLink("Record Match") { WatchMatchSetupView() }
                 NavigationLink("Track Tournament") { WatchTournamentSetupView() }

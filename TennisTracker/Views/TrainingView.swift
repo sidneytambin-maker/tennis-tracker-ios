@@ -154,6 +154,7 @@ struct TrainingEditorView: View {
     @State private var coachName = ""
     @State private var newPlayers: [PlayerProfile] = []
     @State private var newCoaches: [TennisCoach] = []
+    @FocusState private var personNameFocused: Bool
 
     private var coaches: [TennisCoach] { store.data.setup.coaches + newCoaches }
     private var players: [PlayerProfile] { store.data.players + newPlayers }
@@ -166,7 +167,7 @@ struct TrainingEditorView: View {
                         Text(validationMessage)
                     }
                 }
-                Section("Training") {
+                Section("Session") {
                     Picker("Training type", selection: $session.trainingType) {
                         ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -180,6 +181,7 @@ struct TrainingEditorView: View {
                                 TennisSelectionRow(name: coach.name, id: coach.id, selectedIDs: $session.context.coachIDs)
                             }
                             TextField("New coach name", text: $coachName)
+                                .focused($personNameFocused)
                             Button("Add Coach") {
                                 let name = coachName.trimmingCharacters(in: .whitespacesAndNewlines)
                                 var coach = coaches.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame } ?? TennisCoach()
@@ -187,6 +189,7 @@ struct TrainingEditorView: View {
                                 if !coaches.contains(where: { $0.id == coach.id }) { newCoaches.append(coach) }
                                 if !session.context.coachIDs.contains(coach.id) { session.context.coachIDs.append(coach.id) }
                                 coachName = ""
+                                personNameFocused = false
                             }.disabled(coachName.isBlank)
                             Toggle("Coaches need details", isOn: Binding(
                                 get: { session.context.coachesNeedDetails == true },
@@ -201,6 +204,7 @@ struct TrainingEditorView: View {
                                 TennisSelectionRow(name: player.displayName, id: player.id, selectedIDs: $session.context.participantIDs)
                             }
                             TextField("Other player name", text: $participantName)
+                                .focused($personNameFocused)
                             Button("Add Player") {
                                 let name = participantName.trimmingCharacters(in: .whitespacesAndNewlines)
                                 var player = players.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame } ?? PlayerProfile()
@@ -210,6 +214,7 @@ struct TrainingEditorView: View {
                                 if !players.contains(where: { $0.id == player.id }) { newPlayers.append(player) }
                                 if player.id != session.playerID && !session.context.participantIDs.contains(player.id) { session.context.participantIDs.append(player.id) }
                                 participantName = ""
+                                personNameFocused = false
                             }.disabled(participantName.isBlank)
                             Toggle("All participants recorded", isOn: Binding(
                                 get: { session.context.participantsNeedDetails != true },

@@ -141,13 +141,6 @@ struct AccessibleDateTimeEditor: View {
 
         if hasStartTime {
             FiveMinuteTimePicker(title: timeTitle, date: $date)
-                .accessibilityValue(date.shortTennisTime)
-                .accessibilityHint("Adjust the hour and minutes. Minutes move in five minute steps.")
-        } else {
-            Text("Start time not specified.")
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Start time")
-                .accessibilityValue("Not specified")
         }
     }
 }
@@ -181,30 +174,13 @@ struct FiveMinuteTimePicker: View {
     @Binding var date: Date
 
     private let hours = Array(0...23)
-    private let minutes = Array(stride(from: 0, through: 55, by: 5))
+    private var minutes: [Int] {
+        Array(Set(Array(stride(from: 0, through: 55, by: 5)) + [Calendar.current.component(.minute, from: date)])).sorted()
+    }
 
     var body: some View {
-        LabeledContent(title) {
-            HStack {
-                Picker("Hour", selection: hourBinding) {
-                    ForEach(hours, id: \.self) { hour in
-                        Text(String(format: "%02d", hour)).tag(hour)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(maxWidth: 100)
-                .clipped()
-
-                Picker("Minutes", selection: minuteBinding) {
-                    ForEach(minutes, id: \.self) { minute in
-                        Text(String(format: "%02d", minute)).tag(minute)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(maxWidth: 100)
-                .clipped()
-            }
-        }
+        OrderedChoicePicker(title: "\(title) hour", selection: hourBinding, values: hours) { String(format: "%02d hours", $0) }
+        OrderedChoicePicker(title: "\(title) minutes", selection: minuteBinding, values: minutes) { String(format: "%02d minutes", $0) }
     }
 
     private var hourBinding: Binding<Int> {
@@ -216,7 +192,7 @@ struct FiveMinuteTimePicker: View {
 
     private var minuteBinding: Binding<Int> {
         Binding(
-            get: { closestFiveMinuteValue(Calendar.current.component(.minute, from: date)) },
+            get: { Calendar.current.component(.minute, from: date) },
             set: { update(hour: Calendar.current.component(.hour, from: date), minute: $0) }
         )
     }
@@ -224,14 +200,11 @@ struct FiveMinuteTimePicker: View {
     private func update(hour: Int, minute: Int) {
         var components = Calendar.current.dateComponents([.year, .month, .day], from: date)
         components.hour = hour
-        components.minute = closestFiveMinuteValue(minute)
+        components.minute = minute
         components.second = 0
         date = Calendar.current.date(from: components) ?? date
     }
 
-    private func closestFiveMinuteValue(_ value: Int) -> Int {
-        minutes.min(by: { abs($0 - value) < abs($1 - value) }) ?? 0
-    }
 }
 
 struct DurationPicker: View {
@@ -250,7 +223,7 @@ struct DurationFields: View {
     @Binding var minutes: Int
     var minimumMinutes = 5
 
-    private let minuteChoices = Array(stride(from: 0, through: 55, by: 5))
+    private let minuteChoices = Array(0...59)
 
     var body: some View {
         OrderedChoicePicker(title: "Duration hours", selection: hoursBinding, values: Array(0...max(8, minutes / 60))) {
@@ -270,14 +243,11 @@ struct DurationFields: View {
 
     private var minutesBinding: Binding<Int> {
         Binding(
-            get: { closestMinuteChoice(minutes % 60) },
+            get: { minutes % 60 },
             set: { minutes = max(minimumMinutes, ((minutes / 60) * 60) + $0) }
         )
     }
 
-    private func closestMinuteChoice(_ value: Int) -> Int {
-        minuteChoices.min(by: { abs($0 - value) < abs($1 - value) }) ?? 0
-    }
 }
 
 struct NumberChoicePicker: View {

@@ -60,6 +60,7 @@ final class TennisPolishTests: XCTestCase {
 
     func testPeopleAreCommittedWithTrainingOnlyAndRetainIDs() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("data.json")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let store = TennisStore(storeURL: url)
         var owner = PlayerProfile(); owner.name = "Alex"
@@ -87,5 +88,24 @@ final class TennisPolishTests: XCTestCase {
         XCTAssertEqual(router.settingsPath, [.players])
         router.open(URL(string: "tennistracker://settings")!)
         XCTAssertTrue(router.settingsPath.isEmpty)
+    }
+
+    func testSchedulingRoundsAcrossTheHourWithoutRoundingDuration() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 7, hour: 17, minute: 59, second: 31))!
+        let rounded = TennisScheduling.fiveMinuteDate(date, calendar: calendar)
+        XCTAssertEqual(calendar.component(.hour, from: rounded), 18)
+        XCTAssertEqual(calendar.component(.minute, from: rounded), 0)
+        XCTAssertEqual(calendar.component(.second, from: rounded), 0)
+        XCTAssertEqual(TennisOrderedSelection.moved(42, in: Array(0...59), forward: true), 43)
+    }
+
+    func testDoublesPracticeSummaryKeepsAllParticipants() {
+        var owner = PlayerProfile(); owner.name = "Alex"
+        var session = TrainingSession(playerID: owner.id)
+        session.practiceResult = TennisPracticeResult(kind: .doubles, partnerName: "Jo", opponentName: "Sam", opponent2Name: "Kim", result: .loss, playerGames: 4, opponentGames: 6)
+        let text = TennisSummaryFormatter.training(session, players: [owner])
+        XCTAssertTrue(text.contains("Alex and Jo lost to Sam and Kim, 4-6"))
     }
 }

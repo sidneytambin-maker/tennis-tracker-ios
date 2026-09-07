@@ -78,6 +78,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         do {
             try await builder.addMetadata([HKMetadataKeyExternalUUID: activityID.uuidString])
             try await builder.beginCollection(at: date)
+            guard self.session === session else { throw WorkoutError.notRunning }
             statusMessage = "Tennis workout active."
         }
         catch {
@@ -185,7 +186,6 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
             // A successful save may return no sample while the Watch is locked.
             ending?.resume(returning: TennisWorkoutResult(workoutID: workout?.uuid, durationSeconds: workout?.duration ?? builder.elapsedTime, averageHeartRate: average, activeEnergyKcal: energy))
             statusMessage = workout == nil ? "Health save completed. Workout link pending." : "Tennis workout saved."
-            if workout != nil { UserDefaults.standard.removeObject(forKey: "activeHealthTrainingID") }
         } catch {
             guard self.builder === builder else { return }
             ending?.resume(throwing: error)
@@ -193,6 +193,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         finishTimeout?.cancel()
         finishTimeout = nil
         ending = nil
+        UserDefaults.standard.removeObject(forKey: "activeHealthTrainingID")
         session?.end()
         self.session = nil; self.builder = nil
     }
@@ -207,6 +208,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         builder?.discardWorkout()
         builder = nil
         session = nil
+        UserDefaults.standard.removeObject(forKey: "activeHealthTrainingID")
         previousSession?.end()
     }
 

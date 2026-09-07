@@ -277,7 +277,7 @@ struct TournamentEditorView: View {
                         allowsUnspecifiedTime: !tournament.isAllDay
                     )
                         .accessibilityIdentifier("tournamentStartDatePicker")
-                    DatePicker("End date", selection: $tournament.endDate, in: tournament.date..., displayedComponents: .date)
+                    DatePicker("End date", selection: $tournament.endDate, in: Calendar.current.startOfDay(for: tournament.date)..., displayedComponents: .date)
                         .datePickerStyle(.compact)
                         .accessibilityLabel("Tournament end date")
                         .accessibilityValue(tournament.endDate.fullTennisDate)
@@ -317,6 +317,9 @@ struct TournamentEditorView: View {
             }
             .tennisThemedList()
             .navigationTitle("Tournament")
+            .onChange(of: tournament.date) { _, date in
+                if Calendar.current.startOfDay(for: tournament.endDate) < Calendar.current.startOfDay(for: date) { tournament.endDate = date }
+            }
             .onChange(of: tournament.isAllDay) { _, isAllDay in
                 if isAllDay {
                     tournament.hasStartTime = false

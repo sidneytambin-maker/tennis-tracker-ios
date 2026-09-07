@@ -215,6 +215,7 @@ final class TennisStore: ObservableObject {
     func makeDefaultMatch(tournamentID: UUID? = nil) -> MatchRecord? {
         guard let player = selectedPlayer else { return nil }
         var match = MatchRecord(playerID: player.id)
+        match.date = TennisScheduling.fiveMinuteDate(match.date)
         match.playerName = player.displayName
         match.matchFormat = player.defaultMatchFormat
         match.matchType = data.settings.defaultMatchType
@@ -249,12 +250,14 @@ final class TennisStore: ObservableObject {
 
     func makeDefaultTraining() -> TrainingSession? {
         guard let player = selectedPlayer else { return nil }
-        return TrainingSession(playerID: player.id)
+        var training = TrainingSession(playerID: player.id)
+        training.date = TennisScheduling.fiveMinuteDate(training.date)
+        return training
     }
 
     func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
         data = AppData()
-        data.dataVersion = 9
+        data.dataVersion = 10
         data.players = [player]
         data.selectedPlayerID = player.id
         data.settings = settings

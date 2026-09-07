@@ -77,7 +77,15 @@ enum TennisSummaryFormatter {
             if let energy = result.activeEnergyKcal { parts.append("Active energy \(Int(energy.rounded())) calories") }
         }
         if let practice = session.practiceResult {
-            parts.append("Practice result: \(practice.result.rawValue), \(practice.playerGames)-\(practice.opponentGames)")
+            var match = MatchRecord(playerID: session.playerID)
+            match.playerName = players.first { $0.id == session.playerID }?.displayName ?? "You"
+            match.matchType = practice.kind
+            match.partnerName = practice.partnerID.flatMap { id in players.first { $0.id == id }?.displayName } ?? practice.partnerName
+            match.opponentName = practice.opponentID.flatMap { id in players.first { $0.id == id }?.displayName } ?? practice.opponentName
+            match.opponent2Name = practice.opponent2ID.flatMap { id in players.first { $0.id == id }?.displayName } ?? practice.opponent2Name
+            match.result = practice.result
+            match.setScores = "\(practice.playerGames)-\(practice.opponentGames)"
+            parts.append("Practice result: " + matchSummary(match).shortText.trimmingCharacters(in: CharacterSet(charactersIn: ".")))
         }
         return parts.joined(separator: ", ") + "."
     }

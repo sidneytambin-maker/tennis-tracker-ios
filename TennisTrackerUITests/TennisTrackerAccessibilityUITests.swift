@@ -158,7 +158,9 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
             XCTAssertTrue(["Selected", "1"].contains(selected.value as? String ?? ""))
         }
         app.switches["Chris"].tap()
-        XCTAssertTrue(["Not selected", "0"].contains(app.switches["Chris"].value as? String ?? ""))
+        let deselected = NSPredicate(format: "value == %@ OR value == %@", "Not selected", "0")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: deselected, evaluatedWith: app.switches["Chris"])], timeout: 3), .completed,
+            "Chris remained \(app.switches["Chris"].value ?? "unknown") after deselection")
         app.switches["Chris"].tap()
         app.navigationBars["Coaches"].buttons.firstMatch.tap()
         tapPossiblyScrolledButton("Players Present")
