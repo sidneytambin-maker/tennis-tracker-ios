@@ -262,6 +262,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
                 await workoutCoordinator.restore(activityID: tracked.id, startedAt: tracked.actualStart ?? tracked.date)
                 isPreparingWorkout = false
                 workoutMessage = workoutCoordinator.message
+            } else if let id = healthClient.activeTrainingID, snapshot.deletedRecordIDs.contains(id),
+                      workoutCoordinator.state == .idle || workoutCoordinator.state == .finished {
+                await workoutCoordinator.restore(activityID: id, startedAt: Date())
             }
             finishRemotelyCompletedWorkoutIfNeeded()
             for id in healthClient.pendingWorkoutIDs {
@@ -382,8 +385,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             if case .deleteRecord = $0 { return false }
             return $0.recordID.map(snapshot.deletedRecordIDs.contains) ?? false
         }
-        persistSnapshot()
         send(.deleteRecord(deletion))
+        persistSnapshot()
         announce("Deleted on Watch. The deletion will sync to iPhone.")
     }
 
@@ -707,6 +710,17 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         if let data = defaults.data(forKey: queuedCommandsKey),
            let saved = try? JSONDecoder.tennisTracker.decode([TennisWatchSyncCommand].self, from: data) {
             queuedCommands = saved
+        }
+        // Replay the persisted delete command if shutdown interrupted the snapshot write.
+        for case .deleteRecord(let deletion) in queuedCommands { snapshot.delete(deletion) }
+        snapshot.removeDeletedRecords()
+        activeTraining = snapshot.trainingSessions.first(where: \.isActive)
+        if let id = activeMatch?.id, snapshot.deletedRecordIDs.contains(id) {
+            activeMatch = nil; pointHistory = []; persistPointHistory()
+        }
+        if let id = activeTournamentID, snapshot.deletedRecordIDs.contains(id) {
+            activeTournamentID = nil
+            defaults.removeObject(forKey: "activeTournamentID")
         }
     }
 
