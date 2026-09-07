@@ -52,12 +52,13 @@ struct TennisActivityContext: Codable, Equatable {
     var participantsNeedDetails: Bool?
     var venueID: UUID?
     var tournamentID: UUID?
+    var customTournamentName: String?
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case coachIDs, coachID, coachName, coachesNeedDetails, participantIDs, participantNames
-        case participantsNeedDetails, venueID, tournamentID
+        case participantsNeedDetails, venueID, tournamentID, customTournamentName
     }
 
     init(from decoder: Decoder) throws {
@@ -71,6 +72,7 @@ struct TennisActivityContext: Codable, Equatable {
         participantsNeedDetails = try c.decodeIfPresent(Bool.self, forKey: .participantsNeedDetails)
         venueID = try c.decodeIfPresent(UUID.self, forKey: .venueID)
         tournamentID = try c.decodeIfPresent(UUID.self, forKey: .tournamentID)
+        customTournamentName = try c.decodeIfPresent(String.self, forKey: .customTournamentName)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -84,6 +86,7 @@ struct TennisActivityContext: Codable, Equatable {
         try c.encodeIfPresent(participantsNeedDetails, forKey: .participantsNeedDetails)
         try c.encodeIfPresent(venueID, forKey: .venueID)
         try c.encodeIfPresent(tournamentID, forKey: .tournamentID)
+        try c.encodeIfPresent(customTournamentName, forKey: .customTournamentName)
     }
 
     func coachSummary(in coaches: [TennisCoach]) -> String {

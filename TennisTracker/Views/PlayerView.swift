@@ -8,7 +8,7 @@ struct PlayerView: View {
     var partnersOnly = false
 
     var body: some View {
-        List {
+        TennisList {
             Section {
                 ForEach(store.data.players.filter { !partnersOnly || $0.isRegularPartner }) { player in
                     Button { editingPlayer = player } label: {
@@ -65,7 +65,7 @@ struct PlayerEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 Section("Player") {
                     TextField("Full name", text: $player.name)
                         .accessibilityIdentifier("playerNameField")

@@ -59,7 +59,8 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         completeOnboarding()
         openDestination("Dashboard")
         XCTAssertTrue(app.staticTexts["Welcome, Sidney"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["Welcome, Sidney"].value as? String, "0 completed matches, 0 wins, 0 losses, 0 draws, 0 percent win rate. 0 training sessions saved.")
+        XCTAssertFalse(app.staticTexts["Current activity"].exists)
+        XCTAssertFalse(app.staticTexts["No activity in progress."].exists)
         XCTAssertFalse(app.staticTexts["Player One"].exists)
         XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
     }
@@ -229,6 +230,66 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         tapPossiblyScrolledButton("Players Present")
         XCTAssertFalse(app.buttons["Ben"].exists)
         XCTAssertFalse(app.buttons["Lucy"].exists)
+    }
+
+    func testHistoricalVenueAndSeparateOtherTournamentChoices() {
+        launchRegressionData()
+        openDestination("Matches")
+        app.buttons["addMatchButton"].tap()
+        tapPossiblyScrolledButton("activityVenuePicker")
+        XCTAssertTrue(app.buttons["Training Court, Town"].exists)
+        XCTAssertTrue(app.buttons["History Court, City"].exists)
+        app.buttons["History Court, City"].tap()
+        XCTAssertEqual(app.buttons["activityVenuePicker"].value as? String, "History Court, City")
+        XCTAssertFalse(app.textFields["otherVenueName"].exists)
+        tapPossiblyScrolledButton("activityTournamentPicker")
+        XCTAssertTrue(app.buttons["No tournament"].isSelected)
+        XCTAssertTrue(app.buttons["Club Open"].exists)
+        app.buttons["Other"].tap()
+        XCTAssertTrue(app.textFields["otherTournamentName"].exists)
+        tapPossiblyScrolledButton("activityTournamentPicker")
+        app.buttons["Club Open"].tap()
+        XCTAssertEqual(app.buttons["activityTournamentPicker"].value as? String, "Club Open")
+        XCTAssertFalse(app.textFields["otherTournamentName"].exists)
+        tapPossiblyScrolledButton("activityTournamentPicker")
+        app.buttons["No tournament"].tap()
+        XCTAssertEqual(app.buttons["activityTournamentPicker"].value as? String, "No tournament")
+        XCTAssertFalse(app.textFields["otherTournamentName"].exists)
+    }
+
+    func testDashboardCountsTrainingDoublesOnceAndShowsCoach() {
+        launchRegressionData()
+        let doubles = app.staticTexts["Doubles matches"]
+        XCTAssertTrue(doubles.waitForExistence(timeout: 5))
+        XCTAssertTrue((doubles.value as? String)?.contains("3 matches. 1 win, 2 losses, 0 draws") == true)
+        XCTAssertTrue((doubles.value as? String)?.contains("Includes 3 matches played during training") == true)
+        XCTAssertFalse(app.staticTexts["Current activity"].exists)
+        XCTAssertFalse(app.staticTexts["Training practice results, all time"].exists)
+        for _ in 0..<6 {
+            if app.staticTexts["One-to-one coaching, coaches: Chris"].isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["One-to-one coaching, coaches: Chris"].exists)
+        XCTAssertFalse(app.staticTexts["Training types, last 30 days"].exists)
+    }
+
+    func testAllThemesAndLargeTextVisualReview() {
+        for theme in ["tennis", "classic", "contrast", "large-tennis"] {
+            launchRegressionData(theme: theme)
+            XCTAssertTrue(app.staticTexts["Doubles matches"].waitForExistence(timeout: 5))
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "Dashboard \(theme) theme build 26"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    private func launchRegressionData(theme: String = "tennis") {
+        app.terminate()
+        app.launchArguments = ["-ui-testing-reset-store", "-ui-testing-venue-dashboard", "-ui-theme-\(theme)"]
+        if theme == "large-tennis" { app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 10))
     }
 
     private func completeOnboarding() {

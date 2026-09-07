@@ -10,6 +10,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
     var tournaments: [TournamentRecord] = []
     var settings = AppSettings()
     var setup = TennisSetup()
+    var knownVenues: [TennisVenueChoice] = []
 
     static let empty = TennisWatchSnapshot()
 
@@ -22,6 +23,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
         players = data.players
         settings = data.settings
         setup = data.setup
+        knownVenues = TennisVenueChoice.build(setup: data.setup, matches: data.matches, training: data.trainingSessions, tournaments: data.tournaments)
 
         let recentLimit = Calendar.current.date(byAdding: .day, value: -60, to: now) ?? now
         let weekStart = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? now
@@ -63,6 +65,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
         tournaments = try c.decodeIfPresent([TournamentRecord].self, forKey: .tournaments) ?? []
         settings = try c.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
         setup = try c.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
+        knownVenues = try c.decodeIfPresent([TennisVenueChoice].self, forKey: .knownVenues) ?? []
     }
 }
 

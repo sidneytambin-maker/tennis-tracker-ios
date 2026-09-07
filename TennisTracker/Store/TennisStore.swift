@@ -27,6 +27,13 @@ final class TennisStore: ObservableObject {
         }
         load()
         migrateIfNeeded()
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-venue-dashboard") {
+            data = TennisRegressionFixtures.venueAndDashboard()
+            if ProcessInfo.processInfo.arguments.contains("-ui-theme-classic") { data.settings.theme = .classic }
+            if ProcessInfo.processInfo.arguments.contains("-ui-theme-contrast") { data.settings.theme = .highContrast }
+        }
+        #endif
     }
 
     var needsOnboarding: Bool {

@@ -14,8 +14,8 @@ extension AppTheme {
         case .tennis:
             return AppThemePalette(
                 background: TennisSportStyle.ball,
-                groupedBackground: TennisSportStyle.ink,
-                rowBackground: .white,
+                groupedBackground: TennisSportStyle.ball,
+                rowBackground: TennisSportStyle.ball,
                 accent: TennisSportStyle.court,
                 strongSurface: TennisSportStyle.ink
             )
@@ -55,6 +55,8 @@ struct ThemedListBackground: ViewModifier {
             .scrollContentBackground(.hidden)
             .background(store.data.settings.theme.palette.background)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(store.data.settings.theme.palette.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .listRowSeparatorTint(store.data.settings.theme == .tennis ? TennisSportStyle.court.opacity(0.18) : .secondary)
     }
 }
@@ -97,7 +99,7 @@ struct TennisSection<Content: View>: View {
     }
 
     var body: some View {
-        Section { content } header: {
+        Section { content.listRowBackground(store.data.settings.theme.palette.rowBackground) } header: {
             Text(title)
                 .foregroundStyle(store.data.settings.theme == .tennis ? TennisSportStyle.ink : .primary)
                 .accessibilityAddTraits(.isHeader)
@@ -107,29 +109,12 @@ struct TennisSection<Content: View>: View {
 
 struct TennisDashboardHeader: View {
     let name: String
-    let stats: TennisStatistics
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(name, systemImage: "tennisball.fill")
-                .font(.title2.bold()).foregroundStyle(TennisSportStyle.ball)
-            HStack(alignment: .top, spacing: 16) {
-                metric("Matches", value: String(stats.matchCount))
-                metric("Wins", value: String(stats.winCount))
-                metric("Training", value: TennisDurationFormatter.compact(seconds: stats.trainingSecondsLast30Days))
-            }
-            Text(stats.spokenSummary).font(.subheadline).foregroundStyle(.white)
-        }
-        .padding(.vertical, 12)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Welcome, \(name)")
-        .accessibilityValue(stats.spokenSummary)
-        .accessibilityRepresentation { Text("Welcome, \(name)").accessibilityValue(stats.spokenSummary) }
-    }
-    private func metric(_ label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value).font(.title2.bold()).monospacedDigit().minimumScaleFactor(0.7)
-            Text(label).font(.caption).fixedSize(horizontal: false, vertical: true)
-        }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading)
+        Label("Welcome, \(name)", systemImage: "tennisball.fill")
+            .font(.title2.bold()).foregroundStyle(TennisSportStyle.ink)
+            .padding(.vertical, 6)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Welcome, \(name)")
     }
 }
 

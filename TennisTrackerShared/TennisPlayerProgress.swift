@@ -6,7 +6,9 @@ struct TennisResultTotals: Equatable {
     var draws = 0
     var retired = 0
     var count: Int { wins + losses + draws + retired }
-    var summary: String { "\(count) matches. \(wins) wins, \(losses) losses, \(draws) draws, \(retired) retired." }
+    var summary: String {
+        "\(count) \(count == 1 ? "match" : "matches"). \(wins) \(wins == 1 ? "win" : "wins"), \(losses) \(losses == 1 ? "loss" : "losses"), \(draws) \(draws == 1 ? "draw" : "draws")." + (retired > 0 ? " \(retired) retired." : "")
+    }
 
     mutating func record(_ result: MatchResult) {
         switch result {
@@ -41,27 +43,20 @@ struct TennisPlayerProgress: Equatable {
     var trainingTypes: [TennisFocusProgress] = []
     var suggestions: [TennisPracticeSuggestion] = []
 
-    static func build(player: PlayerProfile?, matches: [MatchRecord], training: [TrainingSession], now: Date = Date()) -> Self {
+    static func build(player: PlayerProfile?, matches: [MatchRecord], training: [TrainingSession], coaches: [TennisCoach] = [], now: Date = Date()) -> Self {
         guard let player else { return Self() }
         var progress = Self()
-        let matches = matches.filter { $0.playerID == player.id && $0.status == .completed }
+        let playerMatches = matches.filter { $0.playerID == player.id }
+        let matches = playerMatches.filter { $0.status == .completed }
         let training = training.filter { $0.playerID == player.id }
         let recorded = training.filter { $0.isRecordedTraining(at: now) }
-        for match in matches {
+        for match in TennisCompletedMatch.collect(matches: playerMatches, training: training, now: now) {
+            if match.kind == .singles { progress.singles.record(match.result) }
+            else { progress.doubles.record(match.result) }
             if match.trainingSessionID != nil {
-                if match.matchType == .singles { progress.singlesPractice.record(match.result) }
+                if match.kind == .singles { progress.singlesPractice.record(match.result) }
                 else { progress.doublesPractice.record(match.result) }
-            } else {
-                if match.matchType == .singles { progress.singles.record(match.result) }
-                else { progress.doubles.record(match.result) }
             }
-        }
-        // Prefer complete linked match records over a duplicate session-level practice summary.
-        let linkedSessions = Set(matches.compactMap(\.trainingSessionID))
-        for session in recorded where !linkedSessions.contains(session.id) {
-            guard let practice = session.practiceResult else { continue }
-            if practice.kind == .singles { progress.singlesPractice.record(practice.result) }
-            else { progress.doublesPractice.record(practice.result) }
         }
         let start = Calendar.current.date(byAdding: .day, value: -30, to: Calendar.current.startOfDay(for: now)) ?? now
         let recent = recorded.filter { ($0.actualStart ?? $0.date) >= start && ($0.actualStart ?? $0.date) <= now }
@@ -71,8 +66,12 @@ struct TennisPlayerProgress: Equatable {
                     seconds: sessions.reduce(0) { $0 + TennisDurationFormatter.trainingSeconds($1) })
             }.sorted { $0.sessions == $1.sessions ? $0.focus < $1.focus : $0.sessions > $1.sessions }
         }
-        progress.focus = breakdown { $0.focusSummary }
-        progress.trainingTypes = breakdown { $0.trainingType.rawValue }
+        progress.focus = breakdown { $0.dashboardFocusSummary }
+        progress.trainingTypes = breakdown { session in
+            let names = session.context.coachSummary(in: coaches)
+            let coaching = session.trainingType == .oneToOneCoaching || session.trainingType == .groupCoaching
+            return session.trainingType.rawValue + (names.isBlank ? (coaching ? ", coach not recorded" : "") : ", coaches: " + names)
+        }
         if !player.primaryGoal.isBlank {
             progress.suggestions.append(.init(source: "Your goal", detail: player.primaryGoal))
         }

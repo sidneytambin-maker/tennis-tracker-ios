@@ -41,6 +41,8 @@ struct TennisTrackerRootView: View {
                         .tag("settings")
                 }
                 .accessibilityIdentifier("mainTabView")
+                .toolbarBackground(store.data.settings.theme.palette.background, for: .tabBar)
+                .toolbarBackground(.visible, for: .tabBar)
                 .onOpenURL { url in
                     router.open(url)
                     store.announce("Opened \(router.selectedTab).")

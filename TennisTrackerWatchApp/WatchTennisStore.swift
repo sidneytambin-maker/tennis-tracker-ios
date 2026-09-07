@@ -40,6 +40,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             data.players = [player]
             data.setup.coaches = [TennisCoach(name: "Chris"), TennisCoach(name: "Sarah")]
             data.selectedPlayerID = player.id
+            if ProcessInfo.processInfo.arguments.contains("-watch-venue-regression") {
+                data = TennisRegressionFixtures.venueAndDashboard()
+            }
             if ProcessInfo.processInfo.arguments.contains("-watch-scheduled-training") {
                 var training = TrainingSession(playerID: player.id)
                 training.date = Date().addingTimeInterval(600)

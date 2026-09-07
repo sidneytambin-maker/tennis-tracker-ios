@@ -18,8 +18,8 @@ struct TournamentsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                TennisSection("Track") {
+            TennisList {
+                Section {
                     Button("Track Tournament") { showingNewTournament = true }
                         .accessibilityLabel("Track Tournament")
                         .accessibilityIdentifier("addTournamentButton")
@@ -133,7 +133,7 @@ struct TournamentDetailView: View {
     }
 
     var body: some View {
-        List {
+        TennisList {
             TennisSection("Summary") {
                 Text(TennisSummaryFormatter.tournament(tournament, style: .detailed, matches: linkedMatches))
                 SummaryRow(title: "Status", value: "\(tournament.finalResult.rawValue). \(tournament.format.rawValue). Stage: \(tournament.stageReached.rawValue).")
@@ -173,7 +173,7 @@ struct TournamentDetailView: View {
                 Text(tournament.notes.fallback("No notes recorded."))
             }
 
-            TennisSection("Calendar") {
+            Section {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -246,7 +246,7 @@ struct TournamentEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 TennisSection("Tournament") {
                     Picker("Regular tournament", selection: $tournament.templateID) {
                         Text("Other").tag(Optional<UUID>.none)

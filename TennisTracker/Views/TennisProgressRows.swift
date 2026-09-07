@@ -5,6 +5,7 @@ struct TennisResultDashboardRow: View {
     let title: String
     let totals: TennisResultTotals
     let symbol: String
+    var trainingMatchCount = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -16,12 +17,15 @@ struct TennisResultDashboardRow: View {
                 metric("Draws", value: totals.draws)
             }
             if totals.retired > 0 { Text("\(totals.retired) retired").font(.callout) }
+            if trainingMatchCount > 0 { Text(trainingContext).font(.callout) }
         }
         .padding(.vertical, 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue(totals.summary)
+        .accessibilityValue(totals.summary + (trainingMatchCount > 0 ? " " + trainingContext : ""))
     }
+
+    private var trainingContext: String { "Includes \(trainingMatchCount) \(trainingMatchCount == 1 ? "match" : "matches") played during training." }
 
     private func metric(_ name: String, value: Int) -> some View {
         VStack(alignment: .leading, spacing: 3) {

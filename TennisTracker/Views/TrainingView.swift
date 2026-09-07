@@ -10,8 +10,8 @@ struct TrainingView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                TennisSection("Track") {
+            TennisList {
+                Section {
                     Button("Track Training Session") { showingNewTraining = true }
                         .accessibilityLabel("Track Training Session")
                         .accessibilityIdentifier("addTrainingButton")
@@ -92,7 +92,7 @@ struct TrainingDetailView: View {
     @State private var calendarMessage = ""
 
     var body: some View {
-        List {
+        TennisList {
             TennisSection("Summary") {
                 Text(store.trainingSummary(session, style: .detailed))
                     .accessibilityAction(named: "Edit Training and Focus") { editingTraining = session }
@@ -122,7 +122,7 @@ struct TrainingDetailView: View {
                 Text(session.notes.fallback("No notes recorded."))
             }
 
-            TennisSection("Calendar") {
+            Section {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -181,7 +181,7 @@ struct TrainingEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 if !validationMessage.isBlank {
                     TennisSection("Needs attention") {
                         Text(validationMessage)
@@ -197,7 +197,7 @@ struct TrainingEditorView: View {
                         .accessibilityIdentifier("trainingDatePicker")
                     StoredVenuePicker(id: $session.context.venueID, venue: $session.venue, location: $session.location, training: true)
                     NavigationLink("Coaches") {
-                        List {
+                        TennisList {
                             ForEach(coaches) { coach in
                                 TennisSelectionRow(name: coach.name, id: coach.id, selectedIDs: $session.context.coachIDs)
                             }
@@ -220,7 +220,7 @@ struct TrainingEditorView: View {
                     }
                     .accessibilityValue(session.context.coachSummary(in: coaches).fallback("None"))
                     NavigationLink("Players Present") {
-                        List {
+                        TennisList {
                             ForEach(players.filter { $0.id != session.playerID }) { player in
                                 TennisSelectionRow(name: player.displayName, id: player.id, selectedIDs: $session.context.participantIDs)
                             }
@@ -244,10 +244,7 @@ struct TrainingEditorView: View {
                         }.navigationTitle("Players Present")
                     }
                     .accessibilityValue(session.context.participantSummary(in: players).fallback("None"))
-                    Picker("Tournament", selection: $session.context.tournamentID) {
-                        Text("No tournament").tag(Optional<UUID>.none)
-                        ForEach(store.selectedTournaments) { Text($0.name).tag(Optional($0.id)) }
-                    }
+                    TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: $session.context.tournamentID, customName: $session.context.customTournamentName)
                     Picker("Surface", selection: $session.surface) {
                         ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                     }

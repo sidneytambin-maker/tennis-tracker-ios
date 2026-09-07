@@ -105,6 +105,8 @@ struct WatchTrainingSetupView: View {
     @State private var type: TrainingType = .singlesPractice
     @State private var focus = ""
     @State private var context = TennisActivityContext()
+    @State private var venue = ""
+    @State private var location = ""
     @State private var otherPlayers = false
     @State private var otherCoaches = false
     @AppStorage("trackTrainingAsWorkout") private var useHealth = false
@@ -124,10 +126,7 @@ struct WatchTrainingSetupView: View {
                 }.navigationTitle("Coaches")
             }
             .accessibilityValue(context.coachSummary(in: store.snapshot.setup.coaches).fallback("None"))
-            Picker("Venue", selection: $context.venueID) {
-                Text("Other").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.setup.venues.filter(\.usedForTraining)) { Text($0.summary).tag(Optional($0.id)) }
-            }
+            WatchVenueFields(venueID: $context.venueID, venue: $venue, location: $location)
             NavigationLink("Players Present") {
                 List {
                     ForEach(store.snapshot.players.filter { $0.id != store.selectedPlayer?.id }) { player in
@@ -137,10 +136,7 @@ struct WatchTrainingSetupView: View {
                 }.navigationTitle("Players Present")
             }
             .accessibilityValue(context.participantSummary(in: store.snapshot.players).fallback("None"))
-            Picker("Tournament", selection: $context.tournamentID) {
-                Text("Other or no tournament").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { Text($0.name).tag(Optional($0.id)) }
-            }
+            TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $context.tournamentID, customName: $context.customTournamentName)
             if store.healthClient.available {
                 Section("Apple Health") {
                     Toggle("Track Training as Workout", isOn: $useHealth)
@@ -152,8 +148,7 @@ struct WatchTrainingSetupView: View {
                 context.captureLegacyNames(coaches: store.snapshot.setup.coaches, players: store.snapshot.players)
                 context.coachesNeedDetails = otherCoaches
                 context.participantsNeedDetails = otherPlayers
-                let venue = store.snapshot.setup.venues.first { $0.id == context.venueID }
-                store.trackTrainingSession(type: type, focus: focus, context: context, venue: venue?.name ?? "", location: venue?.town ?? "", useHealth: useHealth)
+                store.trackTrainingSession(type: type, focus: focus, context: context, venue: venue, location: location, useHealth: useHealth)
                 dismiss()
             }
             .disabled(store.selectedPlayer == nil || store.activeTraining != nil || store.isFinishingWorkout)
@@ -180,19 +175,10 @@ private struct WatchMatchSetupView: View {
                 TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
             }
             OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
-            Picker("Venue", selection: $match.venueID) {
-                Text("Other").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.setup.venues.filter(\.usedForMatches)) { Text($0.summary).tag(Optional($0.id)) }
-            }
-            Picker("Tournament", selection: $match.tournamentID) {
-                Text("Other or no tournament").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.tournaments.filter { !$0.isCompleted }) { Text($0.name).tag(Optional($0.id)) }
-            }
+            WatchVenueFields(venueID: $match.venueID, venue: $match.venue, location: $match.location)
+            TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $match.tournamentID, customName: $match.customTournamentName)
             Button("Begin Match Scoring") {
-                if let venue = store.snapshot.setup.venues.first(where: { $0.id == match.venueID }) {
-                    match.venue = venue.name; match.location = venue.town
-                }
-                match.needsDetails = match.opponentID == nil || (match.matchType == .doubles && (match.partnerID == nil || match.opponent2ID == nil)) || match.venueID == nil
+                match.needsDetails = match.opponentName.isBlank || (match.matchType == .doubles && (match.partnerName.isBlank || match.opponent2Name.isBlank)) || match.venue.isBlank
                 store.beginMatch(match)
                 if match.needsDetails { store.announce("Match ready. Details can be edited on Watch.") }
                 dismiss()
@@ -213,6 +199,7 @@ private struct WatchTournamentSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State private var templateID: UUID?
+    @State private var customName = ""
     var body: some View {
         Form {
             Section("Existing tournament") {
@@ -225,9 +212,11 @@ private struct WatchTournamentSetupView: View {
                     Text("Other").tag(Optional<UUID>.none)
                     ForEach(store.snapshot.setup.tournamentTemplates) { Text($0.name).tag(Optional($0.id)) }
                 }
+                if templateID == nil { TextField("Other tournament name", text: $customName) }
                 Button("Begin Tournament") {
                     guard let player = store.selectedPlayer else { return }
                     var tournament = TennisWatchActivityFactory.tournament(playerID: player.id)
+                    tournament.name = customName.trimmingCharacters(in: .whitespacesAndNewlines)
                     if let template = store.snapshot.setup.tournamentTemplates.first(where: { $0.id == templateID }) {
                         tournament.templateID = template.id; tournament.name = template.name
                         tournament.format = template.format; tournament.venueID = template.venueID
@@ -239,6 +228,7 @@ private struct WatchTournamentSetupView: View {
                     store.announce("Tournament started. Dates and details can be edited on Watch.")
                     dismiss()
                 }
+                .disabled(templateID == nil && customName.isBlank)
             }
         }
         .navigationTitle("Tournament")

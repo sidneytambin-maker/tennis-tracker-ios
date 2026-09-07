@@ -13,7 +13,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack(path: $router.settingsPath) {
-            Form {
+            TennisForm {
                 Section {
                     NavigationLink("Players", value: TennisSettingsDestination.players)
                     NavigationLink("Tennis Setup", value: TennisSettingsDestination.setup)

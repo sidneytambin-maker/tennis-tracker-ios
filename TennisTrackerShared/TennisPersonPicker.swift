@@ -26,10 +26,8 @@ struct TennisPersonPicker: View {
         .onChange(of: selection) { _, id in
             name = players.first(where: { $0.id == id })?.displayName ?? ""
         }
-        #if os(iOS)
         if selection == nil {
             TextField(title, text: $name).accessibilityIdentifier(fieldIdentifier)
         }
-        #endif
     }
 }

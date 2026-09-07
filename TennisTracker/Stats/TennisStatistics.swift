@@ -22,10 +22,10 @@ struct TennisStatistics: Equatable {
     static func build(matches: [MatchRecord], training: [TrainingSession], tournaments: [TournamentRecord], today: Date = Date()) -> TennisStatistics {
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: today)) ?? today
-        let completedMatches = matches.filter { $0.status == .completed && $0.trainingSessionID == nil }
+        let completedMatches = TennisCompletedMatch.collect(matches: matches, training: training, now: today)
         let wins = completedMatches.filter { $0.result == .win }.count
         let losses = completedMatches.filter { $0.result == .loss }.count
-        let last30Matches = completedMatches.filter { $0.date >= start && $0.date <= today }
+        let last30Matches = matches.filter { $0.status == .completed && $0.date >= start && $0.date <= today }
         let last30Training = training.filter { ($0.actualStart ?? $0.date) >= start && $0.isRecordedTraining(at: today) }
         let trainingSeconds = last30Training.reduce(0.0) { $0 + TennisDurationFormatter.trainingSeconds($1) }
         let upcoming = tournaments.filter { calendar.startOfDay(for: $0.date) >= calendar.startOfDay(for: today) }
@@ -38,14 +38,9 @@ struct TennisStatistics: Equatable {
         if outstanding > 0 {
             attention.append("\(outstanding) tournament matches still need adding.")
         }
-        if matches.contains(where: { $0.tournamentID == nil && $0.trainingSessionID == nil }) {
-            attention.append("Some matches are not linked to training or tournaments.")
-        }
-        if matches.isEmpty && training.isEmpty {
-            attention.append("No tennis activity recorded yet.")
-        }
-        if attention.isEmpty {
-            attention.append("Nothing urgent needs attention.")
+        let incomplete = matches.filter(\.needsDetails).count + training.filter(\.needsDetails).count + tournaments.filter(\.needsDetails).count
+        if incomplete > 0 {
+            attention.append("\(incomplete) activities still need their details completed.")
         }
 
         return TennisStatistics(

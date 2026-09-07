@@ -474,6 +474,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var hadTiebreak = false
     var tiebreakScore = ""
     var tournamentID: UUID?
+    var customTournamentName: String?
     var trainingSessionID: UUID?
     var liveScore: TennisScoreSnapshot?
     var stableShareID = UUID()
@@ -555,6 +556,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         hadTiebreak = try container.decodeIfPresent(Bool.self, forKey: .hadTiebreak) ?? false
         tiebreakScore = try container.decodeIfPresent(String.self, forKey: .tiebreakScore) ?? ""
         tournamentID = try container.decodeIfPresent(UUID.self, forKey: .tournamentID)
+        customTournamentName = try container.decodeIfPresent(String.self, forKey: .customTournamentName)
         trainingSessionID = try container.decodeIfPresent(UUID.self, forKey: .trainingSessionID)
         liveScore = try container.decodeIfPresent(TennisScoreSnapshot.self, forKey: .liveScore)
         stableShareID = try container.decodeIfPresent(UUID.self, forKey: .stableShareID) ?? UUID()

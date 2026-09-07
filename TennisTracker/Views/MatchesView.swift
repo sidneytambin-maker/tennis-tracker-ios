@@ -12,8 +12,8 @@ struct MatchesView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                TennisSection("Match scoring") {
+            TennisList {
+                Section {
                     Button("Track Match Scoring") {
                         showingLiveScorer = true
                     }
@@ -27,9 +27,6 @@ struct MatchesView: View {
                         }
                         .accessibilityHint("Continues this saved live score from where you left it.")
                     }
-                }
-
-                TennisSection("Record") {
                     Button("Record Match") { showingNewMatch = true }
                         .accessibilityLabel("Record Match")
                         .accessibilityIdentifier("addMatchButton")
@@ -130,7 +127,7 @@ struct MatchDetailView: View {
     @State private var calendarMessage = ""
 
     var body: some View {
-        List {
+        TennisList {
             TennisSection("Summary") {
                 SummaryRow(title: TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .short), value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
                 SummaryRow(title: "Players", value: "\(match.playerTeam) against \(match.opponentSummary.fallback("opponent not recorded")).")
@@ -152,7 +149,7 @@ struct MatchDetailView: View {
                 Text(match.notes.fallback(match.matchStory.fallback("No notes recorded.")))
             }
 
-            TennisSection("Calendar") {
+            Section {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -203,7 +200,7 @@ struct MatchEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 TennisSection("Players") {
                     TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName, fieldIdentifier: "matchOpponentNameField")
                     Picker("Match type", selection: $match.matchType) {
@@ -229,23 +226,14 @@ struct MatchEditorView: View {
                     }
                 }
 
-                if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
-                    TennisSection("Links") {
-                        Picker("Tournament", selection: $match.tournamentID) {
-                            Text("No tournament").tag(Optional<UUID>.none)
-                            ForEach(store.selectedTournaments) { tournament in
-                                Text(tournament.name.fallback("Unnamed tournament")).tag(Optional(tournament.id))
-                            }
-                        }
-                        .accessibilityIdentifier("matchTournamentPicker")
+                    Section {
+                        TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: $match.tournamentID, customName: $match.customTournamentName)
                         .onChange(of: match.tournamentID) { _, _ in
                             applyTournamentDefaults()
                         }
                         if let tournament = linkedTournament {
                             SummaryRow(title: "Tournament date range", value: tournamentDateRange(tournament))
                         }
-
-                    }
                 }
 
                 TennisSection("Result") {
@@ -532,7 +520,7 @@ struct LiveMatchView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            TennisList {
                 if let match {
                     if isScoring {
                         scoringSections(match: match)
@@ -633,21 +621,14 @@ struct LiveMatchView: View {
             }
         }
 
-        if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
-            TennisSection("Links") {
-                Picker("Tournament", selection: binding(\.tournamentID)) {
-                    Text("No tournament").tag(Optional<UUID>.none)
-                    ForEach(store.selectedTournaments) { tournament in
-                        Text(tournament.name.fallback("Unnamed tournament")).tag(Optional(tournament.id))
-                    }
-                }
+            Section {
+                TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: binding(\.tournamentID), customName: binding(\.customTournamentName))
                 Picker("Training session", selection: binding(\.trainingSessionID)) {
                     Text("No training session").tag(Optional<UUID>.none)
                     ForEach(store.selectedTraining) { session in
                         Text("\(session.date.shortTennisDate), \(session.trainingType.rawValue)").tag(Optional(session.id))
                     }
                 }
-            }
         }
 
     }

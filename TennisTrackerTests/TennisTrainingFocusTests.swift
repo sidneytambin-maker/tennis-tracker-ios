@@ -61,7 +61,7 @@ final class TennisTrainingFocusTests: XCTestCase {
         training.id = UUID()
         training.practiceResult = TennisPracticeResult(kind: .doubles, result: .draw)
         let progress = TennisPlayerProgress.build(player: player, matches: matches, training: [training, noMatchTraining], now: now)
-        XCTAssertEqual(progress.singles.count, 2)
+        XCTAssertEqual(progress.singles.count, 3)
         XCTAssertEqual(progress.singles.wins, 1)
         XCTAssertEqual(progress.singles.draws, 1)
         XCTAssertEqual(progress.doubles.losses, 1)
@@ -70,7 +70,7 @@ final class TennisTrainingFocusTests: XCTestCase {
         XCTAssertEqual(progress.doublesPractice.count, 1)
         XCTAssertEqual(progress.doublesPractice.draws, 1)
         let stats = TennisStatistics.build(matches: matches.filter { $0.playerID == player.id }, training: [], tournaments: [])
-        XCTAssertEqual(stats.matchCount, 4)
+        XCTAssertEqual(stats.matchCount, 5)
         XCTAssertEqual(stats.winCount, 1)
         XCTAssertEqual(stats.drawCount, 1)
     }
@@ -84,7 +84,7 @@ final class TennisTrainingFocusTests: XCTestCase {
         var match = MatchRecord(playerID: player.id)
         match.trainingSessionID = training.id
         let progress = TennisPlayerProgress.build(player: player, matches: [match], training: [training], now: now)
-        XCTAssertEqual(progress.singles.count, 0)
+        XCTAssertEqual(progress.singles.count, 1)
         XCTAssertEqual(progress.singlesPractice.count, 1)
     }
 

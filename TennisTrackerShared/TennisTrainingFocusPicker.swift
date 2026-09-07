@@ -30,7 +30,7 @@ private struct TennisTrainingFocusChoices: View {
     }
 
     var body: some View {
-        List {
+        TennisList {
             choice("No focus selected", value: "")
             ForEach(TennisTrainingFocus.allCases) { option in
                 choice(option.rawValue, value: option.rawValue)

@@ -39,6 +39,6 @@ final class TennisStatisticsTests: XCTestCase {
         XCTAssertEqual(stats.trainingMinutesLast30Days, 120)
         XCTAssertEqual(stats.tiebreakSetsLast30Days, 1)
         XCTAssertEqual(stats.upcomingTournamentCount, 1)
-        XCTAssertEqual(stats.needsAttention, ["3 tournament matches still need adding.", "Some matches are not linked to training or tournaments."])
+        XCTAssertEqual(stats.needsAttention, ["3 tournament matches still need adding."])
     }
 }

@@ -17,7 +17,7 @@ struct DashboardView: View {
     }
 
     private var progress: TennisPlayerProgress {
-        TennisPlayerProgress.build(player: store.selectedPlayer, matches: store.selectedMatches, training: store.selectedTraining)
+        TennisPlayerProgress.build(player: store.selectedPlayer, matches: store.selectedMatches, training: store.selectedTraining, coaches: store.data.setup.coaches)
     }
 
     private var nextTournament: TournamentRecord? {
@@ -27,30 +27,24 @@ struct DashboardView: View {
             .first
     }
 
-    private var needsDetailsCount: Int {
-        store.selectedMatches.filter(\.needsDetails).count
-        + store.selectedTraining.filter(\.needsDetails).count
-        + store.selectedTournaments.filter(\.needsDetails).count
-    }
-
     var body: some View {
         NavigationStack {
-            List {
+            TennisList {
                 Section {
                     if store.data.settings.theme == .tennis {
-                        TennisDashboardHeader(name: store.selectedPlayer?.displayName ?? "Player", stats: stats)
-                            .listRowBackground(TennisSportStyle.ink)
+                        TennisDashboardHeader(name: store.selectedPlayer?.displayName ?? "Player")
                     } else {
-                        SummaryRow(title: "Welcome, \(store.selectedPlayer?.displayName ?? "player")", value: stats.spokenSummary)
+                        Text("Welcome, \(store.selectedPlayer?.displayName ?? "player")").font(.title2.bold())
                     }
                 }
 
                 TennisSection("Match results, all time") {
-                    TennisResultDashboardRow(title: "Singles matches", totals: progress.singles, symbol: "person.fill")
-                    TennisResultDashboardRow(title: "Doubles matches", totals: progress.doubles, symbol: "person.2.fill")
+                    TennisResultDashboardRow(title: "Singles matches", totals: progress.singles, symbol: "person.fill", trainingMatchCount: progress.singlesPractice.count)
+                    TennisResultDashboardRow(title: "Doubles matches", totals: progress.doubles, symbol: "person.2.fill", trainingMatchCount: progress.doublesPractice.count)
                 }
 
-                TennisSection("Current activity") {
+                if store.selectedTraining.contains(where: \.isActive) || store.selectedMatches.contains(where: { $0.status == .inProgress }) {
+                  TennisSection("Current activity") {
                     if let training = store.selectedTraining.first(where: \.isActive) {
                         TimelineView(.periodic(from: .now, by: 1)) { context in
                             NavigationLink(store.trainingSummary(training, now: context.date)) {
@@ -65,9 +59,7 @@ struct DashboardView: View {
                         }
                         .accessibilityHint("Resumes match scoring.")
                     }
-                    if !store.selectedTraining.contains(where: \.isActive) && !store.selectedMatches.contains(where: { $0.status == .inProgress }) {
-                        Text("No activity in progress.")
-                    }
+                  }
                 }
 
                 TennisSection("Next activity") {
@@ -110,13 +102,13 @@ struct DashboardView: View {
                 }
 
                 TennisSection("Training activity") {
-                    if let recent = store.selectedTraining.filter({ !$0.isActive && ($0.actualFinish != nil || $0.expectedEndDate < Date()) }).first {
-                        NavigationLink(store.trainingSummary(recent)) { TrainingDetailView(session: recent) }
-                    }
-                    SummaryRow(title: "Training activity", value: stats.trainingCountLast30Days == 0 ? "No training recorded in the last 30 days." : "\(stats.trainingCountLast30Days) \(stats.trainingCountLast30Days == 1 ? "session" : "sessions") recorded. \(TennisDurationFormatter.text(seconds: stats.trainingSecondsLast30Days)) in the last 30 days.")
+                    SummaryRow(title: "Last 30 days", value: stats.trainingCountLast30Days == 0 ? "No training recorded." : "\(stats.trainingCountLast30Days) \(stats.trainingCountLast30Days == 1 ? "session" : "sessions") recorded. \(TennisDurationFormatter.text(seconds: stats.trainingSecondsLast30Days)).")
                         .accessibilityAction(named: "Track Training Session") {
                             showingNewTraining = true
                         }
+                    ForEach(progress.trainingTypes) { item in
+                        SummaryRow(title: item.focus, value: item.summary)
+                    }
                 }
 
                 TennisSection("Training focus, last 30 days") {
@@ -124,24 +116,11 @@ struct DashboardView: View {
                     ForEach(progress.focus) { item in
                         TennisFocusDashboardRow(item: item, maximum: progress.focus.map(\.sessions).max() ?? 1)
                     }
-                    Button("Plan Training Focus") { showingNewTraining = true }
-                    if let session = store.selectedTraining.first(where: { $0.focus.isBlank }) {
+                    if let session = store.selectedTraining.first(where: { $0.focus.isBlank || $0.dashboardFocusSummary == "Specific focus not recorded" }) {
                         Button { trainingToEdit = session } label: {
                             Label("Choose Focus for \(session.date.fullTennisDate)", systemImage: "scope")
                         }
                     }
-                }
-
-                TennisSection("Training types, last 30 days") {
-                    if progress.trainingTypes.isEmpty { Text("No completed training recorded in the last 30 days.") }
-                    ForEach(progress.trainingTypes) { item in
-                        SummaryRow(title: item.focus, value: item.summary)
-                    }
-                }
-
-                TennisSection("Training practice results, all time") {
-                    TennisResultDashboardRow(title: "Singles practice matches", totals: progress.singlesPractice, symbol: "figure.tennis")
-                    TennisResultDashboardRow(title: "Doubles practice matches", totals: progress.doublesPractice, symbol: "person.2.fill")
                 }
 
                 TennisSection("What to work on") {
@@ -173,17 +152,10 @@ struct DashboardView: View {
                     }
                 }
 
-                if store.data.settings.showNeedsAttention && !stats.needsAttention.isEmpty {
-                    TennisSection("Needs attention") {
-                        ForEach(stats.needsAttention, id: \.self) { item in
-                            Text(item)
-                        }
-                    }
-                }
-
-                if store.data.settings.showNeedsAttention && needsDetailsCount > 0 {
-                    TennisSection("Activities Need Details") {
-                        Text("\(needsDetailsCount) activities need details.")
+                if store.data.settings.showNeedsAttention {
+                    Section {
+                        SummaryRow(title: "Needs attention", value: stats.needsAttention.isEmpty ? "Nothing needs attention." : stats.needsAttention.joined(separator: " "),
+                            hint: "Checks for activities marked as needing details and tournament matches still waiting to be entered. Matches without a tournament are allowed.")
                         if let training = store.selectedTraining.first(where: \.needsDetails) {
                             Button("Complete Training Details") {
                                 var draft = training

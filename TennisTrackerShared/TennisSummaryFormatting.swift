@@ -24,7 +24,7 @@ enum TennisSummaryFormatter {
         let team = match.playerTeam
         let opponents = match.opponentSummary.fallback("opponent not recorded")
         let score = scoreText(for: match)
-        let tournament = match.tournamentID.flatMap { id in tournaments.first { $0.id == id }?.name } ?? ""
+        let tournament = match.tournamentID.flatMap { id in tournaments.first { $0.id == id }?.name } ?? match.customTournamentName ?? ""
         let verb: String
         switch match.status {
         case .scheduled: verb = "will play"
@@ -63,6 +63,7 @@ enum TennisSummaryFormatter {
         let coaches = session.context.coachSummary(in: coaches)
         parts.append(TennisDurationFormatter.training(session, now: now) + (session.isActive ? " elapsed" : ""))
         parts.append("Focus: " + session.focusSummary)
+        if let tournament = session.context.customTournamentName, !tournament.isBlank { parts.append("Tournament: " + tournament) }
         if !coaches.isBlank { parts.append("Coaches: \(coaches)") }
         let participants = session.context.participantSummary(in: players)
         if !participants.isBlank {

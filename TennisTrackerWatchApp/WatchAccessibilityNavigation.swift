@@ -19,26 +19,19 @@ struct WatchPageSelector: View {
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(TennisSportStyle.ink)
         }
-        .accessibilityLabel("Pages")
+        .accessibilityLabel("Menu")
+        .accessibilityHint("Opens the five app screens. You can also choose a screen using Actions.")
         .sheet(isPresented: $showingPages) {
             NavigationStack {
                 List {
                     ForEach(TennisWatchPage.allCases) { page in
                         Button(page.rawValue) { store.page = page; showingPages = false }
                     }
-                }.navigationTitle("Pages")
+                }.navigationTitle("Menu")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showingPages = false } } }
             }
         }
-        .accessibilityValue("\(store.page.rawValue), page \((TennisWatchPage.allCases.firstIndex(of: store.page) ?? 0) + 1) of 5")
-        .accessibilityAdjustableAction { direction in
-            let index = TennisWatchPage.allCases.firstIndex(of: store.page) ?? 0
-            switch direction {
-            case .increment: store.page = TennisWatchPage.allCases[min(index + 1, 4)]
-            case .decrement: store.page = TennisWatchPage.allCases[max(index - 1, 0)]
-            @unknown default: break
-            }
-        }
+        .accessibilityValue("Current screen: \(store.page.rawValue)")
         .accessibilityActions {
             ForEach(TennisWatchPage.allCases) { page in Button(page.rawValue) { store.page = page } }
         }

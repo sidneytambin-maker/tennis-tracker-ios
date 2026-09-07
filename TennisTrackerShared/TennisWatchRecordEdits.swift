@@ -24,6 +24,7 @@ enum TennisWatchRecordEdits {
         updated.opponent2ID = draft.opponent2ID; updated.opponent2Name = draft.opponent2Name
         updated.venueID = draft.venueID; updated.venue = draft.venue; updated.location = draft.location
         updated.tournamentID = draft.tournamentID; updated.notes = draft.notes
+        updated.customTournamentName = draft.customTournamentName
         updated.needsDetails = draft.needsDetails
         return TennisRecordConflictResolver.prepareLocalMatch(updated, now: now)
     }

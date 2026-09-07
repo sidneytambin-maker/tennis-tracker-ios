@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TennisSetupView: View {
     var body: some View {
-        List {
+        TennisList {
             NavigationLink("Players") { PlayerView() }
             NavigationLink("Regular Doubles Partners") { PlayerView(partnersOnly: true) }
             NavigationLink("Coaches") { SetupRecordsView(kind: .coach) }
@@ -66,7 +66,7 @@ private struct SetupRecordsView: View {
     }
 
     var body: some View {
-        List {
+        TennisList {
             ForEach(records) { item in
                 Button(item.name) { editing = item }
                     .accessibilityAction(named: "Edit \(kind.rawValue)") { editing = item }
@@ -124,7 +124,7 @@ private struct SetupRecordEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 TextField("Name", text: $draft.name)
                 if kind == .coach {
                     TextField("Club or organisation", text: $draft.detail)
@@ -173,23 +173,7 @@ struct StoredVenuePicker: View {
     var training = false
 
     var body: some View {
-        Picker("Venue", selection: $id) {
-            Text("Other").tag(Optional<UUID>.none)
-            ForEach(store.data.setup.venues.filter { training ? $0.usedForTraining : $0.usedForMatches }) {
-                Text($0.summary).tag(Optional($0.id))
-            }
-        }
-        .onChange(of: id) { _, id in
-            if let selected = store.data.setup.venues.first(where: { $0.id == id }) {
-                venue = selected.name; location = selected.town
-            }
-        }
-        if id == nil { TextField("Venue name", text: $venue) }
-        Picker("Location", selection: $location) {
-            Text(location.isBlank ? "Other" : location).tag(location)
-            ForEach(store.data.setup.locations.filter { $0.name != location }) { Text($0.name).tag($0.name) }
-            if !location.isBlank { Text("Other").tag("") }
-        }
-        TextField("Town or city", text: $location)
+        TennisVenuePicker(choices: TennisVenueChoice.build(setup: store.data.setup, matches: store.data.matches,
+            training: store.data.trainingSessions, tournaments: store.data.tournaments), venueID: $id, venue: $venue, location: $location)
     }
 }

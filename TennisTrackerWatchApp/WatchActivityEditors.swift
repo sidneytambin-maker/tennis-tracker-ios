@@ -30,10 +30,7 @@ struct WatchTrainingEditor: View {
             .accessibilityValue(draft.context.participantSummary(in: store.snapshot.players).fallback("None"))
             .onChange(of: draft.context.participantIDs) { _, _ in draft.context.participantNames = [] }
             WatchVenueFields(venueID: $draft.context.venueID, venue: $draft.venue, location: $draft.location)
-            Picker("Tournament", selection: $draft.context.tournamentID) {
-                Text("No tournament").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.tournaments) { Text($0.name).tag(Optional($0.id)) }
-            }
+            TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $draft.context.tournamentID, customName: $draft.context.customTournamentName)
             TextField("Notes", text: $draft.notes)
             Toggle("Include session feedback", isOn: $draft.hasSessionDetails)
             if draft.hasSessionDetails {
@@ -69,10 +66,7 @@ struct WatchMatchEditor: View {
                 TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.opponentID && $0.id != draft.partnerID }, selection: $draft.opponent2ID, name: $draft.opponent2Name)
             }
             WatchVenueFields(venueID: $draft.venueID, venue: $draft.venue, location: $draft.location)
-            Picker("Tournament", selection: $draft.tournamentID) {
-                Text("No tournament").tag(Optional<UUID>.none)
-                ForEach(store.snapshot.tournaments) { Text($0.name).tag(Optional($0.id)) }
-            }
+            TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $draft.tournamentID, customName: $draft.customTournamentName)
             TextField("Notes", text: $draft.notes)
             Toggle("Details complete", isOn: Binding(get: { !draft.needsDetails }, set: { draft.needsDetails = !$0 }))
         }
@@ -113,26 +107,14 @@ struct WatchTournamentEditor: View {
     }
 }
 
-private struct WatchVenueFields: View {
+struct WatchVenueFields: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Binding var venueID: UUID?
     @Binding var venue: String
     @Binding var location: String
 
     var body: some View {
-        Picker("Venue", selection: $venueID) {
-            Text("Other or no venue").tag(Optional<UUID>.none)
-            ForEach(store.snapshot.setup.venues) { Text($0.summary).tag(Optional($0.id)) }
-        }
-        .onChange(of: venueID) { _, id in
-            if let saved = store.snapshot.setup.venues.first(where: { $0.id == id }) {
-                venue = saved.name; location = saved.town
-            } else { venue = ""; location = "" }
-        }
-        if venueID == nil {
-            TextField("Venue name", text: $venue)
-            TextField("Location", text: $location)
-        }
+        TennisVenuePicker(choices: store.snapshot.availableVenueChoices, venueID: $venueID, venue: $venue, location: $location)
     }
 }
 

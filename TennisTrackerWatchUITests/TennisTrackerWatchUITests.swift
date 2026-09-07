@@ -118,7 +118,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["No tennis activity in progress."].exists)
             XCTAssertFalse(app.buttons["Track Training Session"].exists)
         }
-        XCTAssertTrue(app.buttons["Pages"].exists)
+        XCTAssertTrue(app.buttons["Menu"].exists)
         capture(app, name: "Watch empty Live with accessible navigation")
     }
 
@@ -162,6 +162,40 @@ final class TennisTrackerWatchUITests: XCTestCase {
         }
     }
 
+    func testMenuIsAButtonAndChangesScreensWithoutASlider() {
+        let app = launch(page: "Live", accessibleNavigation: true)
+        let menu = app.buttons["Menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.sliders.count, 0)
+        menu.tap()
+        app.buttons["Track"].tap()
+        XCTAssertTrue(app.buttons["Track Training Session"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Menu"].value as? String, "Current screen: Track")
+        capture(app, name: "Watch Menu destination")
+    }
+
+    func testLiveMatchVenueAndSeparateTournamentChoices() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-page=Track", "-watch-venue-regression"]
+        app.launch()
+        app.buttons["Live Score a Match"].tap()
+        let venue = app.buttons["activityVenuePicker"]
+        reveal(venue, in: app); venue.tap()
+        XCTAssertTrue(app.buttons["Training Court, Town"].exists)
+        XCTAssertTrue(app.buttons["History Court, City"].exists)
+        app.buttons["History Court, City"].tap()
+        XCTAssertEqual(venue.value as? String, "History Court, City")
+        XCTAssertFalse(app.textFields["otherVenueName"].exists)
+        let tournament = app.buttons["activityTournamentPicker"]
+        reveal(tournament, in: app); tournament.tap()
+        XCTAssertTrue(app.buttons["No tournament"].isSelected)
+        XCTAssertTrue(app.buttons["Club Open"].exists)
+        reveal(app.buttons["Other"], in: app); app.buttons["Other"].tap()
+        reveal(app.textFields["otherTournamentName"], in: app)
+        XCTAssertTrue(app.textFields["otherTournamentName"].exists)
+        capture(app, name: "Watch Other tournament entry")
+    }
+
     private func capture(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways
@@ -179,7 +213,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     private func scrollUp(in app: XCUIApplication) {
-        if app.buttons["Pages"].exists {
+        if app.buttons["Menu"].exists {
             let list = app.collectionViews.firstMatch
             let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
             let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))

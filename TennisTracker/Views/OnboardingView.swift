@@ -12,7 +12,7 @@ struct OnboardingView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            TennisForm {
                 Section {
                     Text(title)
                         .font(.title2.bold())

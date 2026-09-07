@@ -22,6 +22,13 @@ enum TennisTrainingFocus: String, CaseIterable, Identifiable {
 }
 
 extension TrainingSession {
+    var dashboardFocusSummary: String {
+        let value = focus.trimmingCharacters(in: .whitespacesAndNewlines)
+        if TrainingType.allCases.contains(where: { $0.rawValue.localizedCaseInsensitiveCompare(value) == .orderedSame }) {
+            return "Specific focus not recorded"
+        }
+        return focusSummary
+    }
     var focusSummary: String { focus.trimmingCharacters(in: .whitespacesAndNewlines).fallback("No focus selected") }
 
     func isRecordedTraining(at now: Date) -> Bool {
