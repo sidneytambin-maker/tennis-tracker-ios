@@ -30,6 +30,21 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Run native Watch accessibility UI tests
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project-watch-tests.yml
+          WATCH_ID="$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("watchOS")) | .value[] | select(.isAvailable)] | (map(select(.name | contains("Ultra"))) + .) | .[0].udid // empty')"
+          test -n "$WATCH_ID"
+          xcodebuild test \
+            -project TennisTrackeriOS.xcodeproj \
+            -scheme TennisTrackerWatchTests \
+            -sdk watchsimulator \
+            -destination "id=$WATCH_ID" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
       - name: Generate iOS test project
         run: xcodegen generate --spec project-tests.yml
 
@@ -37,7 +52,7 @@ jobs:
         timeout-minutes: 15
         run: |
           set -euo pipefail
-          SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          SIMULATOR_ID="$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid // empty')"
           if [ -z "$SIMULATOR_ID" ]; then
             echo "No available iPhone simulator was found on the hosted macOS runner." >&2
             exit 1
@@ -68,21 +83,6 @@ jobs:
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
           printf '\nCapability stage: %s\nPhysical acceptance: not tested by this workflow\n' "$BUILD_STAGE" >> artifacts/build-summary.txt
-
-      - name: Run native Watch accessibility UI tests
-        timeout-minutes: 15
-        run: |
-          set -euo pipefail
-          xcodegen generate --spec project-watch-tests.yml
-          WATCH_ID="$(xcrun simctl list devices available | awk -F '[()]' '/Apple Watch/ { print $2; exit }')"
-          test -n "$WATCH_ID"
-          xcodebuild test \
-            -project TennisTrackeriOS.xcodeproj \
-            -scheme TennisTrackerWatchTests \
-            -sdk watchsimulator \
-            -destination "id=$WATCH_ID" \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Report iPhone and Watch signing status
         shell: pwsh

@@ -110,6 +110,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         session.venue = venue
         session.location = location
         healthClient.clearMetrics()
+        workoutMessage = useHealth ? "Requesting Health workout access." : "Training started."
         activeTraining = session
         completedTraining = nil
         page = .live
@@ -198,6 +199,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     func beginTraining(_ planned: TrainingSession, useHealth: Bool = false) {
         guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         healthClient.clearMetrics()
+        workoutMessage = useHealth ? "Requesting Health workout access." : "Training started."
         var session = planned
         session.actualStart = Date()
         session.actualFinish = nil

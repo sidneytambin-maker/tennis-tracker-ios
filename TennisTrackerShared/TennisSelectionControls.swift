@@ -42,7 +42,7 @@ struct TennisSelectionRow: View {
         } label: {
             HStack {
                 Image(systemName: selected ? "checkmark.square.fill" : "square")
-                    .frame(width: 22)
+                    .frame(minWidth: 22)
                     .foregroundStyle(selected ? Color.accentColor : .secondary)
                     .accessibilityHidden(true)
                 Text(name).foregroundStyle(.primary)
