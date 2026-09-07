@@ -115,7 +115,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
             for title in ["Edit Match", "Delete", "Finish Match", "Save Match Progress", "Undo Last Point", "Start Tie-break"] {
                 XCTAssertFalse(app.buttons[title].exists)
             }
-            app.swipeUp()
+            scrollUp(in: app)
         }
         capture(app, name: "Watch live score with rotor actions")
     }
@@ -152,8 +152,16 @@ final class TennisTrackerWatchUITests: XCTestCase {
             // A partially visible Watch control may be hittable beneath the page indicator.
             let lowerEdge = app.buttons["Pages"].exists ? app.buttons["Pages"].frame.minY - 10 : app.frame.maxY - 32
             if element.exists && element.isHittable && element.frame.midY < lowerEdge { return }
-            app.swipeUp()
+            scrollUp(in: app)
         }
         XCTAssertTrue(element.isHittable)
+    }
+
+    private func scrollUp(in app: XCUIApplication) {
+        if app.buttons["Pages"].exists {
+            app.collectionViews.firstMatch.swipeUp()
+        } else {
+            app.swipeUp()
+        }
     }
 }

@@ -84,9 +84,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee WatchDiagnostics/test.log
 
       - name: Generate iOS test project
+        id: iphone_project
+        if: ${{ !cancelled() }}
         run: xcodegen generate --spec project-tests.yml
 
       - name: Prepare iPhone simulator
+        id: iphone_simulator
+        if: ${{ !cancelled() && steps.iphone_project.outcome == 'success' }}
         timeout-minutes: 5
         run: |
           set -euo pipefail
@@ -100,6 +104,7 @@ jobs:
           printf 'SIMULATOR_ID=%s\n' "$SIMULATOR_ID" >> "$GITHUB_ENV"
 
       - name: Run unit and accessibility UI tests
+        if: ${{ !cancelled() && steps.iphone_simulator.outcome == 'success' }}
         timeout-minutes: 25
         run: |
           set -euo pipefail
