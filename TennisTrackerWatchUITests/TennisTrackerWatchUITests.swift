@@ -73,6 +73,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Completed training summary"].exists)
         reveal(app.buttons["Delete"], in: app)
         app.buttons["Delete"].tap()
+        reveal(app.buttons["Confirm activity deletion"], in: app)
         app.buttons["Confirm activity deletion"].tap()
         XCTAssertTrue(app.staticTexts["No tennis activity in progress."].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Completed training summary"].exists)

@@ -6,6 +6,7 @@ struct WatchActivityCard: View {
     let detail: String
     let summary: String
     let symbol: String
+    var fitness: [WatchFitnessMetric] = []
     var identifier = "Activity summary"
     let edit: () -> Void
     var completeTitle: String?
@@ -14,30 +15,13 @@ struct WatchActivityCard: View {
     @State private var showingDetails = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button { showingDetails = true } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(title, systemImage: symbol).font(.headline).foregroundStyle(TennisSportStyle.ball)
-                    Text(detail).font(.body).foregroundStyle(.primary)
-                }.frame(maxWidth: .infinity, alignment: .leading)
+        Group {
+            if voiceOver || WatchAccessibilityNavigation.testingEnabled {
+                visualContent.accessibilityRepresentation { accessibleSummary }
+            } else {
+                visualContent
             }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(summary)
-            .accessibilityIdentifier(identifier)
-            .accessibilityActions {
-                Button("Edit") { edit() }
-                if let completeTitle { Button(completeTitle) { complete() } }
-                Button("Delete", role: .destructive) { delete() }
-            }
-            HStack(spacing: 8) {
-                action("Edit", symbol: "pencil", perform: edit)
-                if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
-                action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
-            }
-            // The same commands live on the summary's Actions rotor for VoiceOver.
-            .accessibilityHidden(voiceOver || WatchAccessibilityNavigation.testingEnabled)
-        }.padding(.vertical, 5)
+        }
         .sheet(isPresented: $showingDetails) {
             NavigationStack {
                 ScrollView { Text(summary).frame(maxWidth: .infinity, alignment: .leading).padding() }
@@ -47,9 +31,65 @@ struct WatchActivityCard: View {
         }
     }
 
+    private var visualContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { showingDetails = true } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(title, systemImage: symbol).font(.headline).foregroundStyle(TennisSportStyle.ball)
+                    Text(detail).font(.title3).monospacedDigit().foregroundStyle(.primary)
+                    if !fitness.isEmpty {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
+                            ForEach(fitness) { metric in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(metric.label).font(.caption2).foregroundStyle(.secondary)
+                                    Text(metric.value).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(summary)
+            .accessibilityIdentifier(identifier)
+            HStack(spacing: 8) {
+                action("Edit", symbol: "pencil", perform: edit)
+                if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
+                action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
+            }
+        }.padding(.vertical, 5)
+    }
+
+    private var accessibleSummary: some View {
+        Button { showingDetails = true } label: { Text(summary) }
+            .accessibilityIdentifier(identifier)
+            .accessibilityActions {
+                Button("Edit", action: edit)
+                if let completeTitle { Button(completeTitle, action: complete) }
+                Button("Delete", role: .destructive, action: delete)
+            }
+    }
+
     private func action(_ title: String, symbol: String, perform: @escaping () -> Void) -> some View {
         Button(action: perform) { Image(systemName: symbol).frame(maxWidth: .infinity, minHeight: 44) }
             .buttonStyle(.plain).accessibilityLabel(title)
+    }
+}
+
+struct WatchFitnessMetric: Identifiable {
+    let label: String
+    let value: String
+    var id: String { label }
+
+    static func make(heart: Double?, energy: Double?, distance: Double?, steps: Double?) -> [Self] {
+        func value(_ number: Double?, suffix: String) -> String {
+            guard let number, number.isFinite, number >= 0, number < Double(Int.max) else { return "Unavailable" }
+            return "\(Int(number.rounded())) \(suffix)"
+        }
+        return [Self(label: "Heart rate", value: value(heart, suffix: "bpm")),
+                Self(label: "Energy", value: value(energy, suffix: "kcal")),
+                Self(label: "Distance", value: value(distance, suffix: "m")),
+                Self(label: "Steps", value: value(steps, suffix: "steps"))]
     }
 }
 
@@ -67,8 +107,9 @@ struct WatchTrainingRow: View {
                 WatchLiveTrainingCard(training: training, client: store.healthClient,
                     edit: { editing = true }, finish: { finishing = true }, delete: { deleting = true })
             } else {
-                WatchActivityCard(title: training.trainingType.rawValue, detail: TennisDurationFormatter.training(training) + "\n" + (training.workout?.fitnessSummary ?? ""),
-                    summary: store.trainingSummary(training, style: .detailed), symbol: "figure.tennis", identifier: identifier,
+                WatchActivityCard(title: training.trainingType.rawValue, detail: TennisDurationFormatter.training(training),
+                    summary: store.trainingSummary(training, style: .detailed), symbol: "figure.tennis",
+                    fitness: training.workout.map { WatchFitnessMetric.make(heart: $0.averageHeartRate, energy: $0.activeEnergyKcal, distance: $0.distanceMeters, steps: $0.stepCount) } ?? [], identifier: identifier,
                     edit: { editing = true }, completeTitle: training.needsDetails ? "Mark Complete" : nil,
                     complete: { store.markTrainingComplete(training.id) }, delete: { deleting = true })
             }
@@ -93,13 +134,12 @@ private struct WatchLiveTrainingCard: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { time in
             WatchActivityCard(title: training.trainingType.rawValue,
-                detail: TennisDurationFormatter.training(training, now: time.date) + "\n" +
-                    TennisWorkoutResult.fitnessSummary(heartRate: client.latestHeartRate, energy: client.activeEnergy,
-                        distance: client.distanceMeters, steps: client.stepCount),
+                detail: TennisDurationFormatter.training(training, now: time.date),
                 summary: store.trainingSummary(training, style: .short, now: time.date) + " " +
                     TennisWorkoutResult.fitnessSummary(heartRate: client.latestHeartRate, energy: client.activeEnergy,
                         distance: client.distanceMeters, steps: client.stepCount) + " " + client.statusMessage,
-                symbol: "figure.tennis", identifier: "Active training summary", edit: edit,
+                symbol: "figure.tennis", fitness: WatchFitnessMetric.make(heart: client.latestHeartRate, energy: client.activeEnergy,
+                    distance: client.distanceMeters, steps: client.stepCount), identifier: "Active training summary", edit: edit,
                 completeTitle: store.isPreparingWorkout ? nil : "Finish", complete: finish, delete: delete)
         }
     }
@@ -159,22 +199,27 @@ struct WatchDeleteConfirmation: ViewModifier {
     let deletion: TennisRecordDeletion
 
     func body(content: Content) -> some View {
-        content.confirmationDialog("Delete this \(deletion.kind.rawValue)?", isPresented: $isPresented, titleVisibility: .visible) {
-            Button(deletion.kind == .tournament ? "Delete Tournament, Keep Matches" : "Delete", role: .destructive) {
-                store.deleteActivity(deletion)
-            }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
-                .accessibilityIdentifier("Confirm activity deletion")
-            if deletion.kind == .tournament {
-                Button("Delete Tournament and Linked Matches", role: .destructive) {
-                    var withMatches = deletion; withMatches.includeLinkedMatches = true
-                    store.deleteActivity(withMatches)
-                }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
+        content.sheet(isPresented: $isPresented) {
+            NavigationStack {
+                List {
+                    Text(deletion.kind == .training
+                        ? "Removes this session from Watch and iPhone, and stops it if running. Workouts already saved in Apple Health are kept."
+                        : "This deletion will also sync to your iPhone.")
+                    Button(deletion.kind == .tournament ? "Delete Tournament, Keep Matches" : "Delete", role: .destructive) {
+                        isPresented = false
+                        store.deleteActivity(deletion)
+                    }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
+                        .accessibilityIdentifier("Confirm activity deletion")
+                    if deletion.kind == .tournament {
+                        Button("Delete Tournament and Linked Matches", role: .destructive) {
+                            var withMatches = deletion; withMatches.includeLinkedMatches = true
+                            isPresented = false
+                            store.deleteActivity(withMatches)
+                        }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
+                    }
+                }.navigationTitle("Delete \(deletion.kind == .training ? "Session" : deletion.kind.rawValue.capitalized)")
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { isPresented = false } } }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(deletion.kind == .training
-                ? "This removes the session from Watch and iPhone, and stops it if running. Workouts already saved in Apple Health are kept."
-                : "This deletion will also sync to your iPhone.")
         }
     }
 }
