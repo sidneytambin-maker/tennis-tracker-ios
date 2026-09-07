@@ -1,7 +1,7 @@
 import Foundation
 
 enum TennisGlanceKind: String, CaseIterable {
-    case current, next, week, latest
+    case current, next, week, latest, startTraining
 
     var widgetKind: String {
         switch self {
@@ -9,6 +9,7 @@ enum TennisGlanceKind: String, CaseIterable {
         case .next: return "TennisTrackerNextEvent"
         case .week: return "TennisTrackerThisWeek"
         case .latest: return "TennisTrackerLatestResult"
+        case .startTraining: return "TennisTrackerStartTraining"
         }
     }
     var name: String {
@@ -17,6 +18,7 @@ enum TennisGlanceKind: String, CaseIterable {
         case .next: return "Next Tennis Event"
         case .week: return "This Week"
         case .latest: return "Latest Result"
+        case .startTraining: return "Start Training"
         }
     }
     var description: String {
@@ -25,6 +27,7 @@ enum TennisGlanceKind: String, CaseIterable {
         case .next: return "The next scheduled tennis activity."
         case .week: return "This week's training time and match results."
         case .latest: return "The most recently completed tennis activity."
+        case .startTraining: return "Start tennis training, with scheduled details ready near the start time."
         }
     }
     var symbol: String {
@@ -33,6 +36,7 @@ enum TennisGlanceKind: String, CaseIterable {
         case .next: return "calendar"
         case .week: return "chart.bar.fill"
         case .latest: return "checkmark.circle.fill"
+        case .startTraining: return "play.circle.fill"
         }
     }
 }
@@ -44,6 +48,17 @@ extension TennisGlance {
         selected.trainingSessions = snapshot.trainingSessions.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
         selected.tournaments = snapshot.tournaments.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
         switch kind {
+        case .startTraining:
+            if let active = selected.trainingSessions.first(where: \.isActive) {
+                return Self(title: "Training", detail: "In progress", accessibilitySummary: "Training in progress. " + TennisSummaryFormatter.training(active, style: .short, now: now, coaches: selected.setup.coaches, players: selected.players), destination: .live, isStale: false, compactDetail: "Live")
+            }
+            let candidates = TennisScheduling.nearbyTraining(in: selected, now: now)
+            let summary = candidates.count == 1
+                ? "Start scheduled training. " + TennisSummaryFormatter.training(candidates[0], coaches: selected.setup.coaches, players: selected.players)
+                : "Start tennis training. " + (candidates.isEmpty ? "Choose session details." : "Choose a scheduled session.")
+            return Self(title: "Start Training", detail: candidates.count == 1 ? candidates[0].trainingType.rawValue : "Ready to play",
+                accessibilitySummary: summary, destination: .track, isStale: false, compactDetail: "Start",
+                actionURL: URL(string: "tennistracker://watch/start-training"))
         case .current:
             let live = make(snapshot: selected, now: now)
             if live.destination == .live || live.destination == .score { return live }
@@ -71,7 +86,7 @@ extension TennisGlance {
             let duration = TennisDurationFormatter.text(seconds: seconds)
             let summary = "This week. \(training.count) training \(training.count == 1 ? "session" : "sessions"), \(duration). \(matches.count) \(matches.count == 1 ? "match" : "matches"), \(wins) \(wins == 1 ? "win" : "wins")."
             return Self(title: "This Week", detail: "\(training.count) training, \(matches.count) matches", accessibilitySummary: summary,
-                destination: .recent, isStale: false, compactDetail: "\(training.count)T \(wins)W")
+                destination: .recent, isStale: false, compactDetail: "\(training.count) sessions")
         case .latest:
             var results: [(Date, String, Self)] = []
             for match in selected.matches where match.status == .completed && (match.actualFinish ?? match.date) <= now {

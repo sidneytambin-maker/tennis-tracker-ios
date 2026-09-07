@@ -41,7 +41,8 @@ private struct TennisComplicationView: View {
             } else if family == .accessoryCorner {
                 Image(systemName: entry.kind.symbol)
                     .widgetAccentable()
-                    .widgetLabel { Text(entry.glance.circularDetail) }
+                    .accessibilityLabel(entry.glance.accessibilitySummary)
+                    .widgetLabel { Text(entry.glance.circularDetail).accessibilityHidden(true) }
             } else if family == .accessoryCircular {
                 VStack {
                     Image(systemName: entry.kind.symbol)
@@ -57,8 +58,9 @@ private struct TennisComplicationView: View {
         .containerBackground(.fill.tertiary, for: .widget)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(entry.glance.accessibilitySummary)
+        .accessibilityRepresentation { Text(entry.glance.accessibilitySummary) }
         .privacySensitive()
-        .widgetURL(entry.glance.destination.url)
+        .widgetURL(entry.glance.url)
     }
 }
 
@@ -84,5 +86,6 @@ struct TennisTrackerWidgetBundle: WidgetBundle {
         TennisTrackerComplication(selection: .next)
         TennisTrackerComplication(selection: .week)
         TennisTrackerComplication(selection: .latest)
+        TennisTrackerComplication(selection: .startTraining)
     }
 }

@@ -61,11 +61,11 @@ enum TennisSummaryFormatter {
     static func training(_ session: TrainingSession, style: TennisSummaryStyle = .long, now: Date = Date(), coaches: [TennisCoach] = [], players: [PlayerProfile] = []) -> String {
         var parts = [session.trainingType.rawValue]
         let coaches = session.context.coachSummary(in: coaches)
-        if !coaches.isBlank { parts[0] += " with \(coaches)" }
         parts.append(TennisDurationFormatter.training(session, now: now) + (session.isActive ? " elapsed" : ""))
+        if !coaches.isBlank { parts.append("Coaches: \(coaches)") }
         let participants = session.context.participantSummary(in: players)
-        if style != .short && !participants.isBlank {
-            parts.append("with " + participants)
+        if !participants.isBlank {
+            parts.append("Players: " + participants)
         }
         parts += unique([session.venue, session.location])
         if style != .short {

@@ -56,11 +56,11 @@ extension TennisWorkoutResult {
         }
         if let distance, distance.isFinite, distance >= 0 {
             parts.append(distance < 1000 ? "Distance \(Int(distance.rounded())) metres" : String(format: "Distance %.2f kilometres", distance / 1000))
-        }
+        } else { parts.append("Distance unavailable") }
         if let steps, steps.isFinite, steps >= 0 {
             let value = Int(steps.rounded())
             parts.append("\(value) \(value == 1 ? "step" : "steps")")
-        }
+        } else { parts.append("Steps unavailable") }
         return parts.joined(separator: ". ") + (parts.isEmpty ? "" : ".")
     }
 }

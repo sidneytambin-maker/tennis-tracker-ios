@@ -693,6 +693,7 @@ struct AppSettings: Codable, Equatable {
 
 struct AppData: Codable, Equatable {
     var dataVersion = 10
+    var deletedRecordIDs: Set<UUID> = []
     var setup = TennisSetup()
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
@@ -706,6 +707,7 @@ struct AppData: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         dataVersion = try container.decodeIfPresent(Int.self, forKey: .dataVersion) ?? 1
+        deletedRecordIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .deletedRecordIDs) ?? []
         setup = try container.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
         selectedPlayerID = try container.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
         players = try container.decodeIfPresent([PlayerProfile].self, forKey: .players) ?? []

@@ -13,11 +13,11 @@ extension AppTheme {
         switch self {
         case .tennis:
             return AppThemePalette(
-                background: Color(red: 0.90, green: 0.97, blue: 0.82),
-                groupedBackground: Color(red: 0.10, green: 0.31, blue: 0.20),
-                rowBackground: Color(red: 0.98, green: 1.0, blue: 0.92),
-                accent: Color(red: 0.08, green: 0.36, blue: 0.17),
-                strongSurface: Color(red: 0.04, green: 0.16, blue: 0.12)
+                background: TennisSportStyle.ball,
+                groupedBackground: TennisSportStyle.ink,
+                rowBackground: .white,
+                accent: TennisSportStyle.court,
+                strongSurface: TennisSportStyle.ink
             )
         case .classic:
             return AppThemePalette(
@@ -54,6 +54,9 @@ struct ThemedListBackground: ViewModifier {
         content
             .scrollContentBackground(.hidden)
             .background(store.data.settings.theme.palette.background)
+            .toolbarBackground(store.data.settings.theme.palette.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .listRowSeparatorTint(store.data.settings.theme == .tennis ? TennisSportStyle.court.opacity(0.18) : .secondary)
     }
 }
 
@@ -81,6 +84,34 @@ struct SummaryRow: View {
         .accessibilityLabel(title)
         .accessibilityValue(value)
         .accessibilityHint(hint)
+    }
+}
+
+struct TennisDashboardHeader: View {
+    let name: String
+    let stats: TennisStatistics
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label(name, systemImage: "tennisball.fill")
+                .font(.title2.bold()).foregroundStyle(TennisSportStyle.ball)
+            HStack(alignment: .top, spacing: 16) {
+                metric("Matches", value: String(stats.matchCount))
+                metric("Wins", value: String(stats.winCount))
+                metric("Training", value: TennisDurationFormatter.compact(seconds: stats.trainingSecondsLast30Days))
+            }
+            Text(stats.spokenSummary).font(.subheadline).foregroundStyle(.white)
+        }
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Welcome, \(name)")
+        .accessibilityValue(stats.spokenSummary)
+        .accessibilityRepresentation { Text("Welcome, \(name)").accessibilityValue(stats.spokenSummary) }
+    }
+    private func metric(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value).font(.title2.bold()).monospacedDigit().minimumScaleFactor(0.7)
+            Text(label).font(.caption).fixedSize(horizontal: false, vertical: true)
+        }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

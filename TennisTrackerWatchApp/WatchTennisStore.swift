@@ -40,6 +40,14 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             data.players = [player]
             data.setup.coaches = [TennisCoach(name: "Chris"), TennisCoach(name: "Sarah")]
             data.selectedPlayerID = player.id
+            if ProcessInfo.processInfo.arguments.contains("-watch-scheduled-training") {
+                var training = TrainingSession(playerID: player.id)
+                training.date = Date().addingTimeInterval(600)
+                training.hasStartTime = true
+                training.context.coachIDs = [data.setup.coaches[0].id]
+                data.trainingSessions = [training]
+                UserDefaults.standard.set(false, forKey: "trackTrainingAsWorkout")
+            }
             if ProcessInfo.processInfo.arguments.contains("-watch-completed-training") {
                 var training = TrainingSession(playerID: player.id)
                 training.actualStart = Date(timeIntervalSince1970: 1000)
@@ -199,6 +207,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func beginMatch(_ match: MatchRecord) {
+        guard !snapshot.deletedRecordIDs.contains(match.id) else { announce("This match was deleted."); return }
         var match = match
         if snapshot.matches.contains(where: { $0.id == match.id }) {
             match.actualStart = match.actualStart ?? Date()
@@ -213,6 +222,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func beginTraining(_ planned: TrainingSession, useHealth: Bool = false) {
+        guard !snapshot.deletedRecordIDs.contains(planned.id), planned.actualStart == nil, planned.actualFinish == nil else {
+            announce("This session has already started or was deleted."); return
+        }
         guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         healthClient.clearMetrics()
         workoutMessage = useHealth ? "Requesting Health workout access." : "Training started."
@@ -264,6 +276,12 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func finishRemotelyCompletedWorkoutIfNeeded() {
+        if let id = workoutCoordinator.activityID, snapshot.deletedRecordIDs.contains(id),
+           !isPreparingWorkout, !isFinishingWorkout,
+           workoutCoordinator.state == .recording || workoutCoordinator.state == .recordingWithoutHealth {
+            finishWorkout(for: id, at: Date())
+            return
+        }
         guard !isPreparingWorkout, !isFinishingWorkout,
               let id = workoutCoordinator.activityID,
               let training = snapshot.trainingSessions.first(where: { $0.id == id }),
@@ -300,6 +318,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func beginTournament(_ tournament: TournamentRecord) {
+        guard !snapshot.deletedRecordIDs.contains(tournament.id) else { announce("This tournament was deleted."); return }
         guard activeTournamentID == nil || activeTournamentID == tournament.id else { page = .live; return }
         var tournament = tournament
         tournament.actualStart = tournament.actualStart ?? Date()
@@ -343,6 +362,29 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         mergeTraining(training)
         send(.upsertTraining(training))
         announce("Marked complete. Saved on Watch and queued for iPhone.")
+    }
+
+    func deleteActivity(_ deletion: TennisRecordDeletion) {
+        guard !isPreparingWorkout && !isFinishingWorkout else { announce("Wait for the workout to finish saving."); return }
+        if activeTraining?.id == deletion.id {
+            activeTraining = nil
+            finishWorkout(for: deletion.id, at: Date())
+        }
+        if completedTraining?.id == deletion.id { completedTraining = nil }
+        if activeMatch?.id == deletion.id { activeMatch = nil; pointHistory = []; persistPointHistory() }
+        if activeTournamentID == deletion.id {
+            activeTournamentID = nil
+            UserDefaults.standard.removeObject(forKey: "activeTournamentID")
+        }
+        snapshot.delete(deletion)
+        if let id = activeMatch?.id, snapshot.deletedRecordIDs.contains(id) { activeMatch = nil; pointHistory = []; persistPointHistory() }
+        queuedCommands.removeAll {
+            if case .deleteRecord = $0 { return false }
+            return $0.recordID.map(snapshot.deletedRecordIDs.contains) ?? false
+        }
+        persistSnapshot()
+        send(.deleteRecord(deletion))
+        announce("Deleted on Watch. The deletion will sync to iPhone.")
     }
 
     func updateTrainingDetails(_ draft: TrainingSession) {
@@ -570,7 +612,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func applySnapshotData(_ data: Data) {
         guard let incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
         let previousMatch = activeMatch
-        let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: queuedCommands)
+        let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: queuedCommands, localDeletedIDs: snapshot.deletedRecordIDs)
         snapshot = result.snapshot
         queuedCommands = result.pending
         persistQueue()
@@ -603,18 +645,21 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func mergeMatch(_ match: MatchRecord) {
+        guard !snapshot.deletedRecordIDs.contains(match.id) else { return }
         snapshot.matches.removeAll { $0.id == match.id }
         snapshot.matches.insert(match, at: 0)
         persistSnapshot()
     }
 
     private func mergeTraining(_ session: TrainingSession) {
+        guard !snapshot.deletedRecordIDs.contains(session.id) else { return }
         snapshot.trainingSessions.removeAll { $0.id == session.id }
         snapshot.trainingSessions.insert(session, at: 0)
         persistSnapshot()
     }
 
     private func mergeTournament(_ tournament: TournamentRecord) {
+        guard !snapshot.deletedRecordIDs.contains(tournament.id) else { return }
         snapshot.tournaments.removeAll { $0.id == tournament.id }
         snapshot.tournaments.insert(tournament, at: 0)
         persistSnapshot()
@@ -666,6 +711,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func persistSnapshot() {
+        snapshot.removeDeletedRecords()
         guard let data = try? JSONEncoder.tennisTracker.encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: localSnapshotKey)
         do {

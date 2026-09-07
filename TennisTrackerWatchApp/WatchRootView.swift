@@ -3,23 +3,48 @@ import SwiftUI
 struct WatchRootView: View {
     @StateObject private var store = WatchTennisStore()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @State private var quickTraining = false
     var body: some View {
-        TabView(selection: $store.page) {
-            NavigationStack { WatchTodayView() }.tag(TennisWatchPage.today)
-            NavigationStack { WatchTrackView() }.tag(TennisWatchPage.track)
-            NavigationStack { WatchLiveView() }.tag(TennisWatchPage.live)
-            NavigationStack { WatchRecentView() }.tag(TennisWatchPage.recent)
-            NavigationStack { WatchScoreView() }.tag(TennisWatchPage.score)
+        Group {
+            if voiceOver || WatchAccessibilityNavigation.testingEnabled {
+                VStack(spacing: 0) {
+                    NavigationStack { selectedPage }.id(store.page)
+                    WatchPageSelector()
+                }
+            } else {
+                TabView(selection: $store.page) {
+                    NavigationStack { WatchTodayView() }.tag(TennisWatchPage.today)
+                    NavigationStack { WatchTrackView() }.tag(TennisWatchPage.track)
+                    NavigationStack { WatchLiveView() }.tag(TennisWatchPage.live)
+                    NavigationStack { WatchRecentView() }.tag(TennisWatchPage.recent)
+                    NavigationStack { WatchScoreView() }.tag(TennisWatchPage.score)
+                }.tabViewStyle(.page)
+            }
         }
         .environmentObject(store)
-        .tabViewStyle(.page)
+        .tint(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ball : .cyan)
+        .sheet(isPresented: $quickTraining) { NavigationStack { WatchTrainingEntryView() }.environmentObject(store) }
         .onAppear { store.activate() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.restoreWorkoutIfNeeded() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .tennisWorkoutRecovery)) { _ in store.restoreWorkoutIfNeeded() }
         .onOpenURL { url in
-            if let page = TennisWatchPage.destination(for: url) { store.page = page }
+            if let page = TennisWatchPage.destination(for: url) {
+                store.page = page
+                if url.lastPathComponent == "start-training" { quickTraining = true }
+            }
+        }
+    }
+
+    @ViewBuilder private var selectedPage: some View {
+        switch store.page {
+        case .today: WatchTodayView()
+        case .track: WatchTrackView()
+        case .live: WatchLiveView()
+        case .recent: WatchRecentView()
+        case .score: WatchScoreView()
         }
     }
 }
@@ -32,7 +57,7 @@ private struct WatchTodayView: View {
         List {
             if let training = store.snapshot.trainingSessions.filter({ !$0.isActive && $0.actualFinish == nil && $0.expectedEndDate >= Date() }).sorted(by: { $0.date < $1.date }).first {
                 Section("Next training") {
-                    Text(store.trainingSummary(training))
+                    WatchTrainingRow(training: training)
                     Button("Start Training Session") {
                         if store.healthClient.available { trainingToStart = training; confirmHealth = true }
                         else { store.beginTraining(training) }
@@ -41,10 +66,10 @@ private struct WatchTodayView: View {
                 }
             }
             if let match = store.snapshot.matches.filter({ $0.status == .scheduled }).sorted(by: { $0.date < $1.date }).first {
-                Section("Next match") { Text(TennisSummaryFormatter.match(match, tournaments: store.snapshot.tournaments)) }
+                Section("Next match") { WatchMatchRow(match: match) }
             }
             if let tournament = store.upcomingTournament {
-                Section("Next tournament") { Text(TennisSummaryFormatter.tournament(tournament, style: .short)) }
+                Section("Next tournament") { WatchTournamentRow(tournament: tournament) }
             }
             if store.activeTraining != nil {
                 Button("Training in progress") { store.page = .live }
@@ -76,16 +101,16 @@ private struct WatchTrackView: View {
     var body: some View {
         List {
             Section {
-                NavigationLink("Track Training Session") { WatchTrainingSetupView() }
-                NavigationLink("Record Match") { WatchMatchSetupView() }
-                NavigationLink("Track Tournament") { WatchTournamentSetupView() }
+                NavigationLink { WatchTrainingEntryView() } label: { Label("Track Training Session", systemImage: "figure.tennis") }
+                NavigationLink { WatchMatchSetupView() } label: { Label("Live Score a Match", systemImage: "tennisball.fill") }
+                NavigationLink { WatchTournamentSetupView() } label: { Label("Track Tournament", systemImage: "trophy.fill") }
             }
         }
         .navigationTitle("Track")
     }
 }
 
-private struct WatchTrainingSetupView: View {
+struct WatchTrainingSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State private var type: TrainingType = .singlesPractice
@@ -183,7 +208,7 @@ private struct WatchMatchSetupView: View {
             }
             .disabled(!configured || store.activeMatch != nil)
         }
-        .navigationTitle("Record Match")
+        .navigationTitle("Live Score a Match")
         .onAppear {
             guard !configured, let player = store.selectedPlayer else { return }
             match = TennisWatchActivityFactory.match(player: player, kind: .singles)
@@ -231,87 +256,25 @@ private struct WatchTournamentSetupView: View {
 
 private struct WatchLiveView: View {
     @EnvironmentObject private var store: WatchTennisStore
-    @AccessibilityFocusState private var completedSummaryFocused: Bool
-    @State private var confirmFinish = false
-    @State private var finishingTraining = true
-    @State private var editingTraining: TrainingSession?
-    @State private var editingTournament: TournamentRecord?
     var body: some View {
         List {
             if let training = store.activeTraining {
-                WatchActiveTrainingSummary(training: training, client: store.healthClient)
-                    .accessibilityActions {
-                        Button("Edit Training") { editingTraining = training }
-                        if !store.isPreparingWorkout { Button("Finish Training Session") { finishingTraining = true; confirmFinish = true } }
-                    }
-                Button("Edit Training") { editingTraining = training }
-                Button("Finish Training Session") { finishingTraining = true; confirmFinish = true }.buttonStyle(.borderedProminent)
-                    .disabled(store.isPreparingWorkout)
+                WatchTrainingRow(training: training)
             }
             if let tournament = store.snapshot.tournaments.first(where: { $0.id == store.activeTournamentID }) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(TennisSummaryFormatter.tournament(tournament, style: .short) + (tournament.actualStart.map { " Elapsed " + TennisDurationFormatter.text(seconds: context.date.timeIntervalSince($0)) + "." } ?? ""))
-                }
-                .accessibilityActions {
-                    Button("Edit Tournament") { editingTournament = tournament }
-                    Button("Finish Tournament") { finishingTraining = false; confirmFinish = true }
-                }
-                Button("Edit Tournament") { editingTournament = tournament }
-                Button("Finish Tournament") { finishingTraining = false; confirmFinish = true }
+                WatchTournamentRow(tournament: tournament)
             }
             if store.activeTraining == nil, let training = store.completedTraining {
-                completedTrainingContent(training)
+                WatchTrainingRow(training: training, identifier: "Completed training summary")
+                if store.isFinishingWorkout { ProgressView("Saving workout") }
+                if training.trainingType == .matchPlay {
+                    NavigationLink("Record Practice Result") { WatchPracticeResultView() }
+                }
             } else if store.activeTraining == nil && store.activeTournamentID == nil {
                 Text("No tennis activity in progress.")
             }
         }
         .navigationTitle("Live")
-        .sheet(item: $editingTraining) { training in NavigationStack { WatchTrainingEditor(draft: training) } }
-        .sheet(item: $editingTournament) { tournament in NavigationStack { WatchTournamentEditor(draft: tournament) } }
-        .onChange(of: store.completedTraining?.id) { _, id in completedSummaryFocused = id != nil }
-        .confirmationDialog(finishingTraining ? "Finish training session?" : "Finish tournament?", isPresented: $confirmFinish, titleVisibility: .visible) {
-            Button("Finish") {
-                if finishingTraining { store.finishTrainingSession() }
-                else { store.finishTournament() }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-
-    @ViewBuilder
-    private func completedTrainingContent(_ training: TrainingSession) -> some View {
-        Text(store.trainingSummary(training, style: .short) + " " + (training.workout?.fitnessSummary ?? ""))
-            .accessibilityIdentifier("Completed training summary")
-            .accessibilityFocused($completedSummaryFocused)
-            .accessibilityActions {
-                Button("Edit Training") { editingTraining = training }
-                if training.needsDetails { Button("Mark Complete") { store.markTrainingComplete(training.id) } }
-            }
-        Button("Edit Training") { editingTraining = training }
-        NavigationLink("View Details") { Text(store.trainingSummary(training, style: .detailed)).padding() }
-        if store.isFinishingWorkout { ProgressView("Saving workout") }
-        else if !store.workoutMessage.isBlank { Text(store.workoutMessage) }
-        if training.trainingType == .matchPlay {
-            NavigationLink("Record Practice Result") { WatchPracticeResultView() }
-        }
-        if training.needsDetails {
-            Button("Mark Complete") { store.markTrainingComplete(training.id) }
-        }
-    }
-}
-
-private struct WatchActiveTrainingSummary: View {
-    @EnvironmentObject private var store: WatchTennisStore
-    let training: TrainingSession
-    @ObservedObject var client: WatchHealthWorkout
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text(store.trainingSummary(training, style: .short, now: context.date) + " " +
-                TennisWorkoutResult.fitnessSummary(heartRate: client.latestHeartRate, energy: client.activeEnergy,
-                    distance: client.distanceMeters, steps: client.stepCount) + " " + client.statusMessage)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("Active training summary")
     }
 }
 
@@ -376,9 +339,11 @@ private struct WatchRecentView: View {
 
 private struct WatchScoreView: View {
     @EnvironmentObject private var store: WatchTennisStore
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @AccessibilityFocusState private var pointFocus: PointWinner?
     @State private var confirmFinish = false
     @State private var editingMatch: MatchRecord?
+    @State private var deletingMatch = false
     var body: some View {
         List {
             if let match = store.activeMatch {
@@ -395,6 +360,8 @@ private struct WatchScoreView: View {
                         }
                     }
                     .accessibilityAction(named: "Finish Match") { confirmFinish = true }
+                    .accessibilityAction(named: "Delete") { deletingMatch = true }
+                    .accessibilityAction { store.announce(scoreText) }
                 Button("Record Point for \(match.playerTeam)") {
                     store.recordPoint(.player); pointFocus = .player
                 }
@@ -405,23 +372,31 @@ private struct WatchScoreView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityFocused($pointFocus, equals: .opponent)
-                Button("Undo Last Point") { store.undoLastPoint() }
-                Button("Edit Match") { editingMatch = match }
-                Button("Hear Full Score") { store.announce(scoreText) }
-                Button("Save Match Progress") { store.saveMatchProgress() }
-                Button("Start Tie-break") { store.startTieBreak() }
-                    .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
-                Button("Finish Match") { confirmFinish = true }
+                Group {
+                    Button("Undo Last Point") { store.undoLastPoint() }
+                    Button("Edit Match") { editingMatch = match }
+                    Button("Save Match Progress") { store.saveMatchProgress() }
+                    Button("Start Tie-break") { store.startTieBreak() }
+                        .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
+                    Button("Finish Match") { confirmFinish = true }
+                    Button("Delete", role: .destructive) { deletingMatch = true }
+                }.accessibilityHidden(voiceOver || WatchAccessibilityNavigation.testingEnabled)
             } else {
                 Text("No match in progress.")
                 ForEach(store.snapshot.matches.filter { $0.status == .scheduled || $0.status == .inProgress }) { match in
                     Button("Score \(match.playerTeam) against \(match.opponentSummary)") { store.beginMatch(match) }
                 }
-                Button("Record Match") { store.page = .track }
+                NavigationLink("Live Score a Match") { WatchMatchSetupView() }
             }
         }
         .navigationTitle("Score")
         .sheet(item: $editingMatch) { match in NavigationStack { WatchMatchEditor(draft: match) } }
+        .confirmationDialog("Delete this match?", isPresented: $deletingMatch, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let match = store.activeMatch { store.deleteActivity(TennisRecordDeletion(id: match.id, kind: .match)) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("Stops scoring and deletes this match on Watch and iPhone.") }
         .confirmationDialog("Finish match with the recorded score?", isPresented: $confirmFinish, titleVisibility: .visible) {
             Button("Finish Match") { store.finishMatch() }
             Button("Cancel", role: .cancel) {}

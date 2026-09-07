@@ -33,16 +33,17 @@ struct DashboardView: View {
         NavigationStack {
             List {
                 Section {
-                    SummaryRow(
-                        title: "Welcome, \(store.selectedPlayer?.displayName ?? "player")",
-                        value: stats.spokenSummary,
-                        hint: "Dashboard summary from your saved matches, training, and tournaments."
-                    )
+                    if store.data.settings.theme == .tennis {
+                        TennisDashboardHeader(name: store.selectedPlayer?.displayName ?? "Player", stats: stats)
+                            .listRowBackground(TennisSportStyle.ink)
+                    } else {
+                        SummaryRow(title: "Welcome, \(store.selectedPlayer?.displayName ?? "player")", value: stats.spokenSummary)
+                    }
                 }
 
                 Section("Current activity") {
                     if let training = store.selectedTraining.first(where: \.isActive) {
-                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
                             NavigationLink(store.trainingSummary(training, now: context.date)) {
                                 TrainingDetailView(session: training)
                             }

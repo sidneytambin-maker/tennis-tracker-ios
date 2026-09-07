@@ -145,6 +145,7 @@ enum TennisWatchPage: String, CaseIterable, Identifiable {
     var url: URL { URL(string: "tennistracker://watch/\(rawValue.lowercased())")! }
     static func destination(for url: URL) -> Self? {
         guard url.scheme == "tennistracker", url.host == "watch" else { return nil }
+        if url.lastPathComponent == "start-training" { return .track }
         return allCases.first { url.lastPathComponent == $0.rawValue.lowercased() }
     }
 }

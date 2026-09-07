@@ -152,6 +152,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Export visual review screenshots
+        if: always()
+        run: |
+          mkdir -p VisualReview
+          for suite in WatchTests iPhoneTests; do
+            if [ -d "$suite.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$suite.xcresult" --output-path "VisualReview/$suite" || true
+            fi
+          done
+
       - name: Preserve simulator test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,5 +171,6 @@ jobs:
             WatchTests.xcresult
             iPhoneTests.xcresult
             WatchDiagnostics
+            VisualReview
           if-no-files-found: warn
           retention-days: 7

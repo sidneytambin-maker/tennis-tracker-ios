@@ -85,7 +85,7 @@ final class TennisGlanceTests: XCTestCase {
         training.context.coachIDs = [coach.id]
         var snapshot = TennisWatchSnapshot(); snapshot.trainingSessions = [training]; snapshot.setup.coaches = [coach]
         let glance = TennisGlance.make(snapshot: snapshot, now: now.addingTimeInterval(60))
-        XCTAssertTrue(glance.accessibilitySummary.contains("with Chris"))
+        XCTAssertTrue(glance.accessibilitySummary.contains("Coaches: Chris"))
         XCTAssertTrue(glance.accessibilitySummary.contains("3 minutes elapsed"))
         XCTAssertEqual(glance.destination, .live)
         XCTAssertGreaterThan(glance.relevanceScore, 0)

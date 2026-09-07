@@ -30,13 +30,18 @@ struct TrainingView: View {
                             }
                             .accessibilityLabel("Training session")
                             .accessibilityValue(store.trainingSummary(session, style: .accessibility))
-                            .accessibilityAction(named: session.needsDetails ? "Complete Training Details" : "Edit Training Session") {
+                            .accessibilityAction(named: "Edit") {
                                 sessionToEdit = session
+                            }
+                            .accessibilityActions {
+                                if session.needsDetails && !session.isActive {
+                                    Button("Mark Complete") { store.completeTrainingDetails(session.id) }
+                                }
                             }
                             .accessibilityAction(named: "Add to Calendar") {
                                 addToCalendar(session)
                             }
-                            .accessibilityAction(named: "Delete session") {
+                            .accessibilityAction(named: "Delete") {
                                 sessionToDelete = session
                                 confirmDelete = true
                             }
@@ -77,6 +82,7 @@ struct TrainingView: View {
 struct TrainingDetailView: View {
     @EnvironmentObject private var store: TennisStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State var session: TrainingSession
     @State private var showingEditor = false
     @State private var confirmDelete = false
@@ -86,6 +92,13 @@ struct TrainingDetailView: View {
         List {
             Section("Summary") {
                 Text(store.trainingSummary(session, style: .detailed))
+                    .accessibilityAction(named: "Edit") { showingEditor = true }
+                    .accessibilityAction(named: "Delete") { confirmDelete = true }
+                    .accessibilityActions {
+                        if session.needsDetails && !session.isActive {
+                            Button("Mark Complete") { store.completeTrainingDetails(session.id) }
+                        }
+                    }
                 SummaryRow(title: "Focus", value: session.focus.fallback("not recorded"))
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
@@ -114,19 +127,18 @@ struct TrainingDetailView: View {
 
             Section {
                 Button("Delete training session", role: .destructive) { confirmDelete = true }
+                    .accessibilityHidden(voiceOver)
             }
         }
         .tennisThemedList()
         .navigationTitle("Training detail")
-        .onChange(of: store.data.trainingSessions) { _, records in
-            if let updated = records.first(where: { $0.id == session.id }) { session = updated }
-        }
         .onChange(of: store.data.trainingSessions) { _, sessions in
             if let updated = sessions.first(where: { $0.id == session.id }) { session = updated }
             else { dismiss() }
         }
         .toolbar {
             Button("Edit") { showingEditor = true }
+                .accessibilityHidden(voiceOver)
         }
         .sheet(isPresented: $showingEditor) {
             TrainingEditorView(session: session)

@@ -2,6 +2,7 @@ import Foundation
 
 struct TennisWatchSnapshot: Codable, Equatable {
     var generatedAt = Date()
+    var deletedRecordIDs: Set<UUID> = []
     var selectedPlayerID: UUID?
     var players: [PlayerProfile] = []
     var matches: [MatchRecord] = []
@@ -16,6 +17,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
 
     init(data: AppData, now: Date = Date()) {
         generatedAt = now
+        deletedRecordIDs = data.deletedRecordIDs
         selectedPlayerID = data.selectedPlayerID
         players = data.players
         settings = data.settings
@@ -53,6 +55,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         generatedAt = try c.decodeIfPresent(Date.self, forKey: .generatedAt) ?? .distantPast
+        deletedRecordIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .deletedRecordIDs) ?? []
         selectedPlayerID = try c.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
         players = try c.decodeIfPresent([PlayerProfile].self, forKey: .players) ?? []
         matches = try c.decodeIfPresent([MatchRecord].self, forKey: .matches) ?? []
@@ -69,6 +72,7 @@ enum TennisWatchSyncCommand: Codable, Equatable {
     case upsertMatch(MatchRecord)
     case upsertTraining(TrainingSession)
     case upsertTournament(TournamentRecord)
+    case deleteRecord(TennisRecordDeletion)
     case markMatchDetailsComplete(UUID)
     case markTrainingDetailsComplete(UUID)
     case markTournamentDetailsComplete(UUID)

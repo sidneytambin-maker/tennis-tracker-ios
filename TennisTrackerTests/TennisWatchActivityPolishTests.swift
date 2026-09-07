@@ -63,8 +63,8 @@ final class TennisWatchActivityPolishTests: XCTestCase {
         let result = TennisWorkoutResult(durationSeconds: 159, averageHeartRate: 72, activeEnergyKcal: 4,
             peakHeartRate: 90, distanceMeters: 123, stepCount: 201)
         XCTAssertEqual(result.fitnessSummary, "Average heart rate 72 beats per minute. Peak heart rate 90 beats per minute. Active energy 4 calories. Distance 123 metres. 201 steps.")
-        XCTAssertEqual(TennisWorkoutResult(durationSeconds: 3).fitnessSummary, "")
-        XCTAssertFalse(TennisWorkoutResult(durationSeconds: 3, activeEnergyKcal: 0).fitnessSummary.contains("steps"))
+        XCTAssertEqual(TennisWorkoutResult(durationSeconds: 3).fitnessSummary, "Distance unavailable. Steps unavailable.")
+        XCTAssertFalse(TennisWorkoutResult(durationSeconds: 3, activeEnergyKcal: 0).fitnessSummary.contains("0 steps"))
     }
 
     func testOldWorkoutRecordsDecodeWithoutNewMetricFields() throws {
@@ -137,10 +137,10 @@ final class TennisWatchActivityPolishTests: XCTestCase {
         XCTAssertTrue(TennisSummaryFormatter.tournament(restoredTournament).contains("2 minutes 39 seconds"))
     }
 
-    func testFourComplicationsHaveStableDistinctIdentities() {
-        XCTAssertEqual(Set(TennisGlanceKind.allCases.map(\.widgetKind)).count, 4)
+    func testFiveComplicationsHaveStableDistinctIdentities() {
+        XCTAssertEqual(Set(TennisGlanceKind.allCases.map(\.widgetKind)).count, 5)
         XCTAssertEqual(TennisGlanceKind.current.widgetKind, "TennisTrackerComplication")
-        XCTAssertEqual(Set(TennisGlanceKind.allCases.map(\.name)).count, 4)
+        XCTAssertEqual(Set(TennisGlanceKind.allCases.map(\.name)).count, 5)
     }
 
     func testNextEventIsIndependentOfCurrentTraining() {

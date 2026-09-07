@@ -81,6 +81,7 @@ final class TennisStore: ObservableObject {
     }
 
     func upsertMatch(_ match: MatchRecord) {
+        guard !data.deletedRecordIDs.contains(match.id) else { return }
         var latest = match
         latest.revision = max(latest.revision, data.matches.first(where: { $0.id == match.id })?.revision ?? 0)
         var saved = TennisRecordConflictResolver.prepareLocalMatch(latest)
@@ -98,11 +99,12 @@ final class TennisStore: ObservableObject {
     }
 
     func deleteMatch(_ match: MatchRecord) {
-        data.matches.removeAll { $0.id == match.id }
+        data.delete(TennisRecordDeletion(id: match.id, kind: .match))
         saveAndAnnounce("Deleted match.")
     }
 
     func upsertTraining(_ session: TrainingSession, newPlayers: [PlayerProfile] = [], newCoaches: [TennisCoach] = []) {
+        guard !data.deletedRecordIDs.contains(session.id) else { return }
         for player in newPlayers where !player.name.isBlank && !data.players.contains(where: { $0.id == player.id }) {
             data.players.append(player)
         }
@@ -126,11 +128,12 @@ final class TennisStore: ObservableObject {
     }
 
     func deleteTraining(_ session: TrainingSession) {
-        data.trainingSessions.removeAll { $0.id == session.id }
+        data.delete(TennisRecordDeletion(id: session.id, kind: .training))
         saveAndAnnounce("Deleted training session.")
     }
 
     func upsertTournament(_ tournament: TournamentRecord) {
+        guard !data.deletedRecordIDs.contains(tournament.id) else { return }
         var latest = tournament
         latest.revision = max(latest.revision, data.tournaments.first(where: { $0.id == tournament.id })?.revision ?? 0)
         let saved = TennisRecordConflictResolver.prepareLocalTournament(latest)
@@ -145,20 +148,12 @@ final class TennisStore: ObservableObject {
     }
 
     func deleteTournamentKeepingMatches(_ tournament: TournamentRecord) {
-        data.tournaments.removeAll { $0.id == tournament.id }
-        data.matches = data.matches.map { match in
-            var copy = match
-            if copy.tournamentID == tournament.id {
-                copy.tournamentID = nil
-            }
-            return copy
-        }
+        data.delete(TennisRecordDeletion(id: tournament.id, kind: .tournament))
         saveAndAnnounce("Deleted tournament and kept linked matches.")
     }
 
     func deleteTournamentAndLinkedMatches(_ tournament: TournamentRecord) {
-        data.tournaments.removeAll { $0.id == tournament.id }
-        data.matches.removeAll { $0.tournamentID == tournament.id }
+        data.delete(TennisRecordDeletion(id: tournament.id, kind: .tournament, includeLinkedMatches: true))
         saveAndAnnounce("Deleted tournament and linked matches.")
     }
 
@@ -195,7 +190,11 @@ final class TennisStore: ObservableObject {
     }
 
     func applyWatchCommand(_ command: TennisWatchSyncCommand) {
+        if case .deleteRecord = command {} else if let id = command.recordID, data.deletedRecordIDs.contains(id) { save(); return }
         switch command {
+        case .deleteRecord(let deletion):
+            data.delete(deletion)
+            saveAndAnnounce("Deleted activity from Apple Watch.")
         case .snapshotReceived:
             break
         case .requestSnapshot:
@@ -283,6 +282,7 @@ final class TennisStore: ObservableObject {
         } else {
             data[keyPath: keyPath].append(item)
         }
+        data.removeDeletedRecords()
     }
 
     private func mergeWatchMatch(_ incoming: MatchRecord) {
@@ -347,6 +347,7 @@ final class TennisStore: ObservableObject {
     }
 
     private func save() {
+        data.removeDeletedRecords()
         guard let encoded = try? JSONEncoder.tennisTracker.encode(data) else { return }
         try? encoded.write(to: storeURL, options: [.atomic])
         Task {

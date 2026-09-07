@@ -59,7 +59,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         completeOnboarding()
         openDestination("Dashboard")
         XCTAssertTrue(app.staticTexts["Welcome, Sidney"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["0 matches, 0 wins, 0 losses, 0 percent win rate. 0 training sessions saved."].exists)
+        XCTAssertEqual(app.staticTexts["Welcome, Sidney"].value as? String, "0 matches, 0 wins, 0 losses, 0 percent win rate. 0 training sessions saved.")
         XCTAssertFalse(app.staticTexts["Player One"].exists)
         XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
     }
@@ -80,6 +80,17 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["trainingTypePicker"].waitForExistence(timeout: 5))
         app.buttons["saveTrainingButton"].tap()
         XCTAssertTrue(textContaining("Singles practice").waitForExistence(timeout: 5))
+    }
+
+    func testSportingScreenshots() {
+        completeOnboarding()
+        for destination in ["Dashboard", "Training", "Matches", "Tournaments"] {
+            openDestination(destination)
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "iPhone \(destination) tennis theme"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
     }
 
     func testTennisSetupAddsCoachAndRegularPartner() throws {

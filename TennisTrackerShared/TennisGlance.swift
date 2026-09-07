@@ -7,6 +7,8 @@ struct TennisGlance: Equatable {
     var destination: TennisWatchPage
     var isStale: Bool
     var compactDetail: String = ""
+    var actionURL: URL?
+    var url: URL { actionURL ?? destination.url }
 
     var circularDetail: String { compactDetail.isBlank ? detail : compactDetail }
     var relevanceScore: Float { isStale ? 0 : destination == .score || destination == .live ? 10 : destination == .today ? 5 : 0 }
@@ -62,7 +64,7 @@ struct TennisGlance: Equatable {
                 compactDetail: compactRange(tournament.date, tournament.endDate))))
         }
         if let event = events.sorted(by: { $0.date == $1.date ? $0.id < $1.id : $0.date < $1.date }).first { return event.glance }
-        return Self(title: "Tennis Tracker", detail: "Track tennis", accessibilitySummary: "Tennis Tracker. Track a tennis activity.", destination: .track, isStale: false)
+        return Self(title: "Track Tennis", detail: "Start an activity", accessibilitySummary: "Track a tennis activity.", destination: .track, isStale: false)
     }
 }
 
