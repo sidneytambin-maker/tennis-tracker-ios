@@ -43,18 +43,28 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
+      - name: Prepare Watch simulator
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project-watch-tests.yml
+          xcrun simctl shutdown all
+          WATCH_ID="$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("watchOS")) | .value[] | select(.isAvailable)] | (map(select(.name | contains("Ultra"))) + .) | .[0].udid // empty')"
+          test -n "$WATCH_ID"
+          xcrun simctl bootstatus "$WATCH_ID" -b
+          printf 'WATCH_ID=%s\n' "$WATCH_ID" >> "$GITHUB_ENV"
+
       - name: Run native Watch accessibility UI tests
         timeout-minutes: 15
         run: |
           set -euo pipefail
-          xcodegen generate --spec project-watch-tests.yml
-          WATCH_ID="$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("watchOS")) | .value[] | select(.isAvailable)] | (map(select(.name | contains("Ultra"))) + .) | .[0].udid // empty')"
-          test -n "$WATCH_ID"
           xcodebuild test \
             -project TennisTrackeriOS.xcodeproj \
             -scheme TennisTrackerWatchTests \
             -sdk watchsimulator \
             -destination "id=$WATCH_ID" \
+            -parallel-testing-enabled NO \
+            -resultBundlePath WatchTests.xcresult \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
@@ -84,6 +94,7 @@ jobs:
             -sdk iphonesimulator \
             -destination "id=$SIMULATOR_ID" \
             -parallel-testing-enabled NO \
+            -resultBundlePath iPhoneTests.xcresult \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -124,4 +135,15 @@ jobs:
             artifacts/TennisTracker-unsigned.ipa
             artifacts/build-summary.txt
           if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve simulator test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-tracker-simulator-test-results
+          path: |
+            WatchTests.xcresult
+            iPhoneTests.xcresult
+          if-no-files-found: warn
           retention-days: 7
