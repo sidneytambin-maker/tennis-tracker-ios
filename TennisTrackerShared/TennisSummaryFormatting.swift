@@ -125,13 +125,21 @@ enum TennisSummaryFormatter {
         return formatted(start, sameMonth ? "d" : sameYear ? "d MMMM" : "d MMMM yyyy") + " to " + formatted(finish, "d MMMM yyyy")
     }
 
-    static func scoreAnnouncement(state: TennisScoreState, playerName: String, opponentName: String, suddenDeathDeuce: Bool) -> String {
+    static func liveMatchScore(_ match: MatchRecord, saved: Bool = false) -> String {
+        let participants = "\(match.playerTeam) against \(match.opponentSummary.fallback("opponent not recorded"))"
+        if saved { return "Saved match: \(participants). \(matchSummary(match).scoreText)." }
+        guard let score = match.liveScore else { return "\(participants). Match in progress; score not recorded." }
+        return participants + ". " + scoreAnnouncement(state: TennisScoreState(snapshot: score), playerName: match.playerTeam,
+            opponentName: match.opponentSummary, suddenDeathDeuce: match.suddenDeathDeuce, pluralTeams: match.matchType == .doubles)
+    }
+
+    static func scoreAnnouncement(state: TennisScoreState, playerName: String, opponentName: String, suddenDeathDeuce: Bool, pluralTeams: Bool = false) -> String {
         if state.isMatchComplete { return "Match, \(state.playerSets > state.opponentSets ? playerName : opponentName)." }
         let games: String
         if state.playerGames == state.opponentGames { games = "Games level at \(state.playerGames) all" }
         else {
             let leader = state.playerGames > state.opponentGames ? playerName : opponentName
-            games = "\(leader) leads \(max(state.playerGames, state.opponentGames)) games to \(min(state.playerGames, state.opponentGames))"
+            games = "\(leader) \(pluralTeams ? "lead" : "leads") \(max(state.playerGames, state.opponentGames)) games to \(min(state.playerGames, state.opponentGames))"
         }
         return "\(state.pointScore(suddenDeathDeuce: suddenDeathDeuce)). \(games)."
     }

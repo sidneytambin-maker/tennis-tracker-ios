@@ -83,6 +83,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         #if targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-watch") { return }
         #endif
+        persistSnapshot()
         restoreWorkoutIfNeeded()
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
@@ -612,8 +613,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         guard let data = try? JSONEncoder.tennisTracker.encode(snapshot) else { return }
         UserDefaults.standard.set(data, forKey: localSnapshotKey)
         do {
-            try TennisSharedSnapshotFile.write(snapshot)
-            WidgetCenter.shared.reloadAllTimelines()
+            if try TennisSharedSnapshotFile.write(snapshot) {
+                WidgetCenter.shared.reloadTimelines(ofKind: "TennisTrackerComplication")
+            }
         } catch { lastSyncStatus = "Saved on Watch. Complication update could not be saved." }
     }
 

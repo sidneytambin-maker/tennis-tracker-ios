@@ -23,10 +23,21 @@ class DeploymentPreflightTests(unittest.TestCase):
             validate_architecture(self.infos)
 
     def testWidgetNeedsSeparateStageAndStaysInsideWatch(self):
-        self.infos[self.watch + "PlugIns/Tennis.appex/"] = {}
+        self.infos[self.watch]["TennisSharedAppGroup"] = "group.tennis"
+        self.infos[self.watch + "PlugIns/Tennis.appex/"] = {
+            "CFBundleIdentifier": "test.phone.watch.widgets", "TennisSharedAppGroup": "group.tennis",
+            "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
         with self.assertRaises(ValueError):
             validate_architecture(self.infos)
         self.assertEqual(validate_architecture(self.infos, allow_widgets=True), (self.phone, self.watch))
+
+    def testWidgetWithUnrelatedContainerIsRejected(self):
+        self.infos[self.watch]["TennisSharedAppGroup"] = "group.tennis"
+        self.infos[self.watch + "PlugIns/Tennis.appex/"] = {
+            "CFBundleIdentifier": "test.phone.watch.widgets", "TennisSharedAppGroup": "group.other",
+            "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
+        with self.assertRaises(ValueError):
+            validate_architecture(self.infos, allow_widgets=True)
 
     def testProfileMustGrantEveryRequestedGroupAndHealth(self):
         self.assertTrue(permits(["group.tennis"], ["group.tennis"]))

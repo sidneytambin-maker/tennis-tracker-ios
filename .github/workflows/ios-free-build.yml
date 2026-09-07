@@ -30,6 +30,19 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Compile Watch complication
+        if: inputs.stage == 'widgets'
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project-widgets.yml
+          xcodebuild build \
+            -project TennisTrackeriOS.xcodeproj \
+            -target TennisTrackerWatchWidgets \
+            -sdk watchsimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
       - name: Run native Watch accessibility UI tests
         timeout-minutes: 15
         run: |

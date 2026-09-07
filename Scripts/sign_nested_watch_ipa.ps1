@@ -25,6 +25,10 @@ param(
 
     [string]$ZsignPath = "",
     [string]$SigningPassword = "",
+    [string]$WidgetProvisionPath = "",
+    [string]$FinalWidgetBundleId = "",
+    [string]$SharedAppGroup = "",
+    [string]$OpenSslPath = "",
     [switch]$AllowNonWatchOsProfile,
     [switch]$EmbedWatchInPlugIns,
     [switch]$SkipFinalWatchResign
@@ -115,6 +119,20 @@ if ($EmbedWatchInPlugIns) {
 $watchApp = Get-ChildItem -LiteralPath (Join-Path $iphoneApp.FullName "Watch") -Directory -Filter "*.app" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $watchApp) {
     throw "No embedded Watch app found in Payload/<App>.app/Watch."
+}
+
+$widgetProvision = ""
+$widgetApps = @(Get-ChildItem -LiteralPath (Join-Path $watchApp.FullName "PlugIns") -Directory -Filter "*.appex" -ErrorAction SilentlyContinue)
+if ($widgetApps.Count -gt 0 -or $WidgetProvisionPath -or $FinalWidgetBundleId -or $SharedAppGroup) {
+    if ($widgetApps.Count -ne 1 -or -not $WidgetProvisionPath -or -not $FinalWidgetBundleId -or -not $SharedAppGroup) {
+        throw "Widget signing requires exactly one embedded extension, its profile, final identifier and registered shared group."
+    }
+    $widgetProvision = Resolve-RequiredPath $WidgetProvisionPath "Widget provisioning profile"
+    $openssl = Resolve-RequiredPath $OpenSslPath "OpenSSL"
+    & $python (Join-Path $PSScriptRoot "prepare_widget_bundle.py") `
+        --watch-app $watchApp.FullName --watch-profile $watchProvision --widget-profile $widgetProvision `
+        --watch-id $FinalWatchBundleId --widget-id $FinalWidgetBundleId --group $SharedAppGroup --openssl $openssl
+    if ($LASTEXITCODE -ne 0) { throw "Widget metadata validation failed before signing." }
 }
 
 $patchScript = @"
@@ -214,7 +232,9 @@ if ($SigningPassword) {
 
 # zsign 1.1.2 supports multiple profiles and signs nested bundles before their
 # parent. Do not re-sign or edit resources after the parent has been sealed.
-& $zsign @zsignArgsBase "-q" "-f" "-m" $iphoneProvision "-m" $watchProvision "-o" $OutputIpaPath $iphoneApp.FullName
+$profileArgs = @("-m", $iphoneProvision, "-m", $watchProvision)
+if ($widgetProvision) { $profileArgs += @("-m", $widgetProvision) }
+& $zsign @zsignArgsBase "-q" "-f" @profileArgs "-o" $OutputIpaPath $iphoneApp.FullName
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to sign the iPhone and Watch bundles with their respective profiles."
 }

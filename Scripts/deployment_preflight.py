@@ -24,6 +24,16 @@ def validate_architecture(infos, allow_widgets=False):
     for path in extensions:
         if not path.startswith(watch[0] + "PlugIns/"):
             raise ValueError("Unexpected extension location")
+        extension, companion = infos[path], infos[watch[0]]
+        if not extension.get("CFBundleIdentifier", "").startswith(companion["CFBundleIdentifier"] + "."):
+            raise ValueError("Widget identity is not nested under the Watch identity")
+        if extension.get("NSExtension", {}).get("NSExtensionPointIdentifier") != "com.apple.widgetkit-extension":
+            raise ValueError("Unexpected extension type")
+        if extension.get("CFBundleVersion") != companion.get("CFBundleVersion"):
+            raise ValueError("Watch and widget build versions differ")
+        group = companion.get("TennisSharedAppGroup")
+        if not group or group.endswith(".preview") or extension.get("TennisSharedAppGroup") != group:
+            raise ValueError("Watch and widget must use the same registered shared container")
     for path in infos:
         if path.endswith(".app/") and path not in (phone[0], watch[0]):
             raise ValueError("Unexpected additional application bundle")
@@ -72,6 +82,8 @@ def inspect(candidate, baseline, repo, openssl, allow_health=False, allow_widget
                 raise ValueError("Physical device is missing from its profile")
             for executable in slices(archive.read(path + info["CFBundleExecutable"])):
                 entitlements = plistlib.loads(signature_blobs(executable)[5][8:])
+                if not entitlements.get("application-identifier", "").endswith("." + info["CFBundleIdentifier"]):
+                    raise ValueError("Signed application identity does not match bundle metadata")
                 for key, value in entitlements.items():
                     if not permits(profile["Entitlements"].get(key), value):
                         raise ValueError("Profile does not authorize signed entitlement " + key)
