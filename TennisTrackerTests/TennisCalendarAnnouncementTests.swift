@@ -40,4 +40,24 @@ final class TennisCalendarAnnouncementTests: XCTestCase {
         XCTAssertFalse(announcements[2].contains("successfully"))
         XCTAssertEqual(store.lastAnnouncement, announcements[2])
     }
+
+    func testUntimedActivitiesUseOneWholeCalendarDayAndTimedActivitiesKeepTheirDuration() {
+        var session = TrainingSession(playerID: UUID())
+        session.hasStartTime = false
+        let untimed = TennisCalendarMapper.event(for: session)
+        let midnight = Calendar.current.startOfDay(for: session.date)
+        XCTAssertTrue(untimed.isAllDay)
+        XCTAssertEqual(untimed.startDate, midnight)
+        XCTAssertEqual(untimed.endDate, Calendar.current.date(byAdding: .day, value: 1, to: midnight))
+        let match = TennisCalendarMapper.event(for: MatchRecord(playerID: session.playerID))
+        XCTAssertTrue(match.isAllDay)
+        XCTAssertEqual(match.endDate, Calendar.current.date(byAdding: .day, value: 1, to: match.startDate))
+        session.hasStartTime = true
+        session.durationMinutes = 65
+        let timed = TennisCalendarMapper.event(for: session)
+        XCTAssertFalse(timed.isAllDay)
+        XCTAssertEqual(timed.startDate, session.date)
+        XCTAssertEqual(timed.endDate.timeIntervalSince(timed.startDate), 3900)
+        XCTAssertTrue(timed.confirmation(saved: true).contains(session.date.shortTennisTime))
+    }
 }

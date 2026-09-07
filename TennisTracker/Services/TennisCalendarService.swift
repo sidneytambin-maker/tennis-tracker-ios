@@ -26,11 +26,15 @@ struct CalendarEventDraft: Equatable {
 
 enum TennisCalendarMapper {
     static func event(for match: MatchRecord) -> CalendarEventDraft {
-        CalendarEventDraft(
+        let start = match.hasStartTime ? match.date : Calendar.current.startOfDay(for: match.date)
+        let end = match.hasStartTime
+            ? start.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60))
+            : Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
+        return CalendarEventDraft(
             title: "Tennis: \(match.playerTeam) versus \(match.opponentSummary.fallback("opponent not recorded"))",
             notes: "Tennis Tracker match. \(TennisSummaryFormatter.match(match, style: .long)) \(match.notes)",
-            startDate: match.date,
-            endDate: match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60)),
+            startDate: start,
+            endDate: end,
             location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),
             deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!,
             isAllDay: !match.hasStartTime
@@ -38,11 +42,14 @@ enum TennisCalendarMapper {
     }
 
     static func event(for session: TrainingSession, coaches: [TennisCoach] = [], players: [PlayerProfile] = []) -> CalendarEventDraft {
-        CalendarEventDraft(
+        let start = session.hasStartTime ? session.date : Calendar.current.startOfDay(for: session.date)
+        let end = session.hasStartTime ? session.expectedEndDate
+            : Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
+        return CalendarEventDraft(
             title: "Tennis training: \(session.trainingType.rawValue)",
             notes: "\(TennisSummaryFormatter.training(session, style: .detailed, coaches: coaches, players: players)) \(session.notes)",
-            startDate: session.date,
-            endDate: session.expectedEndDate,
+            startDate: start,
+            endDate: end,
             location: [session.venue, session.location].filter { !$0.isBlank }.joined(separator: ", "),
             deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!,
             isAllDay: !session.hasStartTime

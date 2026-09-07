@@ -48,6 +48,7 @@ final class TennisIntegrationPlanningTests: XCTestCase {
         match.location = "London"
         match.expectedDurationMinutes = 75
         match.hasExpectedDuration = true
+        match.hasStartTime = true
         match.date = Date(timeIntervalSince1970: 1_800_000_000)
 
         let event = TennisCalendarMapper.event(for: match)
