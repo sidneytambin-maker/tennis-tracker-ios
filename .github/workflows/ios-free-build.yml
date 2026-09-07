@@ -58,6 +58,21 @@ jobs:
         timeout-minutes: 15
         run: |
           set -euo pipefail
+          mkdir -p WatchDiagnostics
+          (
+            for attempt in $(seq 1 420); do
+              if grep -q 'App event loop idle notification not received' WatchDiagnostics/test.log 2>/dev/null; then
+                xcrun simctl io "$WATCH_ID" screenshot WatchDiagnostics/watch-timeout.png || true
+                ps -axo pid,comm | awk '$2 ~ /TennisTrackerWatchApp$/ { print $1 }' | while read -r pid; do
+                  sample "$pid" 5 -file "WatchDiagnostics/watch-hang-$pid.txt" || true
+                done
+                break
+              fi
+              sleep 2
+            done
+          ) &
+          WATCH_DIAGNOSTIC_PID=$!
+          trap 'kill "$WATCH_DIAGNOSTIC_PID" 2>/dev/null || true' EXIT
           xcodebuild test \
             -project TennisTrackeriOS.xcodeproj \
             -scheme TennisTrackerWatchTests \
@@ -66,7 +81,7 @@ jobs:
             -parallel-testing-enabled NO \
             -resultBundlePath WatchTests.xcresult \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee WatchDiagnostics/test.log
 
       - name: Generate iOS test project
         run: xcodegen generate --spec project-tests.yml
@@ -145,5 +160,6 @@ jobs:
           path: |
             WatchTests.xcresult
             iPhoneTests.xcresult
+            WatchDiagnostics
           if-no-files-found: warn
           retention-days: 7
