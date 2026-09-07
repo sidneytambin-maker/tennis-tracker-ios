@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TennisResultDashboardRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let title: String
     let totals: TennisResultTotals
     let symbol: String
@@ -8,7 +9,7 @@ struct TennisResultDashboardRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: symbol).font(.headline)
-            HStack(alignment: .top, spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: typeSize.isAccessibilitySize ? 2 : 4), alignment: .leading, spacing: 12) {
                 metric("Matches", value: totals.count)
                 metric("Wins", value: totals.wins)
                 metric("Losses", value: totals.losses)

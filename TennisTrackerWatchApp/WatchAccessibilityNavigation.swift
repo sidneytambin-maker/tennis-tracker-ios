@@ -16,6 +16,8 @@ struct WatchPageSelector: View {
     var body: some View {
         Button { showingPages = true } label: {
             Image(systemName: "square.grid.2x2")
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(TennisSportStyle.ink)
         }
         .accessibilityLabel("Pages")
         .sheet(isPresented: $showingPages) {

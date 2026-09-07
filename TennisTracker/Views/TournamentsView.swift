@@ -19,7 +19,7 @@ struct TournamentsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Track") {
+                TennisSection("Track") {
                     Button("Track Tournament") { showingNewTournament = true }
                         .accessibilityLabel("Track Tournament")
                         .accessibilityIdentifier("addTournamentButton")
@@ -29,7 +29,7 @@ struct TournamentsView: View {
                         EmptyStateView(title: "No tournaments added yet", message: "Track an upcoming tournament, then link matches to it later.")
                     }
                 } else {
-                    Section("Upcoming tournaments") {
+                    TennisSection("Upcoming tournaments") {
                         if upcoming.isEmpty {
                             Text("No upcoming tournaments.")
                         } else {
@@ -37,7 +37,7 @@ struct TournamentsView: View {
                         }
                     }
 
-                    Section("Completed tournaments") {
+                    TennisSection("Completed tournaments") {
                         if completed.isEmpty {
                             Text("No completed tournaments.")
                         } else {
@@ -134,13 +134,13 @@ struct TournamentDetailView: View {
 
     var body: some View {
         List {
-            Section("Summary") {
+            TennisSection("Summary") {
                 Text(TennisSummaryFormatter.tournament(tournament, style: .detailed, matches: linkedMatches))
                 SummaryRow(title: "Status", value: "\(tournament.finalResult.rawValue). \(tournament.format.rawValue). Stage: \(tournament.stageReached.rawValue).")
                 SummaryRow(title: "Matches", value: linkedMatches.isEmpty ? "No matches linked yet." : "\(linkedMatches.count) matches linked.")
             }
 
-            Section("Matches") {
+            TennisSection("Matches") {
                 Button("Add Match to Tournament") { showingNewMatch = true }
                     .accessibilityIdentifier("addTournamentMatchButton")
                 if linkedMatches.isEmpty {
@@ -164,16 +164,16 @@ struct TournamentDetailView: View {
             }
 
             if !tournament.goal.isBlank {
-                Section("Goal") {
+                TennisSection("Goal") {
                     Text(tournament.goal)
                 }
             }
 
-            Section("Notes") {
+            TennisSection("Notes") {
                 Text(tournament.notes.fallback("No notes recorded."))
             }
 
-            Section("Calendar") {
+            TennisSection("Calendar") {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -247,7 +247,7 @@ struct TournamentEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Tournament") {
+                TennisSection("Tournament") {
                     Picker("Regular tournament", selection: $tournament.templateID) {
                         Text("Other").tag(Optional<UUID>.none)
                         ForEach(store.data.setup.tournamentTemplates) { Text($0.name).tag(Optional($0.id)) }
@@ -282,7 +282,7 @@ struct TournamentEditorView: View {
                         .accessibilityIdentifier("tournamentEndDatePicker")
                 }
 
-                Section("Category and status") {
+                TennisSection("Category and status") {
                     TextField("Category", text: $tournament.category)
                     Picker("Format", selection: $tournament.format) {
                         ForEach(TournamentFormat.allCases) { Text($0.rawValue).tag($0) }
@@ -301,12 +301,12 @@ struct TournamentEditorView: View {
                 }
 
                 if store.data.settings.trackingMode != .basic {
-                    Section("Goal") {
+                    TennisSection("Goal") {
                         TextField("Goal", text: $tournament.goal, axis: .vertical)
                     }
                 }
 
-                Section("Notes") {
+                TennisSection("Notes") {
                     TextField("Notes", text: $tournament.notes, axis: .vertical)
                         .lineLimit(3...6)
                         .accessibilityIdentifier("tournamentNotesField")

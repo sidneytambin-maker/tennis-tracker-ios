@@ -3,26 +3,14 @@ import SwiftUI
 struct WatchRootView: View {
     @StateObject private var store = WatchTennisStore()
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State private var quickTraining = false
     var body: some View {
-        Group {
-            if voiceOver || WatchAccessibilityNavigation.testingEnabled {
-                NavigationStack {
-                    selectedPage.toolbar {
-                        ToolbarItem(placement: .topBarLeading) { WatchPageSelector() }
-                    }
-                }.id(store.page)
-            } else {
-                TabView(selection: $store.page) {
-                    NavigationStack { WatchTodayView() }.tag(TennisWatchPage.today)
-                    NavigationStack { WatchTrackView() }.tag(TennisWatchPage.track)
-                    NavigationStack { WatchLiveView() }.tag(TennisWatchPage.live)
-                    NavigationStack { WatchRecentView() }.tag(TennisWatchPage.recent)
-                    NavigationStack { WatchScoreView() }.tag(TennisWatchPage.score)
-                }.tabViewStyle(.page)
+        NavigationStack {
+            selectedPage.toolbar {
+                ToolbarItem(placement: .topBarLeading) { WatchPageSelector() }
             }
         }
+        .id(store.page)
         .environmentObject(store)
         .tint(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ball : .cyan)
         .sheet(isPresented: $quickTraining) { NavigationStack { WatchTrainingEntryView() }.environmentObject(store) }

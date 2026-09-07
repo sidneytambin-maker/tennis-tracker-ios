@@ -24,6 +24,11 @@ private struct TennisTrainingFocusChoices: View {
     @Binding var focus: String
     @State private var customFocus = ""
 
+    init(focus: Binding<String>) {
+        _focus = focus
+        _customFocus = State(initialValue: TennisTrainingFocus(rawValue: focus.wrappedValue) == nil ? focus.wrappedValue : "")
+    }
+
     var body: some View {
         List {
             choice("No focus selected", value: "")
@@ -39,9 +44,6 @@ private struct TennisTrainingFocusChoices: View {
             }
         }
         .navigationTitle("Training Focus")
-        .onAppear {
-            if TennisTrainingFocus(rawValue: focus) == nil { customFocus = focus }
-        }
     }
 
     private func choice(_ title: String, value: String) -> some View {

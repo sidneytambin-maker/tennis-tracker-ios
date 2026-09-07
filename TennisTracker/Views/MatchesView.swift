@@ -13,7 +13,7 @@ struct MatchesView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Match scoring") {
+                TennisSection("Match scoring") {
                     Button("Track Match Scoring") {
                         showingLiveScorer = true
                     }
@@ -29,13 +29,13 @@ struct MatchesView: View {
                     }
                 }
 
-                Section("Record") {
+                TennisSection("Record") {
                     Button("Record Match") { showingNewMatch = true }
                         .accessibilityLabel("Record Match")
                         .accessibilityIdentifier("addMatchButton")
                 }
 
-                Section("Match history") {
+                TennisSection("Match history") {
                     if store.selectedMatches.isEmpty {
                         EmptyStateView(title: "No matches recorded yet", message: "Use Record Match or Track Match Scoring.")
                     } else {
@@ -131,7 +131,7 @@ struct MatchDetailView: View {
 
     var body: some View {
         List {
-            Section("Summary") {
+            TennisSection("Summary") {
                 SummaryRow(title: TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .short), value: "\(match.matchType.rawValue). \(match.date.shortTennisDate).")
                 SummaryRow(title: "Players", value: "\(match.playerTeam) against \(match.opponentSummary.fallback("opponent not recorded")).")
                 SummaryRow(title: "Score", value: TennisSummaryFormatter.matchSummary(match).scoreText)
@@ -140,7 +140,7 @@ struct MatchDetailView: View {
             }
 
             if store.data.settings.trackingMode != .basic {
-                Section("Performance") {
+                TennisSection("Performance") {
                     SummaryRow(title: "Key stats", value: "\(match.aces) aces, \(match.doubleFaults) double faults, \(match.winners) winners, \(match.unforcedErrors) unforced errors.")
                     SummaryRow(title: "Strengths", value: match.matchStrengths.fallback("not recorded"))
                     SummaryRow(title: "Needs work", value: match.matchNeedsWork.fallback("not recorded"))
@@ -148,11 +148,11 @@ struct MatchDetailView: View {
                 }
             }
 
-            Section("Notes") {
+            TennisSection("Notes") {
                 Text(match.notes.fallback(match.matchStory.fallback("No notes recorded.")))
             }
 
-            Section("Calendar") {
+            TennisSection("Calendar") {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -204,7 +204,7 @@ struct MatchEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Players") {
+                TennisSection("Players") {
                     TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName, fieldIdentifier: "matchOpponentNameField")
                     Picker("Match type", selection: $match.matchType) {
                         ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
@@ -215,11 +215,11 @@ struct MatchEditorView: View {
                     }
                 }
 
-                Section("Place") {
+                TennisSection("Place") {
                     StoredVenuePicker(id: $match.venueID, venue: $match.venue, location: $match.location)
                 }
 
-                Section("Schedule & Format") {
+                TennisSection("Schedule & Format") {
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $match.date, hasStartTime: $match.hasStartTime)
                         .accessibilityIdentifier("matchDatePicker")
                     OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
@@ -230,7 +230,7 @@ struct MatchEditorView: View {
                 }
 
                 if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
-                    Section("Links") {
+                    TennisSection("Links") {
                         Picker("Tournament", selection: $match.tournamentID) {
                             Text("No tournament").tag(Optional<UUID>.none)
                             ForEach(store.selectedTournaments) { tournament in
@@ -248,7 +248,7 @@ struct MatchEditorView: View {
                     }
                 }
 
-                Section("Result") {
+                TennisSection("Result") {
                     Picker("Status", selection: $match.status) {
                         ForEach(MatchStatus.allCases) { status in Text(status.rawValue).tag(status) }
                     }
@@ -313,7 +313,7 @@ struct MatchEditorView: View {
                 }
 
                 if store.data.settings.trackingMode != .basic {
-                    Section("Performance") {
+                    TennisSection("Performance") {
                         Picker("Round or position", selection: $match.matchPosition) {
                             ForEach(MatchPosition.allCases) { Text($0.rawValue).tag($0) }
                         }
@@ -326,7 +326,7 @@ struct MatchEditorView: View {
                     }
                 }
 
-                Section("Notes") {
+                TennisSection("Notes") {
                     TextField("Notes", text: $match.notes, axis: .vertical)
                         .lineLimit(3...6)
                         .accessibilityIdentifier("matchNotesField")
@@ -582,7 +582,7 @@ struct LiveMatchView: View {
 
     @ViewBuilder
     private func setupSections(match: MatchRecord) -> some View {
-        Section("Format") {
+        TennisSection("Format") {
             OrderedChoicePicker(title: "Match format", selection: binding(\.matchFormat), values: MatchFormat.allCases) { $0.label }
             Picker("Match type", selection: binding(\.matchType)) {
                 ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
@@ -594,7 +594,7 @@ struct LiveMatchView: View {
             }
         }
 
-        Section("Players") {
+        TennisSection("Players") {
             TextField("Player name", text: binding(\.playerName))
                 .accessibilityIdentifier("livePlayerNameField")
             if match.matchType == .doubles {
@@ -606,11 +606,11 @@ struct LiveMatchView: View {
             }
         }
 
-        Section("Place") {
+        TennisSection("Place") {
             StoredVenuePicker(id: binding(\.venueID), venue: binding(\.venue), location: binding(\.location))
         }
 
-        Section("Rules") {
+        TennisSection("Rules") {
             OrderedChoicePicker(title: "Sight classification", selection: binding(\.sightLevel), values: SightLevel.allCases) { $0.label }
             .onChange(of: match.sightLevel) { _, newValue in
                 self.match?.allowedBounces = newValue.allowedBounces
@@ -634,7 +634,7 @@ struct LiveMatchView: View {
         }
 
         if !store.selectedTournaments.isEmpty || !store.selectedTraining.isEmpty {
-            Section("Links") {
+            TennisSection("Links") {
                 Picker("Tournament", selection: binding(\.tournamentID)) {
                     Text("No tournament").tag(Optional<UUID>.none)
                     ForEach(store.selectedTournaments) { tournament in
@@ -654,7 +654,7 @@ struct LiveMatchView: View {
 
     @ViewBuilder
     private func scoringSections(match: MatchRecord) -> some View {
-        Section("Score") {
+        TennisSection("Score") {
             Text(scorer.fullScore)
                 .font(.title2.bold())
                 .accessibilityLabel("Current score")
@@ -677,7 +677,7 @@ struct LiveMatchView: View {
                 }
         }
 
-        Section(match.matchType == .doubles ? "Team points" : "Points") {
+        TennisSection(match.matchType == .doubles ? "Team points" : "Points") {
             Button("Point to \(teamName(for: .player, match: match))") {
                 score(.player)
             }
@@ -693,7 +693,7 @@ struct LiveMatchView: View {
             .accessibilityIdentifier("opponentWinsPointButton")
         }
 
-        Section("Tie-break") {
+        TennisSection("Tie-break") {
             Button("Start Tie-break") {
                 startTieBreak()
             }
@@ -709,7 +709,7 @@ struct LiveMatchView: View {
             }
         }
 
-        Section("Actions") {
+        TennisSection("Actions") {
             Button("Undo") {
                 announce(scorer.undo(), force: store.data.settings.scoreAnnouncementMode != .off)
                 saveProgress(dismissAfterSave: false, quiet: true)

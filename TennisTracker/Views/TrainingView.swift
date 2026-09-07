@@ -11,12 +11,12 @@ struct TrainingView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Track") {
+                TennisSection("Track") {
                     Button("Track Training Session") { showingNewTraining = true }
                         .accessibilityLabel("Track Training Session")
                         .accessibilityIdentifier("addTrainingButton")
                 }
-                Section("Training history") {
+                TennisSection("Training history") {
                     if store.selectedTraining.isEmpty {
                         EmptyStateView(title: "No training sessions recorded yet", message: "Use Track Training Session to save your first session.")
                     } else {
@@ -87,27 +87,30 @@ struct TrainingDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State var session: TrainingSession
-    @State private var showingEditor = false
-    @State private var reviewingCompletion = false
+    @State private var editingTraining: TrainingSession?
     @State private var confirmDelete = false
     @State private var calendarMessage = ""
 
     var body: some View {
         List {
-            Section("Summary") {
+            TennisSection("Summary") {
                 Text(store.trainingSummary(session, style: .detailed))
-                    .accessibilityAction(named: "Edit Training and Focus") { reviewingCompletion = false; showingEditor = true }
+                    .accessibilityAction(named: "Edit Training and Focus") { editingTraining = session }
                     .accessibilityAction(named: "Delete") { confirmDelete = true }
                     .accessibilityActions {
                         if session.needsDetails && !session.isActive {
-                            Button("Review and Complete Training") { reviewingCompletion = true; showingEditor = true }
+                            Button("Review and Complete Training") {
+                                var draft = session
+                                draft.markDetailsComplete()
+                                editingTraining = draft
+                            }
                         }
                     }
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
 
             if session.hasSessionDetails {
-                Section("Body") {
+                TennisSection("Body") {
                     SummaryRow(title: "Effort", value: session.effortLevel.rawValue)
                     SummaryRow(title: "Confidence", value: session.confidenceLevel.rawValue)
                     SummaryRow(title: "Energy", value: session.energyLevel.rawValue)
@@ -115,11 +118,11 @@ struct TrainingDetailView: View {
                 }
             }
 
-            Section("Notes") {
+            TennisSection("Notes") {
                 Text(session.notes.fallback("No notes recorded."))
             }
 
-            Section("Calendar") {
+            TennisSection("Calendar") {
                 Button("Add to Apple Calendar") {
                     addToCalendar()
                 }
@@ -140,11 +143,11 @@ struct TrainingDetailView: View {
             else { dismiss() }
         }
         .toolbar {
-            Button("Edit") { reviewingCompletion = false; showingEditor = true }
+            Button("Edit") { editingTraining = session }
                 .accessibilityHidden(voiceOver)
         }
-        .sheet(isPresented: $showingEditor) {
-            TrainingEditorView(session: editorDraft)
+        .sheet(item: $editingTraining) { draft in
+            TrainingEditorView(session: draft)
         }
         .confirmationDialog("Delete this training session?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete Training Session", role: .destructive) {
@@ -160,11 +163,6 @@ struct TrainingDetailView: View {
         }
     }
 
-    private var editorDraft: TrainingSession {
-        var draft = session
-        if reviewingCompletion { draft.markDetailsComplete() }
-        return draft
-    }
 }
 
 struct TrainingEditorView: View {
@@ -185,11 +183,11 @@ struct TrainingEditorView: View {
         NavigationStack {
             Form {
                 if !validationMessage.isBlank {
-                    Section("Needs attention") {
+                    TennisSection("Needs attention") {
                         Text(validationMessage)
                     }
                 }
-                Section("Session") {
+                TennisSection("Session") {
                     Picker("Training type", selection: $session.trainingType) {
                         ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -258,7 +256,7 @@ struct TrainingEditorView: View {
 
                 DurationPicker(title: "Duration", minutes: $session.durationMinutes)
 
-                Section("Detail") {
+                TennisSection("Detail") {
                     Toggle("Include body ratings", isOn: $session.hasSessionDetails)
                     if session.hasSessionDetails {
                         OrderedChoicePicker(title: "Effort", selection: $session.effortLevel, values: RatingLevel.allCases) { $0.rawValue }
@@ -269,7 +267,7 @@ struct TrainingEditorView: View {
                     }
                 }
 
-                Section("Notes") {
+                TennisSection("Notes") {
                     TextField("Notes", text: $session.notes, axis: .vertical)
                         .lineLimit(3...6)
                         .accessibilityIdentifier("trainingNotesField")

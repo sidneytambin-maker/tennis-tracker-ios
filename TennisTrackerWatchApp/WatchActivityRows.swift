@@ -98,26 +98,29 @@ struct WatchTrainingRow: View {
     @EnvironmentObject private var store: WatchTennisStore
     let training: TrainingSession
     var identifier = "Training summary"
-    @State private var editing = false
+    @State private var editingTraining: TrainingSession?
     @State private var deleting = false
     @State private var finishing = false
-    @State private var reviewingCompletion = false
 
     var body: some View {
         Group {
             if training.isActive {
                 WatchLiveTrainingCard(training: training, client: store.healthClient,
-                    edit: { reviewingCompletion = false; editing = true }, finish: { finishing = true }, delete: { deleting = true })
+                    edit: { editingTraining = training }, finish: { finishing = true }, delete: { deleting = true })
             } else {
                 WatchActivityCard(title: training.trainingType.rawValue,
                     detail: TennisDurationFormatter.compact(seconds: TennisDurationFormatter.trainingSeconds(training)),
                     summary: store.trainingSummary(training, style: .detailed), symbol: "figure.tennis",
                     fitness: training.workout.map { WatchFitnessMetric.make(heart: $0.averageHeartRate, energy: $0.activeEnergyKcal, distance: $0.distanceMeters, steps: $0.stepCount) } ?? [], identifier: identifier,
-                    editTitle: "Edit Training and Focus", edit: { reviewingCompletion = false; editing = true }, completeTitle: training.needsDetails ? "Review and Complete Training" : nil,
-                    complete: { reviewingCompletion = true; editing = true }, delete: { deleting = true })
+                    editTitle: "Edit Training and Focus", edit: { editingTraining = training }, completeTitle: training.needsDetails ? "Review and Complete Training" : nil,
+                    complete: {
+                        var draft = training
+                        draft.markDetailsComplete()
+                        editingTraining = draft
+                    }, delete: { deleting = true })
             }
         }
-        .sheet(isPresented: $editing) { NavigationStack { WatchTrainingEditor(draft: editorDraft) } }
+        .sheet(item: $editingTraining) { draft in NavigationStack { WatchTrainingEditor(draft: draft) } }
         .modifier(WatchDeleteConfirmation(isPresented: $deleting, deletion: TennisRecordDeletion(id: training.id, kind: .training)))
         .confirmationDialog("Finish training session?", isPresented: $finishing, titleVisibility: .visible) {
             Button("Finish") { store.finishTrainingSession() }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
@@ -125,11 +128,6 @@ struct WatchTrainingRow: View {
         }
     }
 
-    private var editorDraft: TrainingSession {
-        var draft = training
-        if reviewingCompletion { draft.markDetailsComplete() }
-        return draft
-    }
 }
 
 private struct WatchLiveTrainingCard: View {
