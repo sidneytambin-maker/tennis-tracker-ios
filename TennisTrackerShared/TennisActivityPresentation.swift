@@ -1,6 +1,14 @@
 import Foundation
 
 enum TennisDurationFormatter {
+    static func trainingSeconds(_ session: TrainingSession) -> TimeInterval {
+        if let seconds = session.workout?.durationSeconds, seconds.isFinite, seconds >= 0 { return seconds }
+        if let start = session.actualStart, let finish = session.actualFinish {
+            return max(0, finish.timeIntervalSince(start))
+        }
+        return Double(max(0, session.durationMinutes)) * 60
+    }
+
     static func compact(seconds: TimeInterval) -> String {
         let total = seconds.isFinite ? Int(max(0, min(seconds, 315_360_000)).rounded(.down)) : 0
         return total >= 3600 ? String(format: "%d:%02d:%02d", total / 3600, total % 3600 / 60, total % 60)

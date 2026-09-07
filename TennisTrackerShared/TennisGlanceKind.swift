@@ -66,10 +66,7 @@ extension TennisGlance {
             let start = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? Calendar.current.startOfDay(for: now)
             let training = selected.trainingSessions.filter { !$0.isActive && ($0.actualStart ?? $0.date) >= start && ($0.actualFinish ?? $0.expectedEndDate) <= now }
             let matches = selected.matches.filter { $0.status == .completed && ($0.actualFinish ?? $0.date) >= start && ($0.actualFinish ?? $0.date) <= now }
-            let seconds = training.reduce(0.0) { total, session in
-                let elapsed = session.actualStart.flatMap { begin in session.actualFinish.map { $0.timeIntervalSince(begin) } }
-                return total + max(0, session.workout?.durationSeconds ?? elapsed ?? Double(session.durationMinutes * 60))
-            }
+            let seconds = training.reduce(0.0) { $0 + TennisDurationFormatter.trainingSeconds($1) }
             let wins = matches.filter { $0.result == .win }.count
             let duration = TennisDurationFormatter.text(seconds: seconds)
             let summary = "This week. \(training.count) training \(training.count == 1 ? "session" : "sessions"), \(duration). \(matches.count) \(matches.count == 1 ? "match" : "matches"), \(wins) \(wins == 1 ? "win" : "wins")."
@@ -87,7 +84,7 @@ extension TennisGlance {
                 results.append((training.actualFinish ?? training.expectedEndDate, training.id.uuidString,
                     Self(title: training.trainingType.rawValue, detail: TennisDurationFormatter.training(training),
                         accessibilitySummary: TennisSummaryFormatter.training(training, style: .detailed, coaches: selected.setup.coaches, players: selected.players),
-                        destination: .recent, isStale: false, compactDetail: TennisDurationFormatter.compact(seconds: training.workout?.durationSeconds ?? training.actualStart.flatMap { start in training.actualFinish.map { $0.timeIntervalSince(start) } } ?? Double(training.durationMinutes * 60)))))
+                        destination: .recent, isStale: false, compactDetail: TennisDurationFormatter.compact(seconds: TennisDurationFormatter.trainingSeconds(training)))))
             }
             for tournament in selected.tournaments where tournament.isCompleted && (tournament.actualFinish ?? tournament.endDate) <= now {
                 results.append((tournament.actualFinish ?? tournament.endDate, tournament.id.uuidString,

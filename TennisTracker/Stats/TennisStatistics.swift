@@ -7,6 +7,8 @@ struct TennisStatistics: Equatable {
     let winRate: Double
     let trainingCount: Int
     let trainingMinutesLast30Days: Int
+    let trainingSecondsLast30Days: TimeInterval
+    let trainingCountLast30Days: Int
     let tiebreakSetsLast30Days: Int
     let upcomingTournamentCount: Int
     let needsAttention: [String]
@@ -22,7 +24,8 @@ struct TennisStatistics: Equatable {
         let wins = matches.filter { $0.result == .win }.count
         let losses = matches.filter { $0.result == .loss }.count
         let last30Matches = matches.filter { $0.date >= start }
-        let last30Training = training.filter { $0.date >= start }
+        let last30Training = training.filter { $0.date >= start && $0.date <= today && !$0.isActive }
+        let trainingSeconds = last30Training.reduce(0.0) { $0 + TennisDurationFormatter.trainingSeconds($1) }
         let upcoming = tournaments.filter { calendar.startOfDay(for: $0.date) >= calendar.startOfDay(for: today) }
         let linkedCounts = Dictionary(grouping: matches.compactMap(\.tournamentID), by: { $0 }).mapValues(\.count)
 
@@ -49,7 +52,9 @@ struct TennisStatistics: Equatable {
             lossCount: losses,
             winRate: matches.isEmpty ? 0 : Double(wins) / Double(matches.count),
             trainingCount: training.count,
-            trainingMinutesLast30Days: last30Training.reduce(0) { $0 + $1.durationMinutes },
+            trainingMinutesLast30Days: Int(min(trainingSeconds / 60, 5_256_000)),
+            trainingSecondsLast30Days: trainingSeconds,
+            trainingCountLast30Days: last30Training.count,
             tiebreakSetsLast30Days: last30Matches.reduce(0) { $0 + $1.tiebreakSetCount },
             upcomingTournamentCount: upcoming.count,
             needsAttention: attention

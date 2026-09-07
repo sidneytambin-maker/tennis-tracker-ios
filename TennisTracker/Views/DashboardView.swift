@@ -99,7 +99,7 @@ struct DashboardView: View {
                     if let recent = store.selectedTraining.filter({ !$0.isActive && ($0.actualFinish != nil || $0.expectedEndDate < Date()) }).first {
                         NavigationLink(store.trainingSummary(recent)) { TrainingDetailView(session: recent) }
                     }
-                    SummaryRow(title: "Training activity", value: stats.trainingCount == 0 ? "No sessions recorded this month." : "\(stats.trainingCount) sessions saved. \(stats.trainingMinutesLast30Days) minutes in the last 30 days.")
+                    SummaryRow(title: "Training activity", value: stats.trainingCountLast30Days == 0 ? "No training recorded in the last 30 days." : "\(stats.trainingCountLast30Days) \(stats.trainingCountLast30Days == 1 ? "session" : "sessions") recorded. \(TennisDurationFormatter.text(seconds: stats.trainingSecondsLast30Days)) in the last 30 days.")
                         .accessibilityAction(named: "Track Training Session") {
                             showingNewTraining = true
                         }

@@ -260,32 +260,14 @@ private struct WatchLiveView: View {
                 Button("Finish Tournament") { finishingTraining = false; confirmFinish = true }
             }
             if store.activeTraining == nil, let training = store.completedTraining {
-                Text(store.trainingSummary(training, style: .short) + " " + (training.workout?.fitnessSummary ?? ""))
-                    .accessibilityIdentifier("Completed training summary")
-                    .accessibilityFocused($completedSummaryFocused)
-                    .accessibilityActions {
-                        Button("Edit Training") { editingTraining = training }
-                        if training.needsDetails { Button("Mark Complete") { store.markTrainingComplete(training.id) } }
-                    }
-                Button("Edit Training") { editingTraining = training }
-                NavigationLink("View Details") { Text(store.trainingSummary(training, style: .detailed)).padding() }
-                if store.isFinishingWorkout { ProgressView("Saving workout") }
-                else if !store.workoutMessage.isBlank { Text(store.workoutMessage) }
-                if training.trainingType == .matchPlay {
-                    NavigationLink("Record Practice Result") { WatchPracticeResultView() }
-                }
-                if training.needsDetails {
-                    Button("Mark Complete") {
-                        store.markTrainingComplete(training.id)
-                    }
-                }
+                completedTrainingContent(training)
             } else if store.activeTraining == nil && store.activeTournamentID == nil {
                 Text("No tennis activity in progress.")
             }
         }
         .navigationTitle("Live")
-        .sheet(item: $editingTraining) { NavigationStack { WatchTrainingEditor(draft: $0) } }
-        .sheet(item: $editingTournament) { NavigationStack { WatchTournamentEditor(draft: $0) } }
+        .sheet(item: $editingTraining) { training in NavigationStack { WatchTrainingEditor(draft: training) } }
+        .sheet(item: $editingTournament) { tournament in NavigationStack { WatchTournamentEditor(draft: tournament) } }
         .onChange(of: store.completedTraining?.id) { _, id in completedSummaryFocused = id != nil }
         .confirmationDialog(finishingTraining ? "Finish training session?" : "Finish tournament?", isPresented: $confirmFinish, titleVisibility: .visible) {
             Button("Finish") {
@@ -293,6 +275,27 @@ private struct WatchLiveView: View {
                 else { store.finishTournament() }
             }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private func completedTrainingContent(_ training: TrainingSession) -> some View {
+        Text(store.trainingSummary(training, style: .short) + " " + (training.workout?.fitnessSummary ?? ""))
+            .accessibilityIdentifier("Completed training summary")
+            .accessibilityFocused($completedSummaryFocused)
+            .accessibilityActions {
+                Button("Edit Training") { editingTraining = training }
+                if training.needsDetails { Button("Mark Complete") { store.markTrainingComplete(training.id) } }
+            }
+        Button("Edit Training") { editingTraining = training }
+        NavigationLink("View Details") { Text(store.trainingSummary(training, style: .detailed)).padding() }
+        if store.isFinishingWorkout { ProgressView("Saving workout") }
+        else if !store.workoutMessage.isBlank { Text(store.workoutMessage) }
+        if training.trainingType == .matchPlay {
+            NavigationLink("Record Practice Result") { WatchPracticeResultView() }
+        }
+        if training.needsDetails {
+            Button("Mark Complete") { store.markTrainingComplete(training.id) }
         }
     }
 }
@@ -418,7 +421,7 @@ private struct WatchScoreView: View {
             }
         }
         .navigationTitle("Score")
-        .sheet(item: $editingMatch) { NavigationStack { WatchMatchEditor(draft: $0) } }
+        .sheet(item: $editingMatch) { match in NavigationStack { WatchMatchEditor(draft: match) } }
         .confirmationDialog("Finish match with the recorded score?", isPresented: $confirmFinish, titleVisibility: .visible) {
             Button("Finish Match") { store.finishMatch() }
             Button("Cancel", role: .cancel) {}

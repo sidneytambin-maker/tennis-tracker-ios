@@ -29,6 +29,36 @@ final class TennisWatchActivityPolishTests: XCTestCase {
         XCTAssertEqual(TennisDurationFormatter.training(training), "1 hour 5 minutes")
     }
 
+    func testDashboardSumsActualSecondsAndExcludesFutureAndRunningTraining() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var training = TrainingSession(playerID: UUID())
+        training.date = now.addingTimeInterval(-3600)
+        training.actualStart = training.date
+        training.actualFinish = training.date.addingTimeInterval(159)
+        training.durationMinutes = 3
+        training.workout = TennisWorkoutResult(durationSeconds: 159)
+        var second = training; second.id = UUID()
+        var future = TrainingSession(playerID: training.playerID)
+        future.date = now.addingTimeInterval(3600)
+        var running = training; running.id = UUID(); running.actualFinish = nil
+        let stats = TennisStatistics.build(matches: [], training: [training, second, future, running], tournaments: [], today: now)
+        XCTAssertEqual(stats.trainingCountLast30Days, 2)
+        XCTAssertEqual(stats.trainingSecondsLast30Days, 318)
+        XCTAssertEqual(stats.trainingMinutesLast30Days, 5)
+        XCTAssertEqual(TennisDurationFormatter.text(seconds: stats.trainingSecondsLast30Days), "5 minutes 18 seconds")
+    }
+
+    func testInvalidWorkoutDurationFallsBackToActualTimingForTotals() {
+        var training = TrainingSession(playerID: UUID())
+        training.actualStart = Date(timeIntervalSince1970: 1000)
+        training.actualFinish = Date(timeIntervalSince1970: 1159)
+        training.workout = TennisWorkoutResult(durationSeconds: .nan)
+        XCTAssertEqual(TennisDurationFormatter.trainingSeconds(training), 159)
+        training.actualStart = nil; training.actualFinish = nil
+        training.durationMinutes = 65
+        XCTAssertEqual(TennisDurationFormatter.trainingSeconds(training), 3900)
+    }
+
     func testFitnessSummaryContainsOnlyAvailableActualMetrics() {
         let result = TennisWorkoutResult(durationSeconds: 159, averageHeartRate: 72, activeEnergyKcal: 4,
             peakHeartRate: 90, distanceMeters: 123, stepCount: 201)
