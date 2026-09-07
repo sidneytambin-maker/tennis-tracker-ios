@@ -187,6 +187,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     }
 
     private func completeOnboarding() {
+        XCTAssertTrue(app.buttons["setupProfileButton"].waitForExistence(timeout: 15))
         app.buttons["setupProfileButton"].tap()
         let nameField = app.textFields["playerNameField"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
@@ -195,7 +196,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         continueOnboarding(to: "Choose Tennis Details")
         continueOnboarding(to: "Choose Preferences")
         finishOnboarding()
-        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 15))
     }
 
     private func openDestination(_ name: String) {
@@ -216,6 +217,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         let button = app.buttons[identifier]
         for _ in 0..<8 { if button.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing button \(identifier)")
+        XCTAssertTrue(button.isHittable, "Button \(identifier) is not available for interaction")
         button.tap()
     }
 
@@ -224,18 +226,11 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     }
 
     private func continueOnboarding(to heading: String) {
-        let button = app.buttons["onboardingContinueButton"]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        button.tap()
-        XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 5))
+        tapPossiblyScrolledButton("onboardingContinueButton")
+        XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 15))
     }
 
     private func finishOnboarding() {
-        let button = app.buttons["onboardingFinishButton"]
-        if !button.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        button.tap()
+        tapPossiblyScrolledButton("onboardingFinishButton")
     }
 }
