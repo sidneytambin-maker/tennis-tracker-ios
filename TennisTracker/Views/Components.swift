@@ -54,8 +54,7 @@ struct ThemedListBackground: ViewModifier {
         content
             .scrollContentBackground(.hidden)
             .background(store.data.settings.theme.palette.background)
-            .toolbarBackground(store.data.settings.theme.palette.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             .listRowSeparatorTint(store.data.settings.theme == .tennis ? TennisSportStyle.court.opacity(0.18) : .secondary)
     }
 }

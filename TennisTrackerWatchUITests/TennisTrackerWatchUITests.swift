@@ -107,6 +107,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let score = app.buttons["Current match score"]
         XCTAssertTrue(score.waitForExistence(timeout: 10))
         XCTAssertTrue((score.value as? String)?.contains("Alex against Sam") == true)
+        capture(app, name: "Watch live score ready")
         for name in ["Alex", "Sam"] {
             reveal(app.buttons["Record Point for \(name)"], in: app)
             XCTAssertTrue(app.buttons["Record Point for \(name)"].isHittable)

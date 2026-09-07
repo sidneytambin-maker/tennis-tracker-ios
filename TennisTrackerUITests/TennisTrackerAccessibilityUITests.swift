@@ -86,6 +86,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         completeOnboarding()
         for destination in ["Dashboard", "Training", "Matches", "Tournaments"] {
             openDestination(destination)
+            XCTAssertTrue(app.navigationBars[destination].waitForExistence(timeout: 5))
             let attachment = XCTAttachment(screenshot: app.screenshot())
             attachment.name = "iPhone \(destination) tennis theme"
             attachment.lifetime = .keepAlways

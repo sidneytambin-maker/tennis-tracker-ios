@@ -363,18 +363,10 @@ private struct WatchScoreView: View {
                     .accessibilityAction(named: "Finish Match") { confirmFinish = true }
                     .accessibilityAction(named: "Delete") { deletingMatch = true }
                     .accessibilityAction { store.announce(scoreText) }
-                Button("Record Point for \(match.playerTeam)") {
-                    store.recordPoint(.player); pointFocus = .player
-                }
-                .buttonStyle(.borderedProminent)
-                .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
-                .accessibilityFocused($pointFocus, equals: .player)
-                Button("Record Point for \(match.opponentSummary.fallback("Opponent"))") {
-                    store.recordPoint(.opponent); pointFocus = .opponent
-                }
-                .buttonStyle(.borderedProminent)
-                .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
-                .accessibilityFocused($pointFocus, equals: .opponent)
+                HStack(spacing: 8) {
+                    pointButton(name: match.playerTeam, winner: .player)
+                    pointButton(name: match.opponentSummary.fallback("Opponent"), winner: .opponent)
+                }.accessibilityElement(children: .contain)
                 if hideScoreActions {
                     scoreActions(for: match).accessibilityRepresentation { EmptyView() }
                 } else {
@@ -402,6 +394,21 @@ private struct WatchScoreView: View {
     }
 
     private var hideScoreActions: Bool { voiceOver || WatchAccessibilityNavigation.testingEnabled }
+
+    private func pointButton(name: String, winner: PointWinner) -> some View {
+        Button {
+            store.recordPoint(winner); pointFocus = winner
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "plus")
+                Text(name).font(.caption).fixedSize(horizontal: false, vertical: true)
+            }.frame(maxWidth: .infinity, minHeight: 52)
+        }
+        .buttonStyle(.borderedProminent)
+        .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
+        .accessibilityLabel("Record Point for \(name)")
+        .accessibilityFocused($pointFocus, equals: winner)
+    }
 
     private func scoreActions(for match: MatchRecord) -> some View {
         VStack(spacing: 8) {
