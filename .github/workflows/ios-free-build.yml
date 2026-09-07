@@ -83,6 +83,15 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee WatchDiagnostics/test.log
 
+      - name: Preserve Watch test log before iPhone tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-tracker-watch-test-log
+          path: WatchDiagnostics
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Generate iOS test project
         id: iphone_project
         if: ${{ !cancelled() }}

@@ -150,7 +150,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {
             // A partially visible Watch control may be hittable beneath the page indicator.
-            let lowerEdge = app.buttons["Pages"].exists ? app.buttons["Pages"].frame.minY - 10 : app.frame.maxY - 32
+            let lowerEdge = app.frame.maxY - 32
             if element.exists && element.isHittable && element.frame.midY < lowerEdge { return }
             scrollUp(in: app)
         }
@@ -159,7 +159,10 @@ final class TennisTrackerWatchUITests: XCTestCase {
 
     private func scrollUp(in app: XCUIApplication) {
         if app.buttons["Pages"].exists {
-            app.collectionViews.firstMatch.swipeUp()
+            let list = app.collectionViews.firstMatch
+            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            start.press(forDuration: 0.05, thenDragTo: end)
         } else {
             app.swipeUp()
         }

@@ -41,7 +41,8 @@ final class TennisPolishTests: XCTestCase {
         training.context.participantIDs = players.map(\.id)
         training.venue = "Morley Tennis Centre"
         let full = TennisSummaryFormatter.training(training, coaches: coaches, players: players)
-        XCTAssertTrue(full.contains("Group coaching with Chris and Sarah"))
+        XCTAssertTrue(full.contains("Group coaching"))
+        XCTAssertTrue(full.contains("Coaches: Chris and Sarah"))
         XCTAssertTrue(full.contains("Ben, Jaggy and Lucy"))
         XCTAssertTrue(full.contains("2 hours"))
         XCTAssertTrue(full.contains("Morley Tennis Centre"))

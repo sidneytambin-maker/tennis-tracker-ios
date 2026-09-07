@@ -8,10 +8,11 @@ struct WatchRootView: View {
     var body: some View {
         Group {
             if voiceOver || WatchAccessibilityNavigation.testingEnabled {
-                VStack(spacing: 0) {
-                    NavigationStack { selectedPage }.id(store.page)
-                    WatchPageSelector()
-                }
+                NavigationStack {
+                    selectedPage.toolbar {
+                        ToolbarItem(placement: .topBarLeading) { WatchPageSelector() }
+                    }
+                }.id(store.page)
             } else {
                 TabView(selection: $store.page) {
                     NavigationStack { WatchTodayView() }.tag(TennisWatchPage.today)
@@ -374,20 +375,10 @@ private struct WatchScoreView: View {
                 .buttonStyle(.borderedProminent)
                 .foregroundStyle(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ink : .white)
                 .accessibilityFocused($pointFocus, equals: .opponent)
-                Group {
-                    Button("Undo Last Point") { store.undoLastPoint() }
-                        .accessibilityHidden(hideScoreActions)
-                    Button("Edit Match") { editingMatch = match }
-                        .accessibilityHidden(hideScoreActions)
-                    Button("Save Match Progress") { store.saveMatchProgress() }
-                        .accessibilityHidden(hideScoreActions)
-                    Button("Start Tie-break") { store.startTieBreak() }
-                        .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
-                        .accessibilityHidden(hideScoreActions)
-                    Button("Finish Match") { confirmFinish = true }
-                        .accessibilityHidden(hideScoreActions)
-                    Button("Delete", role: .destructive) { deletingMatch = true }
-                        .accessibilityHidden(hideScoreActions)
+                if hideScoreActions {
+                    scoreActions(for: match).accessibilityRepresentation { EmptyView() }
+                } else {
+                    scoreActions(for: match)
                 }
             } else {
                 Text("No match in progress.")
@@ -411,6 +402,18 @@ private struct WatchScoreView: View {
     }
 
     private var hideScoreActions: Bool { voiceOver || WatchAccessibilityNavigation.testingEnabled }
+
+    private func scoreActions(for match: MatchRecord) -> some View {
+        VStack(spacing: 8) {
+            Button("Undo Last Point") { store.undoLastPoint() }
+            Button("Edit Match") { editingMatch = match }
+            Button("Save Match Progress") { store.saveMatchProgress() }
+            Button("Start Tie-break") { store.startTieBreak() }
+                .disabled(store.scoreState.isTiebreak || store.scoreState.isMatchComplete)
+            Button("Finish Match") { confirmFinish = true }
+            Button("Delete", role: .destructive) { deletingMatch = true }
+        }.buttonStyle(.bordered)
+    }
 
     private var scoreText: String {
         guard let match = store.activeMatch else { return "No match in progress." }

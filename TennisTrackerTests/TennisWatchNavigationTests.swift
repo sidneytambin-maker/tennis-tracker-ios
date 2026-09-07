@@ -118,6 +118,10 @@ final class TennisWatchNavigationTests: XCTestCase {
         snapshot.deletedRecordIDs.insert(deleted.id)
         snapshot.trainingSessions = [eligible, untimed, started, finished, other, deleted]
         XCTAssertEqual(TennisScheduling.nearbyTraining(in: snapshot, now: now).map(\.id), [eligible.id])
+        let running = TennisGlance.make(kind: .startTraining, snapshot: snapshot, now: now)
+        XCTAssertEqual(running.url.lastPathComponent, "live")
+        XCTAssertTrue(running.accessibilitySummary.hasPrefix("Training in progress."))
+        snapshot.trainingSessions.removeAll { $0.id == started.id }
         let glance = TennisGlance.make(kind: .startTraining, snapshot: snapshot, now: now)
         XCTAssertEqual(glance.url.lastPathComponent, "start-training")
         XCTAssertEqual(TennisWatchPage.destination(for: glance.url), .track)

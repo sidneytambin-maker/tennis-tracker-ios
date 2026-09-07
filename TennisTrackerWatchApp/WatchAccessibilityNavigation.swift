@@ -15,9 +15,9 @@ struct WatchPageSelector: View {
     @State private var showingPages = false
     var body: some View {
         Button { showingPages = true } label: {
-            Label("Pages", systemImage: "square.grid.2x2").font(.caption).frame(maxWidth: .infinity, minHeight: 44)
+            Image(systemName: "square.grid.2x2")
         }
-        .buttonStyle(.plain)
+        .accessibilityLabel("Pages")
         .sheet(isPresented: $showingPages) {
             NavigationStack {
                 List {

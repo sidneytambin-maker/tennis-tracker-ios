@@ -107,7 +107,8 @@ struct WatchTrainingRow: View {
                 WatchLiveTrainingCard(training: training, client: store.healthClient,
                     edit: { editing = true }, finish: { finishing = true }, delete: { deleting = true })
             } else {
-                WatchActivityCard(title: training.trainingType.rawValue, detail: TennisDurationFormatter.training(training),
+                WatchActivityCard(title: training.trainingType.rawValue,
+                    detail: TennisDurationFormatter.compact(seconds: TennisDurationFormatter.trainingSeconds(training)),
                     summary: store.trainingSummary(training, style: .detailed), symbol: "figure.tennis",
                     fitness: training.workout.map { WatchFitnessMetric.make(heart: $0.averageHeartRate, energy: $0.activeEnergyKcal, distance: $0.distanceMeters, steps: $0.stepCount) } ?? [], identifier: identifier,
                     edit: { editing = true }, completeTitle: training.needsDetails ? "Mark Complete" : nil,
@@ -134,7 +135,7 @@ private struct WatchLiveTrainingCard: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { time in
             WatchActivityCard(title: training.trainingType.rawValue,
-                detail: TennisDurationFormatter.training(training, now: time.date),
+                detail: TennisDurationFormatter.compact(seconds: time.date.timeIntervalSince(training.actualStart ?? training.date)),
                 summary: store.trainingSummary(training, style: .short, now: time.date) + " " +
                     TennisWorkoutResult.fitnessSummary(heartRate: client.latestHeartRate, energy: client.activeEnergy,
                         distance: client.distanceMeters, steps: client.stepCount) + " " + client.statusMessage,
