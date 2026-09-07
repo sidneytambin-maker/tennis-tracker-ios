@@ -45,11 +45,15 @@ struct TennisVenuePicker: View {
                 }
             }.navigationTitle("Venue")
         } label: {
-            LabeledContent("Venue", value: isOther ? "Other" : saved?.summary ?? "No venue")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Venue")
+                Text(isOther ? "Other" : saved?.summary ?? "No venue").font(.callout).fixedSize(horizontal: false, vertical: true)
+            }
         }
         .accessibilityLabel("Venue")
         .accessibilityValue(isOther ? "Other" : saved?.summary ?? "No venue")
         .accessibilityIdentifier("activityVenuePicker")
+        .onChange(of: venueID) { _, id in if id != nil { otherSelected = false } }
         if isOther {
             TextField("Other venue name", text: $venue).accessibilityIdentifier("otherVenueName")
             TextField("Town or city", text: $location)
@@ -84,7 +88,12 @@ struct TennisTournamentPicker: View {
                     tournamentID = nil; customName = customName ?? ""; showingChoices = false
                 }
             }.navigationTitle("Tournament")
-        } label: { LabeledContent("Tournament", value: value) }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Tournament")
+                Text(value).font(.callout).fixedSize(horizontal: false, vertical: true)
+            }
+        }
         .accessibilityLabel("Tournament")
         .accessibilityValue(value)
         .accessibilityIdentifier("activityTournamentPicker")
