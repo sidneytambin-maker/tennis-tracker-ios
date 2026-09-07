@@ -362,7 +362,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var location = ""
     var venue = ""
     var surface: CourtSurface = .notSpecified
-    var focus = "Singles practice"
+    var focus = ""
     var effortLevel: RatingLevel = .medium
     var confidenceLevel: RatingLevel = .medium
     var sessionOutcome = ""
@@ -411,7 +411,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
         surface = try container.decodeIfPresent(CourtSurface.self, forKey: .surface) ?? .notSpecified
-        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? "Singles practice"
+        focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? ""
         effortLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .effortLevel) ?? .medium
         confidenceLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .confidenceLevel) ?? .medium
         sessionOutcome = try container.decodeIfPresent(String.self, forKey: .sessionOutcome) ?? ""

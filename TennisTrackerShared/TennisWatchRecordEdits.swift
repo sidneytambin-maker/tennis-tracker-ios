@@ -4,6 +4,7 @@ enum TennisWatchRecordEdits {
     static func training(_ draft: TrainingSession, current: TrainingSession, now: Date = Date()) -> TrainingSession {
         var updated = current
         updated.trainingType = draft.trainingType
+        updated.focus = draft.focus
         updated.context = draft.context
         updated.venue = draft.venue
         updated.location = draft.location

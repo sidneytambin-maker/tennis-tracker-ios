@@ -29,6 +29,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let app = launch(page: "Track")
         app.buttons["Track Training Session"].tap()
         XCTAssertFalse(app.buttons["Cancel"].exists)
+        reveal(app.buttons["Coaches"], in: app)
         app.buttons["Coaches"].tap()
         for name in ["Chris", "Sarah"] {
             let toggle = app.buttons[name]
@@ -48,21 +49,39 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(summary.label.contains("72 beats per minute"))
         XCTAssertTrue(summary.label.contains("201 steps"))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Average heart rate")).count, 1)
-        reveal(app.buttons["Edit"], in: app)
-        app.buttons["Edit"].tap()
+        reveal(app.buttons["Edit Training and Focus"], in: app)
+        app.buttons["Edit Training and Focus"].tap()
         XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
         app.buttons["Cancel"].tap()
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue(summary.label.contains("2 minutes 39 seconds"))
     }
 
+    func testNewWatchTrainingAsksForFocusAndKeepsTheSelection() {
+        let app = launch(page: "Track", accessibleNavigation: true)
+        app.buttons["Track Training Session"].tap()
+        let focus = app.buttons["trainingFocusPicker"]
+        reveal(focus, in: app)
+        XCTAssertEqual(focus.value as? String, "No focus selected")
+        focus.tap()
+        app.buttons["trainingFocusOption.Returns"].tap()
+        XCTAssertEqual(focus.value as? String, "Returns")
+        capture(app, name: "Watch explicit training focus")
+    }
+
     func testCompletedWorkoutCanBeMarkedCompleteOnWatch() {
         let app = launch(page: "Live", completedTraining: true)
-        let complete = app.buttons["Mark Complete"]
+        let complete = app.buttons["Review and Complete Training"]
         reveal(complete, in: app)
         complete.tap()
+        XCTAssertTrue(app.buttons["trainingFocusPicker"].waitForExistence(timeout: 5))
+        app.buttons["trainingFocusPicker"].tap()
+        app.buttons["trainingFocusOption.Serves"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
+        app.buttons["Save"].tap()
         XCTAssertTrue(complete.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Completed training summary"].label.contains("72 beats per minute"))
+        XCTAssertTrue(app.buttons["Completed training summary"].label.contains("Focus: Serves"))
     }
 
     func testWatchDeleteCancelKeepsTrainingAndConfirmationRemovesIt() {
@@ -83,7 +102,8 @@ final class TennisTrackerWatchUITests: XCTestCase {
     func testAccessibleNavigationHasOnePageAndNoDuplicateActionButtons() {
         let app = launch(page: "Live", completedTraining: true, accessibleNavigation: true)
         XCTAssertTrue(app.buttons["Completed training summary"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["Edit"].exists)
+        XCTAssertFalse(app.buttons["Edit Training and Focus"].exists)
+        XCTAssertFalse(app.buttons["Review and Complete Training"].exists)
         XCTAssertFalse(app.buttons["Delete"].exists)
         XCTAssertFalse(app.buttons["View Details"].exists)
         XCTAssertFalse(app.buttons["Track Training Session"].exists)

@@ -115,6 +115,7 @@ struct WatchTrainingSetupView: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State private var type: TrainingType = .singlesPractice
+    @State private var focus = ""
     @State private var context = TennisActivityContext()
     @State private var otherPlayers = false
     @State private var otherCoaches = false
@@ -125,6 +126,7 @@ struct WatchTrainingSetupView: View {
             Picker("Training type", selection: $type) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
+            TennisTrainingFocusPicker(focus: $focus)
             NavigationLink("Coaches") {
                 List {
                     ForEach(store.snapshot.setup.coaches) { coach in
@@ -163,7 +165,7 @@ struct WatchTrainingSetupView: View {
                 context.coachesNeedDetails = otherCoaches
                 context.participantsNeedDetails = otherPlayers
                 let venue = store.snapshot.setup.venues.first { $0.id == context.venueID }
-                store.trackTrainingSession(type: type, context: context, venue: venue?.name ?? "", location: venue?.town ?? "", useHealth: useHealth)
+                store.trackTrainingSession(type: type, focus: focus, context: context, venue: venue?.name ?? "", location: venue?.town ?? "", useHealth: useHealth)
                 dismiss()
             }
             .disabled(store.selectedPlayer == nil || store.activeTraining != nil || store.isFinishingWorkout)

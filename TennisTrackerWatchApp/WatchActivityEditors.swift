@@ -10,6 +10,7 @@ struct WatchTrainingEditor: View {
             Picker("Training type", selection: $draft.trainingType) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
+            TennisTrainingFocusPicker(focus: $draft.focus)
             NavigationLink("Coaches") {
                 List {
                     ForEach(store.snapshot.setup.coaches) { coach in

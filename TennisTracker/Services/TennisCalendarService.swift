@@ -9,6 +9,19 @@ struct CalendarEventDraft: Equatable {
     var location: String
     var deepLink: URL
     var isAllDay = false
+
+    func confirmation(saved: Bool) -> String {
+        guard saved else { return "Not added to your calendar. Calendar access was not granted or the event could not be saved." }
+        let activity: String
+        switch deepLink.host {
+        case "training": activity = "training session"
+        case "tournament": activity = "tournament"
+        default: activity = "match"
+        }
+        let when = startDate.fullTennisDate + (isAllDay ? "" : " at \(startDate.shortTennisTime)")
+        let whereText = location.isBlank ? "" : " at \(location)"
+        return "Your \(activity) for \(when)\(whereText) has been successfully added to your calendar."
+    }
 }
 
 enum TennisCalendarMapper {
@@ -19,7 +32,8 @@ enum TennisCalendarMapper {
             startDate: match.date,
             endDate: match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 60) * 60)),
             location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),
-            deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
+            deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!,
+            isAllDay: !match.hasStartTime
         )
     }
 
@@ -29,8 +43,9 @@ enum TennisCalendarMapper {
             notes: "\(TennisSummaryFormatter.training(session, style: .detailed, coaches: coaches, players: players)) \(session.notes)",
             startDate: session.date,
             endDate: session.expectedEndDate,
-            location: session.placeText,
-            deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
+            location: [session.venue, session.location].filter { !$0.isBlank }.joined(separator: ", "),
+            deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!,
+            isAllDay: !session.hasStartTime
         )
     }
 
@@ -49,6 +64,7 @@ enum TennisCalendarMapper {
     }
 }
 
+@MainActor
 final class TennisCalendarService {
     static let shared = TennisCalendarService()
 
@@ -92,5 +108,15 @@ final class TennisCalendarService {
         } catch {
             return false
         }
+    }
+}
+
+extension TennisStore {
+    @discardableResult
+    func addToCalendar(_ draft: CalendarEventDraft,
+                       save: (CalendarEventDraft) async -> Bool = { await TennisCalendarService.shared.save($0) }) async -> String {
+        let message = draft.confirmation(saved: await save(draft))
+        announce(message)
+        return message
     }
 }

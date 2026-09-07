@@ -1,9 +1,15 @@
 import Foundation
+import UIKit
 
 @MainActor
 final class TennisStore: ObservableObject {
     @Published private(set) var data = AppData()
     @Published var lastAnnouncement = "Tennis Tracker ready."
+    var announcementDelivery: (String) -> Void = { message in
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        let speech = NSAttributedString(string: message, attributes: [.accessibilitySpeechQueueAnnouncement: true])
+        UIAccessibility.post(notification: .announcement, argument: speech)
+    }
 
     private let storeURL: URL
 
@@ -274,6 +280,7 @@ final class TennisStore: ObservableObject {
 
     func announce(_ message: String) {
         lastAnnouncement = message
+        announcementDelivery(message)
     }
 
     private func upsert<T: Identifiable & Equatable>(_ item: T, in keyPath: WritableKeyPath<AppData, [T]>) where T.ID == UUID {

@@ -16,6 +16,10 @@ struct DashboardView: View {
         TennisStatistics.build(matches: store.selectedMatches, training: store.selectedTraining, tournaments: store.selectedTournaments)
     }
 
+    private var progress: TennisPlayerProgress {
+        TennisPlayerProgress.build(player: store.selectedPlayer, matches: store.selectedMatches, training: store.selectedTraining)
+    }
+
     private var nextTournament: TournamentRecord? {
         store.selectedTournaments
             .filter { !$0.isCompleted }
@@ -39,6 +43,11 @@ struct DashboardView: View {
                     } else {
                         SummaryRow(title: "Welcome, \(store.selectedPlayer?.displayName ?? "player")", value: stats.spokenSummary)
                     }
+                }
+
+                Section("Match results, all time") {
+                    TennisResultDashboardRow(title: "Singles matches", totals: progress.singles, symbol: "person.fill")
+                    TennisResultDashboardRow(title: "Doubles matches", totals: progress.doubles, symbol: "person.2.fill")
                 }
 
                 Section("Current activity") {
@@ -106,6 +115,41 @@ struct DashboardView: View {
                         }
                 }
 
+                Section("Training focus, last 30 days") {
+                    if progress.focus.isEmpty { Text("No completed training recorded in the last 30 days.") }
+                    ForEach(progress.focus) { item in
+                        TennisFocusDashboardRow(item: item, maximum: progress.focus.map(\.sessions).max() ?? 1)
+                    }
+                    Button("Plan Training Focus") { showingNewTraining = true }
+                    if let session = store.selectedTraining.first(where: { $0.focus.isBlank }) {
+                        Button { trainingToEdit = session } label: {
+                            Label("Choose Focus for \(session.date.fullTennisDate)", systemImage: "scope")
+                        }
+                    }
+                }
+
+                Section("Training types, last 30 days") {
+                    if progress.trainingTypes.isEmpty { Text("No completed training recorded in the last 30 days.") }
+                    ForEach(progress.trainingTypes) { item in
+                        SummaryRow(title: item.focus, value: item.summary)
+                    }
+                }
+
+                Section("Training practice results, all time") {
+                    TennisResultDashboardRow(title: "Singles practice matches", totals: progress.singlesPractice, symbol: "figure.tennis")
+                    TennisResultDashboardRow(title: "Doubles practice matches", totals: progress.doublesPractice, symbol: "person.2.fill")
+                }
+
+                Section("What to work on") {
+                    if progress.suggestions.isEmpty {
+                        Text("No personal goals or match-review priorities recorded.")
+                    }
+                    ForEach(progress.suggestions) { suggestion in
+                        SummaryRow(title: suggestion.source, value: suggestion.detail)
+                    }
+                    Button("Plan Next Training Session") { showingNewTraining = true }
+                }
+
                 if store.data.settings.showUpcomingTournaments {
                     Section("Upcoming tournaments") {
                         if let nextTournament {
@@ -138,10 +182,9 @@ struct DashboardView: View {
                         Text("\(needsDetailsCount) activities need details.")
                         if let training = store.selectedTraining.first(where: \.needsDetails) {
                             Button("Complete Training Details") {
-                                trainingToEdit = training
-                            }
-                            Button("Mark Complete") {
-                                store.completeTrainingDetails(training.id)
+                                var draft = training
+                                draft.markDetailsComplete()
+                                trainingToEdit = draft
                             }
                         }
                         if let match = store.selectedMatches.first(where: \.needsDetails) {
@@ -155,12 +198,6 @@ struct DashboardView: View {
                     }
                 }
 
-                Section("Next focus") {
-                    Text(nextFocus)
-                }
-                Section("Match record") {
-                    Text(stats.matchCount == 0 ? "No matches recorded yet." : "\(stats.winCount) wins, \(stats.lossCount) losses, \(Int((stats.winRate * 100).rounded())) percent win rate.")
-                }
             }
             .tennisThemedList()
             .navigationTitle("Dashboard")
@@ -199,31 +236,19 @@ struct DashboardView: View {
         }
     }
 
-    private var nextFocus: String {
-        if let match = store.selectedMatches.first, !match.nextPracticeFocus.isBlank {
-            return match.nextPracticeFocus
-        }
-        if let training = store.selectedTraining.first, !training.focus.isBlank {
-            return "Build from recent training focus: \(training.focus)."
-        }
-        return "Add a match, training session, or tournament when you are ready."
-    }
-
     private func matchLine(_ match: MatchRecord) -> String {
         TennisSummaryFormatter.match(match, tournaments: store.selectedTournaments, style: .long)
     }
 
     private func addMatchToCalendar(_ match: MatchRecord) {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: match))
-            store.announce(success ? "Added match to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
+            await store.addToCalendar(TennisCalendarMapper.event(for: match))
         }
     }
 
     private func addTournamentToCalendar(_ tournament: TournamentRecord) {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: tournament))
-            store.announce(success ? "Added tournament to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
+            await store.addToCalendar(TennisCalendarMapper.event(for: tournament))
         }
     }
 }

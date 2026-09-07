@@ -121,7 +121,6 @@ enum TennisWatchActivityFactory {
         session.trainingType = type
         session.hasSessionDetails = false
         session.needsDetails = true
-        session.focus = type.rawValue
         return TennisRecordConflictResolver.prepareLocalTraining(session, now: startDate)
     }
 

@@ -59,7 +59,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         completeOnboarding()
         openDestination("Dashboard")
         XCTAssertTrue(app.staticTexts["Welcome, Sidney"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["Welcome, Sidney"].value as? String, "0 matches, 0 wins, 0 losses, 0 percent win rate. 0 training sessions saved.")
+        XCTAssertEqual(app.staticTexts["Welcome, Sidney"].value as? String, "0 completed matches, 0 wins, 0 losses, 0 draws, 0 percent win rate. 0 training sessions saved.")
         XCTAssertFalse(app.staticTexts["Player One"].exists)
         XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
     }
@@ -92,6 +92,39 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
             attachment.lifetime = .keepAlways
             add(attachment)
         }
+    }
+
+    func testTrainingFocusCanBeChosenChangedAndCancelledIndependentlyOfType() {
+        completeOnboarding()
+        openDestination("Training")
+        app.buttons["addTrainingButton"].tap()
+        app.buttons["trainingTypePicker"].tap()
+        app.buttons["Doubles practice"].tap()
+        let focus = app.buttons["trainingFocusPicker"]
+        XCTAssertTrue(focus.waitForExistence(timeout: 5))
+        XCTAssertEqual(focus.value as? String, "No focus selected")
+        focus.tap()
+        app.buttons["trainingFocusOption.Serve and return"].tap()
+        XCTAssertEqual(focus.value as? String, "Serve and return")
+        app.buttons["saveTrainingButton"].tap()
+        let training = app.buttons.matching(NSPredicate(format: "value CONTAINS %@", "Focus: Serve and return")).firstMatch
+        XCTAssertTrue(training.waitForExistence(timeout: 5))
+        training.tap()
+        app.navigationBars.buttons["Edit"].tap()
+        app.buttons["trainingFocusPicker"].tap()
+        app.buttons["trainingFocusOption.Serves"].tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(textContaining("Focus: Serve and return").waitForExistence(timeout: 5))
+        app.navigationBars.buttons["Edit"].tap()
+        app.buttons["trainingFocusPicker"].tap()
+        app.buttons["trainingFocusOption.Returns"].tap()
+        app.buttons["saveTrainingButton"].tap()
+        XCTAssertTrue(textContaining("Focus: Returns").waitForExistence(timeout: 5))
+        XCTAssertTrue(textContaining("Doubles practice").exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "iPhone training with explicit focus"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testTennisSetupAddsCoachAndRegularPartner() throws {

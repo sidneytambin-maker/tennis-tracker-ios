@@ -6,6 +6,7 @@ final class TennisStatisticsTests: XCTestCase {
         let playerID = UUID()
         let now = Date()
         var win = MatchRecord(playerID: playerID)
+        win.date = now.addingTimeInterval(-3600)
         win.result = .win
         win.yourSetsWon = 2
         win.opponentSetsWon = 0
@@ -17,10 +18,10 @@ final class TennisStatisticsTests: XCTestCase {
         loss.opponentSetsWon = 2
         let matches = [win, loss]
         var firstTraining = TrainingSession(playerID: playerID)
-        firstTraining.date = now
+        firstTraining.date = now.addingTimeInterval(-7200)
         firstTraining.durationMinutes = 75
         var secondTraining = TrainingSession(playerID: playerID)
-        secondTraining.date = now
+        secondTraining.date = now.addingTimeInterval(-7200)
         secondTraining.durationMinutes = 45
         let training = [firstTraining, secondTraining]
         var tournament = TournamentRecord(playerID: playerID)

@@ -62,6 +62,7 @@ enum TennisSummaryFormatter {
         var parts = [session.trainingType.rawValue]
         let coaches = session.context.coachSummary(in: coaches)
         parts.append(TennisDurationFormatter.training(session, now: now) + (session.isActive ? " elapsed" : ""))
+        parts.append("Focus: " + session.focusSummary)
         if !coaches.isBlank { parts.append("Coaches: \(coaches)") }
         let participants = session.context.participantSummary(in: players)
         if !participants.isBlank {

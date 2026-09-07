@@ -4,6 +4,7 @@ struct TennisStatistics: Equatable {
     let matchCount: Int
     let winCount: Int
     let lossCount: Int
+    let drawCount: Int
     let winRate: Double
     let trainingCount: Int
     let trainingMinutesLast30Days: Int
@@ -15,16 +16,17 @@ struct TennisStatistics: Equatable {
 
     var spokenSummary: String {
         let percent = Int((winRate * 100).rounded())
-        return "\(matchCount) matches, \(winCount) wins, \(lossCount) losses, \(percent) percent win rate. \(trainingCount) training sessions saved."
+        return "\(matchCount) completed matches, \(winCount) wins, \(lossCount) losses, \(drawCount) draws, \(percent) percent win rate. \(trainingCount) training sessions saved."
     }
 
     static func build(matches: [MatchRecord], training: [TrainingSession], tournaments: [TournamentRecord], today: Date = Date()) -> TennisStatistics {
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: today)) ?? today
-        let wins = matches.filter { $0.result == .win }.count
-        let losses = matches.filter { $0.result == .loss }.count
-        let last30Matches = matches.filter { $0.date >= start }
-        let last30Training = training.filter { $0.date >= start && $0.date <= today && !$0.isActive }
+        let completedMatches = matches.filter { $0.status == .completed && $0.trainingSessionID == nil }
+        let wins = completedMatches.filter { $0.result == .win }.count
+        let losses = completedMatches.filter { $0.result == .loss }.count
+        let last30Matches = completedMatches.filter { $0.date >= start && $0.date <= today }
+        let last30Training = training.filter { ($0.actualStart ?? $0.date) >= start && $0.isRecordedTraining(at: today) }
         let trainingSeconds = last30Training.reduce(0.0) { $0 + TennisDurationFormatter.trainingSeconds($1) }
         let upcoming = tournaments.filter { calendar.startOfDay(for: $0.date) >= calendar.startOfDay(for: today) }
         let linkedCounts = Dictionary(grouping: matches.compactMap(\.tournamentID), by: { $0 }).mapValues(\.count)
@@ -47,10 +49,11 @@ struct TennisStatistics: Equatable {
         }
 
         return TennisStatistics(
-            matchCount: matches.count,
+            matchCount: completedMatches.count,
             winCount: wins,
             lossCount: losses,
-            winRate: matches.isEmpty ? 0 : Double(wins) / Double(matches.count),
+            drawCount: completedMatches.filter { $0.result == .draw }.count,
+            winRate: completedMatches.isEmpty ? 0 : Double(wins) / Double(completedMatches.count),
             trainingCount: training.count,
             trainingMinutesLast30Days: Int(min(trainingSeconds / 60, 5_256_000)),
             trainingSecondsLast30Days: trainingSeconds,

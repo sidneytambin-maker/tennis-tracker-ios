@@ -98,8 +98,7 @@ struct MatchesView: View {
 
     private func addToCalendar(_ match: MatchRecord) {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: match))
-            store.announce(success ? "Added match to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
+            await store.addToCalendar(TennisCalendarMapper.event(for: match))
         }
     }
 
@@ -188,9 +187,7 @@ struct MatchDetailView: View {
 
     private func addToCalendar() {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: match))
-            calendarMessage = success ? "Added to Apple Calendar." : "Calendar access was not granted or the event could not be saved."
-            store.announce(calendarMessage)
+            calendarMessage = await store.addToCalendar(TennisCalendarMapper.event(for: match))
         }
     }
 }

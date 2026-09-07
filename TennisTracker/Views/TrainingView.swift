@@ -30,12 +30,16 @@ struct TrainingView: View {
                             }
                             .accessibilityLabel("Training session")
                             .accessibilityValue(store.trainingSummary(session, style: .accessibility))
-                            .accessibilityAction(named: "Edit") {
+                            .accessibilityAction(named: "Edit Training and Focus") {
                                 sessionToEdit = session
                             }
                             .accessibilityActions {
                                 if session.needsDetails && !session.isActive {
-                                    Button("Mark Complete") { store.completeTrainingDetails(session.id) }
+                                    Button("Review and Complete Training") {
+                                        var draft = session
+                                        draft.markDetailsComplete()
+                                        sessionToEdit = draft
+                                    }
                                 }
                             }
                             .accessibilityAction(named: "Add to Calendar") {
@@ -73,8 +77,7 @@ struct TrainingView: View {
 
     private func addToCalendar(_ session: TrainingSession) {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: session, coaches: store.data.setup.coaches, players: store.data.players))
-            store.announce(success ? "Added training to Apple Calendar." : "Calendar access was not granted or the event could not be saved.")
+            await store.addToCalendar(TennisCalendarMapper.event(for: session, coaches: store.data.setup.coaches, players: store.data.players))
         }
     }
 }
@@ -85,6 +88,7 @@ struct TrainingDetailView: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State var session: TrainingSession
     @State private var showingEditor = false
+    @State private var reviewingCompletion = false
     @State private var confirmDelete = false
     @State private var calendarMessage = ""
 
@@ -92,14 +96,13 @@ struct TrainingDetailView: View {
         List {
             Section("Summary") {
                 Text(store.trainingSummary(session, style: .detailed))
-                    .accessibilityAction(named: "Edit") { showingEditor = true }
+                    .accessibilityAction(named: "Edit Training and Focus") { reviewingCompletion = false; showingEditor = true }
                     .accessibilityAction(named: "Delete") { confirmDelete = true }
                     .accessibilityActions {
                         if session.needsDetails && !session.isActive {
-                            Button("Mark Complete") { store.completeTrainingDetails(session.id) }
+                            Button("Review and Complete Training") { reviewingCompletion = true; showingEditor = true }
                         }
                     }
-                SummaryRow(title: "Focus", value: session.focus.fallback("not recorded"))
                 SummaryRow(title: "Outcome", value: session.sessionOutcome.fallback("not recorded"))
             }
 
@@ -137,11 +140,11 @@ struct TrainingDetailView: View {
             else { dismiss() }
         }
         .toolbar {
-            Button("Edit") { showingEditor = true }
+            Button("Edit") { reviewingCompletion = false; showingEditor = true }
                 .accessibilityHidden(voiceOver)
         }
         .sheet(isPresented: $showingEditor) {
-            TrainingEditorView(session: session)
+            TrainingEditorView(session: editorDraft)
         }
         .confirmationDialog("Delete this training session?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete Training Session", role: .destructive) {
@@ -153,10 +156,14 @@ struct TrainingDetailView: View {
 
     private func addToCalendar() {
         Task {
-            let success = await TennisCalendarService.shared.save(TennisCalendarMapper.event(for: session, coaches: store.data.setup.coaches, players: store.data.players))
-            calendarMessage = success ? "Added to Apple Calendar." : "Calendar access was not granted or the event could not be saved."
-            store.announce(calendarMessage)
+            calendarMessage = await store.addToCalendar(TennisCalendarMapper.event(for: session, coaches: store.data.setup.coaches, players: store.data.players))
         }
+    }
+
+    private var editorDraft: TrainingSession {
+        var draft = session
+        if reviewingCompletion { draft.markDetailsComplete() }
+        return draft
     }
 }
 
@@ -187,6 +194,7 @@ struct TrainingEditorView: View {
                         ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .accessibilityIdentifier("trainingTypePicker")
+                    TennisTrainingFocusPicker(focus: $session.focus)
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $session.date, hasStartTime: $session.hasStartTime)
                         .accessibilityIdentifier("trainingDatePicker")
                     StoredVenuePicker(id: $session.context.venueID, venue: $session.venue, location: $session.location, training: true)
@@ -246,7 +254,6 @@ struct TrainingEditorView: View {
                         ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .accessibilityIdentifier("trainingSurfacePicker")
-                    TextField("Focus", text: $session.focus)
                 }
 
                 DurationPicker(title: "Duration", minutes: $session.durationMinutes)

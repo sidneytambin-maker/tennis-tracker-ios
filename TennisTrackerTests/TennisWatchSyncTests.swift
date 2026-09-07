@@ -30,7 +30,7 @@ final class TennisWatchSyncTests: XCTestCase {
         let session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: .doublesPractice)
 
         XCTAssertEqual(session.trainingType, .doublesPractice)
-        XCTAssertEqual(session.focus, "Doubles practice")
+        XCTAssertEqual(session.focus, "")
         XCTAssertTrue(TennisSummaryFormatter.training(session, style: .accessibility).contains("Doubles practice"))
     }
 

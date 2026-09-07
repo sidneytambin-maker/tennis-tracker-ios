@@ -129,13 +129,14 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         try? WCSession.default.updateApplicationContext(["healthStatusData": data])
     }
 
-    func trackTrainingSession(type: TrainingType = .singlesPractice, context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
+    func trackTrainingSession(type: TrainingType = .singlesPractice, focus: String = "", context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
         }
         guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         var session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
+        session.focus = focus
         session.context = context
         session.venue = venue
         session.location = location

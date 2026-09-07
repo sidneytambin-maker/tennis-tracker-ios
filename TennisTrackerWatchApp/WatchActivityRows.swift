@@ -8,6 +8,7 @@ struct WatchActivityCard: View {
     let symbol: String
     var fitness: [WatchFitnessMetric] = []
     var identifier = "Activity summary"
+    var editTitle = "Edit"
     let edit: () -> Void
     var completeTitle: String?
     var complete: () -> Void = {}
@@ -53,7 +54,7 @@ struct WatchActivityCard: View {
             .accessibilityLabel(summary)
             .accessibilityIdentifier(identifier)
             HStack(spacing: 8) {
-                action("Edit", symbol: "pencil", perform: edit)
+                action(editTitle, symbol: "pencil", perform: edit)
                 if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
                 action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
             }
@@ -64,7 +65,7 @@ struct WatchActivityCard: View {
         Button { showingDetails = true } label: { Text(summary) }
             .accessibilityIdentifier(identifier)
             .accessibilityActions {
-                Button("Edit", action: edit)
+                Button(editTitle, action: edit)
                 if let completeTitle { Button(completeTitle, action: complete) }
                 Button("Delete", role: .destructive, action: delete)
             }
@@ -100,27 +101,34 @@ struct WatchTrainingRow: View {
     @State private var editing = false
     @State private var deleting = false
     @State private var finishing = false
+    @State private var reviewingCompletion = false
 
     var body: some View {
         Group {
             if training.isActive {
                 WatchLiveTrainingCard(training: training, client: store.healthClient,
-                    edit: { editing = true }, finish: { finishing = true }, delete: { deleting = true })
+                    edit: { reviewingCompletion = false; editing = true }, finish: { finishing = true }, delete: { deleting = true })
             } else {
                 WatchActivityCard(title: training.trainingType.rawValue,
                     detail: TennisDurationFormatter.compact(seconds: TennisDurationFormatter.trainingSeconds(training)),
                     summary: store.trainingSummary(training, style: .detailed), symbol: "figure.tennis",
                     fitness: training.workout.map { WatchFitnessMetric.make(heart: $0.averageHeartRate, energy: $0.activeEnergyKcal, distance: $0.distanceMeters, steps: $0.stepCount) } ?? [], identifier: identifier,
-                    edit: { editing = true }, completeTitle: training.needsDetails ? "Mark Complete" : nil,
-                    complete: { store.markTrainingComplete(training.id) }, delete: { deleting = true })
+                    editTitle: "Edit Training and Focus", edit: { reviewingCompletion = false; editing = true }, completeTitle: training.needsDetails ? "Review and Complete Training" : nil,
+                    complete: { reviewingCompletion = true; editing = true }, delete: { deleting = true })
             }
         }
-        .sheet(isPresented: $editing) { NavigationStack { WatchTrainingEditor(draft: training) } }
+        .sheet(isPresented: $editing) { NavigationStack { WatchTrainingEditor(draft: editorDraft) } }
         .modifier(WatchDeleteConfirmation(isPresented: $deleting, deletion: TennisRecordDeletion(id: training.id, kind: .training)))
         .confirmationDialog("Finish training session?", isPresented: $finishing, titleVisibility: .visible) {
             Button("Finish") { store.finishTrainingSession() }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var editorDraft: TrainingSession {
+        var draft = training
+        if reviewingCompletion { draft.markDetailsComplete() }
+        return draft
     }
 }
 
@@ -140,7 +148,7 @@ private struct WatchLiveTrainingCard: View {
                     TennisWorkoutResult.fitnessSummary(heartRate: client.latestHeartRate, energy: client.activeEnergy,
                         distance: client.distanceMeters, steps: client.stepCount) + " " + client.statusMessage,
                 symbol: "figure.tennis", fitness: WatchFitnessMetric.make(heart: client.latestHeartRate, energy: client.activeEnergy,
-                    distance: client.distanceMeters, steps: client.stepCount), identifier: "Active training summary", edit: edit,
+                    distance: client.distanceMeters, steps: client.stepCount), identifier: "Active training summary", editTitle: "Edit Training and Focus", edit: edit,
                 completeTitle: store.isPreparingWorkout ? nil : "Finish", complete: finish, delete: delete)
         }
     }
