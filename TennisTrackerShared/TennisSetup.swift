@@ -121,6 +121,9 @@ struct TennisWorkoutResult: Codable, Equatable {
     var durationSeconds: Double
     var averageHeartRate: Double?
     var activeEnergyKcal: Double?
+    var peakHeartRate: Double?
+    var distanceMeters: Double?
+    var stepCount: Double?
 }
 
 struct TennisPracticeResult: Codable, Equatable {

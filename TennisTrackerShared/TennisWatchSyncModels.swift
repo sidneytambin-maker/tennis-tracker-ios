@@ -22,6 +22,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
         setup = data.setup
 
         let recentLimit = Calendar.current.date(byAdding: .day, value: -60, to: now) ?? now
+        let weekStart = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? now
         matches = data.matches
             .filter { $0.status == .inProgress || $0.needsDetails || $0.date >= recentLimit || $0.date >= now }
             .sorted { $0.date > $1.date }
@@ -29,7 +30,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
             .map { $0 }
         // History limits must never drop an active record or an offline edit awaiting details.
         matches += data.matches.filter { record in
-            (record.status == .inProgress || record.needsDetails) && !matches.contains { $0.id == record.id }
+            (record.status == .inProgress || record.needsDetails || (record.date >= weekStart && record.date <= now)) && !matches.contains { $0.id == record.id }
         }
         trainingSessions = data.trainingSessions
             .filter { $0.isActive || $0.needsDetails || $0.date >= recentLimit || $0.expectedEndDate >= now }
@@ -37,7 +38,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
             .prefix(30)
             .map { $0 }
         trainingSessions += data.trainingSessions.filter { record in
-            (record.isActive || record.needsDetails) && !trainingSessions.contains { $0.id == record.id }
+            (record.isActive || record.needsDetails || (record.date >= weekStart && record.date <= now)) && !trainingSessions.contains { $0.id == record.id }
         }
         tournaments = data.tournaments
             .filter { !$0.isCompleted || $0.needsDetails || $0.endDate >= recentLimit }
@@ -133,6 +134,7 @@ enum TennisWatchActivityFactory {
     static func match(player: PlayerProfile, kind: MatchKind, tournament: TournamentRecord? = nil, startDate: Date = Date()) -> MatchRecord {
         var match = MatchRecord(playerID: player.id)
         match.date = startDate
+        match.actualStart = startDate
         match.hasStartTime = true
         match.status = .inProgress
         match.matchType = kind
@@ -156,6 +158,7 @@ enum TennisWatchActivityFactory {
         tournament.name = "Tournament"
         tournament.date = startDate
         tournament.endDate = startDate
+        tournament.actualStart = startDate
         tournament.finalResult = .inProgress
         tournament.needsDetails = true
         tournament.notes = "Created on Apple Watch."
@@ -165,6 +168,7 @@ enum TennisWatchActivityFactory {
     static func finishMatch(_ match: MatchRecord, score: TennisScoreState, now: Date = Date()) -> MatchRecord {
         var finished = match
         finished.status = .completed
+        if let start = match.actualStart { finished.actualFinish = max(start, now) }
         finished.liveScore = nil
         finished.yourSetsWon = score.playerSets
         finished.opponentSetsWon = score.opponentSets

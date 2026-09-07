@@ -1,0 +1,102 @@
+import Foundation
+
+enum TennisGlanceKind: String, CaseIterable {
+    case current, next, week, latest
+
+    var widgetKind: String {
+        switch self {
+        case .current: return "TennisTrackerComplication"
+        case .next: return "TennisTrackerNextEvent"
+        case .week: return "TennisTrackerThisWeek"
+        case .latest: return "TennisTrackerLatestResult"
+        }
+    }
+    var name: String {
+        switch self {
+        case .current: return "Current Activity"
+        case .next: return "Next Tennis Event"
+        case .week: return "This Week"
+        case .latest: return "Latest Result"
+        }
+    }
+    var description: String {
+        switch self {
+        case .current: return "Live score or elapsed training and tournament time."
+        case .next: return "The next scheduled tennis activity."
+        case .week: return "This week's training time and match results."
+        case .latest: return "The most recently completed tennis activity."
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .current: return "tennisball.fill"
+        case .next: return "calendar"
+        case .week: return "chart.bar.fill"
+        case .latest: return "checkmark.circle.fill"
+        }
+    }
+}
+
+extension TennisGlance {
+    static func make(kind: TennisGlanceKind, snapshot: TennisWatchSnapshot, now: Date = Date()) -> Self {
+        var selected = snapshot
+        selected.matches = snapshot.matches.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
+        selected.trainingSessions = snapshot.trainingSessions.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
+        selected.tournaments = snapshot.tournaments.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
+        switch kind {
+        case .current:
+            let live = make(snapshot: selected, now: now)
+            if live.destination == .live || live.destination == .score { return live }
+            if let tournament = selected.tournaments.filter({ $0.actualStart != nil && $0.actualFinish == nil && $0.finalResult == .inProgress })
+                .max(by: { ($0.actualStart ?? $0.date) < ($1.actualStart ?? $1.date) }) {
+                let duration = TennisDurationFormatter.text(seconds: now.timeIntervalSince(tournament.actualStart ?? now))
+                return Self(title: tournament.name, detail: duration,
+                    accessibilitySummary: tournament.name + ". Tracked duration " + duration + ".",
+                    destination: .live, isStale: false, compactDetail: "\(max(0, Int(now.timeIntervalSince(tournament.actualStart ?? now) / 60))) min")
+            }
+            return Self(title: "Current Activity", detail: "No activity running", accessibilitySummary: "No tennis activity is running. Open Track.", destination: .track, isStale: false, compactDetail: "Start")
+        case .next:
+            selected.matches.removeAll { $0.status != .scheduled }
+            selected.trainingSessions.removeAll { $0.actualStart != nil || $0.actualFinish != nil }
+            selected.tournaments.removeAll { $0.actualStart != nil && $0.actualFinish == nil }
+            let next = make(snapshot: selected, now: now)
+            if next.destination == .today { return next }
+            return Self(title: "Next Tennis", detail: "Nothing scheduled", accessibilitySummary: "No upcoming tennis event is scheduled.", destination: .today, isStale: false, compactDetail: "None")
+        case .week:
+            let start = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? Calendar.current.startOfDay(for: now)
+            let training = selected.trainingSessions.filter { !$0.isActive && ($0.actualStart ?? $0.date) >= start && ($0.actualFinish ?? $0.expectedEndDate) <= now }
+            let matches = selected.matches.filter { $0.status == .completed && ($0.actualFinish ?? $0.date) >= start && ($0.actualFinish ?? $0.date) <= now }
+            let seconds = training.reduce(0.0) { total, session in
+                let elapsed = session.actualStart.flatMap { begin in session.actualFinish.map { $0.timeIntervalSince(begin) } }
+                return total + max(0, session.workout?.durationSeconds ?? elapsed ?? Double(session.durationMinutes * 60))
+            }
+            let wins = matches.filter { $0.result == .win }.count
+            let duration = TennisDurationFormatter.text(seconds: seconds)
+            let summary = "This week. \(training.count) training \(training.count == 1 ? "session" : "sessions"), \(duration). \(matches.count) \(matches.count == 1 ? "match" : "matches"), \(wins) \(wins == 1 ? "win" : "wins")."
+            return Self(title: "This Week", detail: "\(training.count) training, \(matches.count) matches", accessibilitySummary: summary,
+                destination: .recent, isStale: false, compactDetail: "\(training.count)T \(wins)W")
+        case .latest:
+            var results: [(Date, String, Self)] = []
+            for match in selected.matches where match.status == .completed && (match.actualFinish ?? match.date) <= now {
+                results.append((match.actualFinish ?? match.date, match.id.uuidString,
+                    Self(title: "Latest Match", detail: TennisSummaryFormatter.match(match, style: .short),
+                        accessibilitySummary: TennisSummaryFormatter.match(match, tournaments: selected.tournaments),
+                        destination: .recent, isStale: false, compactDetail: match.setScores.fallback(match.result.rawValue))))
+            }
+            for training in selected.trainingSessions where !training.isActive && (training.actualFinish ?? training.expectedEndDate) <= now {
+                results.append((training.actualFinish ?? training.expectedEndDate, training.id.uuidString,
+                    Self(title: training.trainingType.rawValue, detail: TennisDurationFormatter.training(training),
+                        accessibilitySummary: TennisSummaryFormatter.training(training, style: .detailed, coaches: selected.setup.coaches, players: selected.players),
+                        destination: .recent, isStale: false, compactDetail: TennisDurationFormatter.compact(seconds: training.workout?.durationSeconds ?? training.actualStart.flatMap { start in training.actualFinish.map { $0.timeIntervalSince(start) } } ?? Double(training.durationMinutes * 60)))))
+            }
+            for tournament in selected.tournaments where tournament.isCompleted && (tournament.actualFinish ?? tournament.endDate) <= now {
+                results.append((tournament.actualFinish ?? tournament.endDate, tournament.id.uuidString,
+                    Self(title: "Latest Tournament", detail: tournament.name,
+                        accessibilitySummary: TennisSummaryFormatter.tournament(tournament, matches: selected.matches),
+                        destination: .recent, isStale: false, compactDetail: tournament.stageReached.rawValue)))
+            }
+            return results.sorted { $0.0 == $1.0 ? $0.1 < $1.1 : $0.0 > $1.0 }.first?.2
+                ?? Self(title: "Latest Result", detail: "No completed activity", accessibilitySummary: "No completed tennis activity is recorded.", destination: .recent, isStale: false, compactDetail: "None")
+        }
+    }
+}

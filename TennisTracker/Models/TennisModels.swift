@@ -436,6 +436,8 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var hasStartTime = false
     var expectedDurationMinutes = 90
     var hasExpectedDuration = false
+    var actualStart: Date?
+    var actualFinish: Date?
     var venue = ""
     var location = ""
     var status: MatchStatus = .completed
@@ -515,6 +517,8 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         hasStartTime = try container.decodeIfPresent(Bool.self, forKey: .hasStartTime) ?? false
         expectedDurationMinutes = try container.decodeIfPresent(Int.self, forKey: .expectedDurationMinutes) ?? 90
         hasExpectedDuration = try container.decodeIfPresent(Bool.self, forKey: .hasExpectedDuration) ?? false
+        actualStart = try container.decodeIfPresent(Date.self, forKey: .actualStart)
+        actualFinish = try container.decodeIfPresent(Date.self, forKey: .actualFinish)
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
         location = try container.decodeIfPresent(String.self, forKey: .location) ?? ""
         status = try container.decodeIfPresent(MatchStatus.self, forKey: .status) ?? .completed
@@ -584,6 +588,8 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
     var templateID: UUID?
     var venueID: UUID?
     var venue = ""
+    var actualStart: Date?
+    var actualFinish: Date?
 
     var isCompleted: Bool {
         finalResult == .completed || finalResult == .withdrawn || endDate < Calendar.current.startOfDay(for: Date())
@@ -620,6 +626,8 @@ struct TournamentRecord: Identifiable, Codable, Equatable {
         templateID = try container.decodeIfPresent(UUID.self, forKey: .templateID)
         venueID = try container.decodeIfPresent(UUID.self, forKey: .venueID)
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
+        actualStart = try container.decodeIfPresent(Date.self, forKey: .actualStart)
+        actualFinish = try container.decodeIfPresent(Date.self, forKey: .actualFinish)
     }
 }
 

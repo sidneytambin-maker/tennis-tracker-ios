@@ -1,0 +1,39 @@
+import Foundation
+
+enum TennisWatchRecordEdits {
+    static func training(_ draft: TrainingSession, current: TrainingSession, now: Date = Date()) -> TrainingSession {
+        var updated = current
+        updated.trainingType = draft.trainingType
+        updated.context = draft.context
+        updated.venue = draft.venue
+        updated.location = draft.location
+        updated.notes = draft.notes
+        updated.sessionOutcome = draft.sessionOutcome
+        updated.effortLevel = draft.effortLevel
+        updated.hasSessionDetails = draft.hasSessionDetails
+        updated.needsDetails = draft.needsDetails
+        if !draft.needsDetails { updated.markDetailsComplete() }
+        return TennisRecordConflictResolver.prepareLocalTraining(updated, now: now)
+    }
+
+    static func match(_ draft: MatchRecord, current: MatchRecord, now: Date = Date()) -> MatchRecord {
+        var updated = current
+        updated.opponentID = draft.opponentID; updated.opponentName = draft.opponentName
+        updated.partnerID = draft.partnerID; updated.partnerName = draft.partnerName
+        updated.opponent2ID = draft.opponent2ID; updated.opponent2Name = draft.opponent2Name
+        updated.venueID = draft.venueID; updated.venue = draft.venue; updated.location = draft.location
+        updated.tournamentID = draft.tournamentID; updated.notes = draft.notes
+        updated.needsDetails = draft.needsDetails
+        return TennisRecordConflictResolver.prepareLocalMatch(updated, now: now)
+    }
+
+    static func tournament(_ draft: TournamentRecord, current: TournamentRecord, now: Date = Date()) -> TournamentRecord {
+        var updated = current
+        updated.name = draft.name
+        updated.date = draft.date; updated.endDate = max(draft.date, draft.endDate)
+        updated.venueID = draft.venueID; updated.venue = draft.venue; updated.location = draft.location
+        updated.notes = draft.notes; updated.stageReached = draft.stageReached
+        updated.needsDetails = draft.needsDetails
+        return TennisRecordConflictResolver.prepareLocalTournament(updated, now: now)
+    }
+}

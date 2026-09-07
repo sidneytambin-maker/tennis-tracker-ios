@@ -12,6 +12,8 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
     private var finishing = false
     @Published private(set) var latestHeartRate: Double?
     @Published private(set) var activeEnergy: Double?
+    @Published private(set) var distanceMeters: Double?
+    @Published private(set) var stepCount: Double?
     @Published private(set) var statusMessage = ""
 
     var activeTrainingID: UUID? {
@@ -44,6 +46,8 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
     func clearMetrics() {
         latestHeartRate = nil
         activeEnergy = nil
+        distanceMeters = nil
+        stepCount = nil
         statusMessage = ""
     }
 
@@ -52,8 +56,10 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         let workout = HKObjectType.workoutType()
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-        let read: Set<HKObjectType> = [workout, heart, energy]
-        try await healthStore.requestAuthorization(toShare: [workout, heart, energy], read: read)
+        let distance = HKQuantityType(.distanceWalkingRunning)
+        let steps = HKQuantityType(.stepCount)
+        let read: Set<HKObjectType> = [workout, heart, energy, distance, steps]
+        try await healthStore.requestAuthorization(toShare: [workout, heart, energy, distance, steps], read: read)
         return healthStore.authorizationStatus(for: workout) == .sharingAuthorized
     }
 
@@ -66,12 +72,14 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         let builder = session.associatedWorkoutBuilder()
         session.delegate = self
         builder.delegate = self
-        builder.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+        builder.dataSource = dataSource(configuration: configuration)
         self.session = session
         self.builder = builder
         finishing = false
         latestHeartRate = nil
         activeEnergy = nil
+        distanceMeters = nil
+        stepCount = nil
         statusMessage = "Starting tennis workout."
         UserDefaults.standard.set(activityID.uuidString, forKey: "activeHealthTrainingID")
         UserDefaults.standard.set(Array(Set(pendingWorkoutIDs + [activityID])).map(\.uuidString), forKey: "pendingHealthTrainingIDs")
@@ -102,7 +110,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         builder = recovered.associatedWorkoutBuilder()
         recovered.delegate = self
         builder?.delegate = self
-        builder?.dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: recovered.workoutConfiguration)
+        builder?.dataSource = dataSource(configuration: recovered.workoutConfiguration)
         finishing = false
         statusMessage = "Tennis workout recovered."
         return true
@@ -124,7 +132,10 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         guard let workout else { return nil }
         return TennisWorkoutResult(workoutID: workout.uuid, durationSeconds: workout.duration,
             averageHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute())),
-            activeEnergyKcal: workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()))
+            activeEnergyKcal: workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+            peakHeartRate: workout.statistics(for: HKQuantityType(.heartRate))?.maximumQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute())),
+            distanceMeters: workout.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity()?.doubleValue(for: .meter()),
+            stepCount: workout.statistics(for: HKQuantityType(.stepCount))?.sumQuantity()?.doubleValue(for: .count()))
     }
 
     func finish(at date: Date) async throws -> TennisWorkoutResult {
@@ -170,6 +181,8 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
                let quantity = workoutBuilder.statistics(for: type)?.sumQuantity() {
                 self.activeEnergy = quantity.doubleValue(for: .kilocalorie())
             }
+            self.distanceMeters = workoutBuilder.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity()?.doubleValue(for: .meter())
+            self.stepCount = workoutBuilder.statistics(for: HKQuantityType(.stepCount))?.sumQuantity()?.doubleValue(for: .count())
         }
     }
 
@@ -182,10 +195,14 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
             let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
             let average = builder.statistics(for: heartType)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
             let energy = builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+            let peak = builder.statistics(for: heartType)?.maximumQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+            let distance = builder.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity()?.doubleValue(for: .meter())
+            let steps = builder.statistics(for: HKQuantityType(.stepCount))?.sumQuantity()?.doubleValue(for: .count())
             let workout = try await builder.finishWorkout()
             guard self.builder === builder else { return }
             // A successful save may return no sample while the Watch is locked.
-            ending?.resume(returning: TennisWorkoutResult(workoutID: workout?.uuid, durationSeconds: workout?.duration ?? builder.elapsedTime, averageHeartRate: average, activeEnergyKcal: energy))
+            ending?.resume(returning: TennisWorkoutResult(workoutID: workout?.uuid, durationSeconds: workout?.duration ?? builder.elapsedTime,
+                averageHeartRate: average, activeEnergyKcal: energy, peakHeartRate: peak, distanceMeters: distance, stepCount: steps))
             statusMessage = workout == nil ? "Health save completed. Workout link pending." : "Tennis workout saved."
         } catch {
             guard self.builder === builder else { return }
@@ -214,4 +231,13 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
     }
 
     private enum WorkoutError: Error { case alreadyRunning, notRunning, saveTimedOut }
+
+    private func dataSource(configuration: HKWorkoutConfiguration) -> HKLiveWorkoutDataSource {
+        let source = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+        // Use actual Watch samples in this workout, never daily totals or estimated steps.
+        let watchSamples = HKQuery.predicateForObjects(from: Set([HKDevice.local()]))
+        source.enableCollection(for: HKQuantityType(.distanceWalkingRunning), predicate: watchSamples)
+        source.enableCollection(for: HKQuantityType(.stepCount), predicate: watchSamples)
+        return source
+    }
 }

@@ -4,12 +4,14 @@ import WidgetKit
 private struct TennisEntry: TimelineEntry {
     let date: Date
     let glance: TennisGlance
+    let kind: TennisGlanceKind
     var relevance: TimelineEntryRelevance? { TimelineEntryRelevance(score: glance.relevanceScore, duration: 60) }
 }
 
 private struct TennisTimeline: TimelineProvider {
+    let kind: TennisGlanceKind
     func placeholder(in context: Context) -> TennisEntry {
-        TennisEntry(date: .now, glance: TennisGlance.make(snapshot: .empty))
+        TennisEntry(date: .now, glance: TennisGlance.make(kind: kind, snapshot: .empty), kind: kind)
     }
     func getSnapshot(in context: Context, completion: @escaping (TennisEntry) -> Void) {
         completion(entry(at: .now))
@@ -19,12 +21,12 @@ private struct TennisTimeline: TimelineProvider {
         let snapshot = TennisSharedSnapshotFile.read() ?? .empty
         let entries = (0..<60).map { minute in
             let date = now.addingTimeInterval(Double(minute) * 60)
-            return TennisEntry(date: date, glance: TennisGlance.make(snapshot: snapshot, now: date))
+            return TennisEntry(date: date, glance: TennisGlance.make(kind: kind, snapshot: snapshot, now: date), kind: kind)
         }
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(3600))))
     }
     private func entry(at date: Date) -> TennisEntry {
-        TennisEntry(date: date, glance: TennisGlance.make(snapshot: TennisSharedSnapshotFile.read() ?? .empty, now: date))
+        TennisEntry(date: date, glance: TennisGlance.make(kind: kind, snapshot: TennisSharedSnapshotFile.read() ?? .empty, now: date), kind: kind)
     }
 }
 
@@ -37,17 +39,17 @@ private struct TennisComplicationView: View {
             if family == .accessoryInline {
                 Text("\(entry.glance.title): \(entry.glance.detail)")
             } else if family == .accessoryCorner {
-                Image(systemName: "tennisball.fill")
+                Image(systemName: entry.kind.symbol)
                     .widgetAccentable()
                     .widgetLabel { Text(entry.glance.circularDetail) }
             } else if family == .accessoryCircular {
                 VStack {
-                    Image(systemName: "tennisball.fill")
+                    Image(systemName: entry.kind.symbol)
                     Text(entry.glance.circularDetail).font(.caption2).lineLimit(2).minimumScaleFactor(0.7)
                 }
             } else {
                 VStack(alignment: .leading) {
-                    Label(entry.glance.title, systemImage: "tennisball.fill").font(.headline).lineLimit(1).minimumScaleFactor(0.7)
+                    Label(entry.glance.title, systemImage: entry.kind.symbol).font(.headline).lineLimit(1).minimumScaleFactor(0.7)
                     Text(entry.glance.detail).lineLimit(2).minimumScaleFactor(0.7)
                 }
             }
@@ -60,13 +62,23 @@ private struct TennisComplicationView: View {
     }
 }
 
-@main
 struct TennisTrackerComplication: Widget {
-    let kind = "TennisTrackerComplication"
+    let selection: TennisGlanceKind
+    var kind: String { selection.widgetKind }
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: TennisTimeline()) { TennisComplicationView(entry: $0) }
-            .configurationDisplayName("Tennis Tracker")
-            .description("Your current tennis activity or next event.")
+        StaticConfiguration(kind: kind, provider: TennisTimeline(kind: selection)) { TennisComplicationView(entry: $0) }
+            .configurationDisplayName(selection.name)
+            .description(selection.description)
             .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
+    }
+}
+
+@main
+struct TennisTrackerWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        TennisTrackerComplication(selection: .current)
+        TennisTrackerComplication(selection: .next)
+        TennisTrackerComplication(selection: .week)
+        TennisTrackerComplication(selection: .latest)
     }
 }

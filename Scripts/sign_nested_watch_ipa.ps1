@@ -29,6 +29,7 @@ param(
     [string]$FinalWidgetBundleId = "",
     [string]$SharedAppGroup = "",
     [string]$OpenSslPath = "",
+    [string]$WorkingDirectory = "",
     [switch]$AllowNonWatchOsProfile,
     [switch]$EmbedWatchInPlugIns,
     [switch]$SkipFinalWatchResign
@@ -77,6 +78,7 @@ function Get-Python {
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $workRoot = Join-Path $repoRoot "work\nested-watch-signing"
+if ($WorkingDirectory) { $workRoot = [System.IO.Path]::GetFullPath($WorkingDirectory) }
 $expandRoot = Join-Path $workRoot ("expanded-" + (Get-Date -Format "yyyyMMdd-HHmmss-ffff"))
 
 $inputIpa = Resolve-RequiredPath $InputIpaPath "Input IPA"

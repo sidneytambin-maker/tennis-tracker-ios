@@ -45,6 +45,8 @@ enum TennisSummaryFormatter {
         if match.hasStartTime { standard += " at \(match.date.shortTennisTime)" }
         let place = unique([match.venue, match.location]).joined(separator: ", ")
         if !place.isBlank { standard += " at \(place)" }
+        let duration = match.actualStart.flatMap { start in match.actualFinish.map { TennisDurationFormatter.text(seconds: $0.timeIntervalSince(start)) } }
+        if let duration { standard += ", duration \(duration)" }
         standard += "."
         let status = match.status == .completed ? match.result.rawValue : match.status.rawValue
         // Doubles names remain complete even on compact surfaces.
@@ -52,6 +54,7 @@ enum TennisSummaryFormatter {
         if !score.isBlank { compact += ", \(score)" }
         else if match.status == .completed { compact += ". Score not recorded" }
         if !tournament.isBlank { compact += ", \(tournament)" }
+        if let duration { compact += ", \(duration)" }
         return TennisMatchSummary(shortText: compact + ".", longText: standard, accessibilityText: standard, scoreText: score.fallback("Score not recorded"))
     }
 
@@ -59,10 +62,7 @@ enum TennisSummaryFormatter {
         var parts = [session.trainingType.rawValue]
         let coaches = session.context.coachSummary(in: coaches)
         if !coaches.isBlank { parts[0] += " with \(coaches)" }
-        if let start = session.actualStart {
-            let minutes = session.isActive ? max(0, Int(now.timeIntervalSince(start) / 60)) : session.durationMinutes
-            parts.append(minutes.durationText + (session.isActive ? " elapsed" : ""))
-        } else { parts.append(session.durationMinutes.durationText) }
+        parts.append(TennisDurationFormatter.training(session, now: now) + (session.isActive ? " elapsed" : ""))
         let participants = session.context.participantSummary(in: players)
         if style != .short && !participants.isBlank {
             parts.append("with " + participants)
@@ -73,8 +73,7 @@ enum TennisSummaryFormatter {
             parts.append(date.tennisSummaryDate + (session.hasStartTime || session.actualStart != nil ? " at \(date.shortTennisTime)" : ""))
         }
         if style == .detailed, let result = session.workout {
-            if let heart = result.averageHeartRate { parts.append("Average heart rate \(Int(heart.rounded())) BPM") }
-            if let energy = result.activeEnergyKcal { parts.append("Active energy \(Int(energy.rounded())) calories") }
+            if !result.fitnessSummary.isBlank { parts.append(result.fitnessSummary.trimmingCharacters(in: CharacterSet(charactersIn: "."))) }
         }
         if let practice = session.practiceResult {
             var match = MatchRecord(playerID: session.playerID)
@@ -93,6 +92,9 @@ enum TennisSummaryFormatter {
     static func tournament(_ tournament: TournamentRecord, linkedMatchCount: Int = 0, style: TennisSummaryStyle = .long, matches: [MatchRecord] = []) -> String {
         var parts = [tournament.name.fallback("Tournament"), dateRange(from: tournament.date, through: tournament.endDate)]
         parts += unique([tournament.venue, tournament.location])
+        if let start = tournament.actualStart, let finish = tournament.actualFinish {
+            parts.append("Tracked duration " + TennisDurationFormatter.text(seconds: finish.timeIntervalSince(start)))
+        }
         if style != .short {
             let linked = matches.filter { $0.tournamentID == tournament.id && $0.status == .completed }
             if !linked.isEmpty {

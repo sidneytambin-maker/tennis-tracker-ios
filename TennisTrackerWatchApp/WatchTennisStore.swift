@@ -40,6 +40,17 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             data.players = [player]
             data.setup.coaches = [TennisCoach(name: "Chris"), TennisCoach(name: "Sarah")]
             data.selectedPlayerID = player.id
+            if ProcessInfo.processInfo.arguments.contains("-watch-completed-training") {
+                var training = TrainingSession(playerID: player.id)
+                training.actualStart = Date(timeIntervalSince1970: 1000)
+                training.actualFinish = Date(timeIntervalSince1970: 1159)
+                training.durationMinutes = 3
+                training.needsDetails = true
+                training.workout = TennisWorkoutResult(durationSeconds: 159, averageHeartRate: 72, activeEnergyKcal: 4,
+                    peakHeartRate: 90, distanceMeters: 123, stepCount: 201)
+                data.trainingSessions = [training]
+                completedTraining = training
+            }
             snapshot = TennisWatchSnapshot(data: data)
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-watch-page=") }),
                let destination = TennisWatchPage(rawValue: String(argument.dropFirst("-watch-page=".count))) { page = destination }
@@ -143,7 +154,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         mergeTraining(finished)
         send(.upsertTraining(finished))
         haptic(.success)
-        announce("Finished training session. Complete details on iPhone when ready.")
+        announce("Training finished. " + TennisDurationFormatter.training(finished) + ".")
         finishWorkout(for: finished.id, at: finishDate)
     }
 
@@ -189,6 +200,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func beginMatch(_ match: MatchRecord) {
         var match = match
+        if snapshot.matches.contains(where: { $0.id == match.id }) {
+            match.actualStart = match.actualStart ?? Date()
+        } else { match.actualStart = Date() }
+        match.actualFinish = nil
         match.status = .inProgress
         match.liveScore = match.liveScore ?? TennisScoreState().snapshot
         match = TennisRecordConflictResolver.prepareLocalMatch(match)
@@ -285,7 +300,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func beginTournament(_ tournament: TournamentRecord) {
+        guard activeTournamentID == nil || activeTournamentID == tournament.id else { page = .live; return }
         var tournament = tournament
+        tournament.actualStart = tournament.actualStart ?? Date()
+        tournament.actualFinish = nil
         tournament.finalResult = .inProgress
         tournament = TennisRecordConflictResolver.prepareLocalTournament(tournament)
         activeTournamentID = tournament.id
@@ -298,6 +316,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     func finishTournament() {
         guard var tournament = snapshot.tournaments.first(where: { $0.id == activeTournamentID }) else { return }
         tournament.finalResult = .completed
+        if let start = tournament.actualStart { tournament.actualFinish = max(start, Date()) }
         tournament = TennisRecordConflictResolver.prepareLocalTournament(tournament)
         mergeTournament(tournament)
         send(.upsertTournament(tournament))
@@ -324,6 +343,42 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         mergeTraining(training)
         send(.upsertTraining(training))
         announce("Marked complete. Saved on Watch and queued for iPhone.")
+    }
+
+    func updateTrainingDetails(_ draft: TrainingSession) {
+        guard let current = snapshot.trainingSessions.first(where: { $0.id == draft.id }) else { return }
+        let updated = TennisWatchRecordEdits.training(draft, current: current)
+        if activeTraining?.id == updated.id { activeTraining = updated }
+        if completedTraining?.id == updated.id { completedTraining = updated }
+        mergeTraining(updated); send(.upsertTraining(updated))
+        announce("Training details saved on Watch.")
+    }
+
+    func updateMatchDetails(_ draft: MatchRecord) {
+        guard let current = snapshot.matches.first(where: { $0.id == draft.id }) else { return }
+        let updated = TennisWatchRecordEdits.match(draft, current: current)
+        if activeMatch?.id == updated.id { activeMatch = updated }
+        mergeMatch(updated); send(.upsertMatch(updated))
+        announce("Match details saved on Watch.")
+    }
+
+    func updateTournamentDetails(_ draft: TournamentRecord) {
+        guard let current = snapshot.tournaments.first(where: { $0.id == draft.id }) else { return }
+        let updated = TennisWatchRecordEdits.tournament(draft, current: current)
+        mergeTournament(updated); send(.upsertTournament(updated))
+        announce("Tournament details saved on Watch.")
+    }
+
+    func markMatchComplete(_ id: UUID) {
+        guard var draft = snapshot.matches.first(where: { $0.id == id }), draft.status == .completed else { return }
+        draft.needsDetails = false
+        updateMatchDetails(draft)
+    }
+
+    func markTournamentComplete(_ id: UUID) {
+        guard var draft = snapshot.tournaments.first(where: { $0.id == id }), draft.isCompleted else { return }
+        draft.needsDetails = false
+        updateTournamentDetails(draft)
     }
 
     func recordPoint(_ winner: PointWinner) {
@@ -406,7 +461,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         mergeMatch(finished)
         send(.upsertMatch(finished))
         haptic(.success)
-        announce("Finished match. Complete match details on iPhone when ready.")
+        page = .recent
+        announce(TennisSummaryFormatter.match(finished, tournaments: snapshot.tournaments))
     }
 
     func markDetailsComplete() {
@@ -614,7 +670,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         UserDefaults.standard.set(data, forKey: localSnapshotKey)
         do {
             if try TennisSharedSnapshotFile.write(snapshot) {
-                WidgetCenter.shared.reloadTimelines(ofKind: "TennisTrackerComplication")
+                for kind in TennisGlanceKind.allCases { WidgetCenter.shared.reloadTimelines(ofKind: kind.widgetKind) }
             }
         } catch { lastSyncStatus = "Saved on Watch. Complication update could not be saved." }
     }
