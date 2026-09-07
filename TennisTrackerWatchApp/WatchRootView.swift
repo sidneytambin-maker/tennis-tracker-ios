@@ -231,6 +231,7 @@ private struct WatchTournamentSetupView: View {
 
 private struct WatchLiveView: View {
     @EnvironmentObject private var store: WatchTennisStore
+    @AccessibilityFocusState private var completedSummaryFocused: Bool
     @State private var confirmFinish = false
     var body: some View {
         List {
@@ -253,6 +254,9 @@ private struct WatchLiveView: View {
                 Button("Finish Tournament") { confirmFinish = true }
             } else if let training = store.completedTraining {
                 Text(TennisSummaryFormatter.training(training, style: .short, coaches: store.snapshot.setup.coaches, players: store.snapshot.players))
+                    .accessibilityFocused($completedSummaryFocused)
+                if let heart = training.workout?.averageHeartRate { Text("Average heart rate \(Int(heart.rounded())) BPM") }
+                if let energy = training.workout?.activeEnergyKcal { Text("Active energy \(Int(energy.rounded())) calories") }
                 NavigationLink("View Details") { Text(store.trainingSummary(training, style: .detailed)).padding() }
                 if store.isFinishingWorkout { ProgressView("Saving workout") }
                 else if !store.workoutMessage.isBlank { Text(store.workoutMessage) }
@@ -271,6 +275,7 @@ private struct WatchLiveView: View {
             }
         }
         .navigationTitle("Live")
+        .onChange(of: store.completedTraining?.id) { _, id in completedSummaryFocused = id != nil }
         .confirmationDialog("Finish this activity?", isPresented: $confirmFinish, titleVisibility: .visible) {
             Button("Finish") {
                 if store.activeTraining != nil { store.finishTrainingSession() }

@@ -13,7 +13,7 @@ targets:
       properties:
         CFBundleVersion: "22"
         TennisHealthEnabled: true
-        NSHealthShareUsageDescription: Tennis Tracker reads heart rate and active energy during tennis training when you allow it.
+        NSHealthShareUsageDescription: Tennis Tracker reads workout information, heart rate and active energy to link your tennis training to its saved Health workout when you allow it.
         NSHealthUpdateUsageDescription: Tennis Tracker saves tennis training workouts to Apple Health when you allow it.
         WKBackgroundModes:
           - workout-processing

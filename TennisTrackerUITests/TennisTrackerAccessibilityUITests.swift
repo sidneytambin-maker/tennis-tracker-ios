@@ -44,6 +44,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         openDestination("Matches")
         app.buttons["Track Match Scoring"].tap()
         XCTAssertTrue(app.buttons["startConfiguredLiveScoringButton"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "startConfiguredLiveScoringButton").count, 1)
         app.buttons["startConfiguredLiveScoringButton"].tap()
         XCTAssertTrue(app.buttons["playerWinsPointButton"].waitForExistence(timeout: 5))
         app.buttons["playerWinsPointButton"].tap()
@@ -153,34 +154,36 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
             let field = app.textFields["New coach name"]
             field.tap(); field.typeText(name)
             app.buttons["Add Coach"].tap()
-            let selected = app.switches[name]
+            let selected = app.buttons[name]
             XCTAssertTrue(selected.waitForExistence(timeout: 5))
-            XCTAssertTrue(["Selected", "1"].contains(selected.value as? String ?? ""))
+            XCTAssertTrue(selected.isSelected)
         }
-        app.switches["Chris"].tap()
-        let deselected = NSPredicate(format: "value == %@ OR value == %@", "Not selected", "0")
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: deselected, evaluatedWith: app.switches["Chris"])], timeout: 3), .completed,
-            "Chris remained \(app.switches["Chris"].value ?? "unknown") after deselection")
-        app.switches["Chris"].tap()
+        app.buttons["Chris"].tap()
+        let deselected = NSPredicate { object, _ in (object as? XCUIElement)?.isSelected == false }
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: deselected, evaluatedWith: app.buttons["Chris"])], timeout: 3), .completed)
+        XCTAssertEqual(app.buttons["Chris"].value as? String, "Not selected")
+        app.buttons["Chris"].tap()
+        XCTAssertTrue(app.buttons["Chris"].isSelected)
         app.navigationBars["Coaches"].buttons.firstMatch.tap()
         tapPossiblyScrolledButton("Players Present")
         for name in ["Ben", "Lucy"] {
             let field = app.textFields["Other player name"]
             field.tap(); field.typeText(name)
             app.buttons["Add Player"].tap()
-            XCTAssertTrue(app.switches[name].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons[name].isSelected)
         }
         app.navigationBars["Players Present"].buttons.firstMatch.tap()
         XCTAssertTrue(app.buttons["saveTrainingButton"].exists)
         app.buttons["Cancel"].tap()
         app.buttons["addTrainingButton"].tap()
         tapPossiblyScrolledButton("Coaches")
-        XCTAssertFalse(app.switches["Chris"].exists)
-        XCTAssertFalse(app.switches["Sarah"].exists)
+        XCTAssertFalse(app.buttons["Chris"].exists)
+        XCTAssertFalse(app.buttons["Sarah"].exists)
         app.navigationBars["Coaches"].buttons.firstMatch.tap()
         tapPossiblyScrolledButton("Players Present")
-        XCTAssertFalse(app.switches["Ben"].exists)
-        XCTAssertFalse(app.switches["Lucy"].exists)
+        XCTAssertFalse(app.buttons["Ben"].exists)
+        XCTAssertFalse(app.buttons["Lucy"].exists)
     }
 
     private func completeOnboarding() {

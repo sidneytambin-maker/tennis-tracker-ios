@@ -44,6 +44,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
     func clearMetrics() {
         latestHeartRate = nil
         activeEnergy = nil
+        statusMessage = ""
     }
 
     func requestPermission() async throws -> Bool {

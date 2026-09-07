@@ -27,10 +27,10 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Cancel"].exists)
         app.buttons["Coaches"].tap()
         for name in ["Chris", "Sarah"] {
-            let toggle = app.switches[name]
+            let toggle = app.buttons[name]
             XCTAssertTrue(toggle.waitForExistence(timeout: 5))
             toggle.tap()
-            XCTAssertTrue(["Selected", "1"].contains(toggle.value as? String ?? ""))
+            XCTAssertTrue(toggle.isSelected)
         }
         XCTAssertFalse(app.buttons["Cancel"].exists)
         XCTAssertLessThanOrEqual(app.buttons.matching(identifier: "Back").count, 1)

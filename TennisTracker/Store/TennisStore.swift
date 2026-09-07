@@ -244,6 +244,8 @@ final class TennisStore: ObservableObject {
     func makeDefaultTournament() -> TournamentRecord? {
         guard let player = selectedPlayer else { return nil }
         var tournament = TournamentRecord(playerID: player.id)
+        tournament.date = TennisScheduling.fiveMinuteDate(tournament.date)
+        tournament.endDate = max(tournament.date, tournament.endDate)
         tournament.category = player.bCategory
         return tournament
     }

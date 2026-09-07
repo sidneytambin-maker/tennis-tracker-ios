@@ -560,7 +560,8 @@ struct LiveMatchView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if !isScoring {
-                        Button("Track Match Scoring") { startScoring() }
+                        Button("Start") { startScoring() }
+                            .accessibilityLabel("Begin Match Scoring")
                             .disabled(match == nil)
                             .accessibilityIdentifier("startConfiguredLiveScoringButton")
                     }
@@ -652,11 +653,6 @@ struct LiveMatchView: View {
             }
         }
 
-        Section {
-            Button("Track Match Scoring") { startScoring() }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("startConfiguredLiveScoringButton")
-        }
     }
 
     @ViewBuilder
@@ -666,7 +662,6 @@ struct LiveMatchView: View {
                 .font(.title2.bold())
                 .accessibilityLabel("Current score")
                 .accessibilityValue(scorer.fullScore)
-                .accessibilityAddTraits(.isHeader)
                 .accessibilityAddTraits(.updatesFrequently)
                 .accessibilityAction(named: "Hear full score") {
                     announce(scorer.fullScore, force: true)

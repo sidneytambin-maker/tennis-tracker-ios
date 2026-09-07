@@ -34,14 +34,24 @@ struct TennisSelectionRow: View {
     let id: UUID
     @Binding var selectedIDs: [UUID]
 
+    private var selected: Bool { selectedIDs.contains(id) }
+
     var body: some View {
-        Toggle(name, isOn: Binding(
-            get: { selectedIDs.contains(id) },
-            set: { selected in
-                selectedIDs.removeAll { $0 == id }
-                if selected { selectedIDs.append(id) }
+        Button {
+            selectedIDs = selected ? selectedIDs.filter { $0 != id } : selectedIDs + [id]
+        } label: {
+            HStack {
+                Image(systemName: selected ? "checkmark.square.fill" : "square")
+                    .frame(width: 22)
+                    .foregroundStyle(selected ? Color.accentColor : .secondary)
+                    .accessibilityHidden(true)
+                Text(name).foregroundStyle(.primary)
             }
-        ))
-        .accessibilityValue(selectedIDs.contains(id) ? "Selected" : "Not selected")
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(selected ? "" : "Not selected")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
