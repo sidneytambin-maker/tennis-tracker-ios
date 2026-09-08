@@ -331,7 +331,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let menu = app.buttons.matching(identifier: "watchScreenMenu")
             .matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        menu.tap(); app.buttons["Recent"].tap()
+        menu.tap(); reveal(app.buttons["Recent"], in: app); app.buttons["Recent"].tap()
         let summary = app.buttons["Match summary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue(summary.label.contains("Sam"))
@@ -367,8 +367,8 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     private func scroll(in app: XCUIApplication, upward: Bool) {
-        if app.collectionViews.firstMatch.exists || app.scrollViews.firstMatch.exists {
-            let list = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app.collectionViews.firstMatch
+        if let list = app.scrollViews.allElementsBoundByIndex.last(where: { $0.isHittable })
+            ?? app.collectionViews.allElementsBoundByIndex.last(where: { $0.isHittable }) {
             let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upward ? 0.8 : 0.45))
             let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upward ? 0.45 : 0.8))
             // Holding at the end prevents inertial flings from skipping short Watch rows.

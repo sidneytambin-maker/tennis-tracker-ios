@@ -30,6 +30,9 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Validate iPhone and Watch app icon artwork
+        run: python3 -m unittest discover -s Scripts -p test_app_icons.py -v
+
       - name: Compile Watch complication
         if: inputs.stage == 'widgets'
         timeout-minutes: 10
@@ -179,6 +182,7 @@ jobs:
           xcodegen generate --spec "$SPEC"
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
+          python3 Scripts/verify_app_icons.py --ipa artifacts/TennisTracker-unsigned.ipa | tee artifacts/app-icon-verification.json
           printf '\nCapability stage: %s\nPhysical acceptance: not tested by this workflow\n' "$BUILD_STAGE" >> artifacts/build-summary.txt
 
       - name: Report iPhone and Watch signing status
@@ -199,6 +203,7 @@ jobs:
           path: |
             artifacts/TennisTracker-unsigned.ipa
             artifacts/build-summary.txt
+            artifacts/app-icon-verification.json
           if-no-files-found: error
           retention-days: 7
 
