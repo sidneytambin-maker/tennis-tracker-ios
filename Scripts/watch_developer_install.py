@@ -42,6 +42,8 @@ async def connect(repo):
     watch.phone = phone
     watch.companion = companion
     watch.watch_identifier = metadata["udid"]
+    # TcpLockdownClient overwrites identifier with hostname; isolate each device's trust cache.
+    watch.identifier = metadata["udid"]
     await watch.get_value()
     watch.all_values.setdefault("WiFiAddress", "")
     # Validate saved trust before asking the device to approve a new pairing.

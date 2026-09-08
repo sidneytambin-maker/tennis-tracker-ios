@@ -60,7 +60,7 @@ class WatchDeveloperStreamTests(unittest.TestCase):
 
 class WatchPairingTests(unittest.IsolatedAsyncioTestCase):
     async def run_connection(self, results, pair_error=None):
-        watch = SimpleNamespace(all_values={}, get_value=AsyncMock(),
+        watch = SimpleNamespace(identifier="127.0.0.1", all_values={}, get_value=AsyncMock(),
             validate_pairing=AsyncMock(side_effect=results), pair=AsyncMock(side_effect=pair_error))
         self.watch = watch
         phone = SimpleNamespace(host_id="fixture-host", identifier="fixture-phone")
@@ -75,6 +75,7 @@ class WatchPairingTests(unittest.IsolatedAsyncioTestCase):
 
     async def testSavedPairingDoesNotRequestNewTrust(self):
         watch, _ = await self.run_connection([True])
+        self.assertEqual(watch.identifier, "fixture-watch")
         watch.pair.assert_not_awaited()
         self.assertEqual(watch.validate_pairing.await_count, 1)
 
