@@ -1,10 +1,13 @@
 import io
+from pathlib import Path
 import plistlib
 import struct
+from types import SimpleNamespace
 import unittest
+from unittest.mock import AsyncMock, patch
 import zipfile
 
-from watch_developer_install import developer_stream
+from watch_developer_install import connect, developer_stream
 
 
 def local_records(data):
@@ -53,6 +56,41 @@ class WatchDeveloperStreamTests(unittest.TestCase):
         for parent, child in (("Payload/", "Payload/Example.app/"),
                               ("Payload/Example.app/_CodeSignature/", "Payload/Example.app/_CodeSignature/CodeResources")):
             self.assertLess(names.index(parent), names.index(child))
+
+
+class WatchPairingTests(unittest.IsolatedAsyncioTestCase):
+    async def run_connection(self, results, pair_error=None):
+        watch = SimpleNamespace(all_values={}, get_value=AsyncMock(),
+            validate_pairing=AsyncMock(side_effect=results), pair=AsyncMock(side_effect=pair_error))
+        self.watch = watch
+        phone = SimpleNamespace(host_id="fixture-host", identifier="fixture-phone")
+        companion = SimpleNamespace(start_forwarding_service_port=AsyncMock(return_value=12345))
+        with patch.object(Path, "read_text", return_value='{"udid":"fixture-watch"}'), \
+             patch("watch_developer_install.create_using_usbmux", AsyncMock(return_value=phone)), \
+             patch("watch_developer_install.CompanionProxyService", return_value=companion), \
+             patch("watch_developer_install.ServiceConnection.create_using_usbmux", AsyncMock()), \
+             patch("watch_developer_install.create_pairing_records_cache_folder", return_value=Path(".")), \
+             patch("watch_developer_install.WatchClient", return_value=watch):
+            return await connect(Path("fixture"))
+
+    async def testSavedPairingDoesNotRequestNewTrust(self):
+        watch, _ = await self.run_connection([True])
+        watch.pair.assert_not_awaited()
+        self.assertEqual(watch.validate_pairing.await_count, 1)
+
+    async def testMissingPairingIsValidatedAfterDeviceApproval(self):
+        watch, _ = await self.run_connection([False, True])
+        watch.pair.assert_awaited_once_with(timeout=10)
+        self.assertEqual(watch.validate_pairing.await_count, 2)
+
+    async def testInvalidNewPairingStopsConnection(self):
+        with self.assertRaisesRegex(RuntimeError, "could not be validated"):
+            await self.run_connection([False, False])
+
+    async def testPairingFailureIsNotIgnored(self):
+        with self.assertRaisesRegex(RuntimeError, "Device approval pending"):
+            await self.run_connection([False], RuntimeError("Device approval pending"))
+        self.assertEqual(self.watch.validate_pairing.await_count, 1)
 
 
 if __name__ == "__main__":

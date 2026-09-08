@@ -44,9 +44,11 @@ async def connect(repo):
     watch.watch_identifier = metadata["udid"]
     await watch.get_value()
     watch.all_values.setdefault("WiFiAddress", "")
-    if not watch.paired:
+    # Validate saved trust before asking the device to approve a new pairing.
+    if not await asyncio.wait_for(watch.validate_pairing(), 20):
         await asyncio.wait_for(watch.pair(timeout=10), 20)
-    await asyncio.wait_for(watch.validate_pairing(), 20)
+        if not await asyncio.wait_for(watch.validate_pairing(), 20):
+            raise RuntimeError("Watch pairing could not be validated")
     return watch, metadata
 
 
