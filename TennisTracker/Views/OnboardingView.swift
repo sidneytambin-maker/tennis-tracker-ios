@@ -50,6 +50,7 @@ struct OnboardingView: View {
                                 step -= 1
                                 focusHeading()
                             }
+                            .buttonStyle(.borderless)
                             .accessibilityIdentifier("onboardingBackButton")
                         }
                         Spacer()

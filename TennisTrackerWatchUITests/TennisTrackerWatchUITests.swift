@@ -328,8 +328,10 @@ final class TennisTrackerWatchUITests: XCTestCase {
         app.navigationBars["Weather"].buttons.firstMatch.tap()
         XCTAssertEqual(app.buttons["matchWeather"].value as? String, "Sunny, Light showers and Windy")
         reveal(app.buttons["saveRecordedMatch"], in: app); app.buttons["saveRecordedMatch"].tap()
-        XCTAssertTrue(app.buttons["Menu"].waitForExistence(timeout: 5))
-        app.buttons["Menu"].tap(); app.buttons["Recent"].tap()
+        let menu = app.buttons.matching(identifier: "watchScreenMenu")
+            .matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap(); app.buttons["Recent"].tap()
         let summary = app.buttons["Match summary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue(summary.label.contains("Sam"))

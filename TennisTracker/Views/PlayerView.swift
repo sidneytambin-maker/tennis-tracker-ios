@@ -84,6 +84,8 @@ struct PlayerEditorView: View {
                             Text(player.playingHand).tag(player.playingHand)
                         }
                     }
+                    .accessibilityLabel("Handedness")
+                    .accessibilityValue(player.playingHand.fallback("Not known"))
                     .accessibilityIdentifier("playerHandednessPicker")
                     Picker("Usual bounce allowance", selection: $player.bounceAllowance) {
                         Text(player.sightLevel == .notKnown ? "Not known" : "Classification default: \(player.sightLevel.allowedBounces)")

@@ -119,7 +119,35 @@ jobs:
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
           printf 'SIMULATOR_ID=%s\n' "$SIMULATOR_ID" >> "$GITHUB_ENV"
 
-      - name: Run unit and accessibility UI tests
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.iphone_simulator.outcome == 'success' }}
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          mkdir -p UnitDiagnostics
+          xcodebuild test \
+            -project "TennisTrackeriOS.xcodeproj" \
+            -scheme "TennisTracker" \
+            -sdk iphonesimulator \
+            -destination "id=$SIMULATOR_ID" \
+            -only-testing:TennisTrackerTests \
+            -parallel-testing-enabled NO \
+            -resultBundlePath UnitTests.xcresult \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" 2>&1 | tee UnitDiagnostics/test.log
+
+      - name: Preserve unit test log before iPhone UI tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-tracker-unit-test-log
+          path: UnitDiagnostics
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run iPhone accessibility UI tests
         if: ${{ !cancelled() && steps.iphone_simulator.outcome == 'success' }}
         timeout-minutes: 25
         run: |
@@ -129,6 +157,7 @@ jobs:
             -scheme "TennisTracker" \
             -sdk iphonesimulator \
             -destination "id=$SIMULATOR_ID" \
+            -only-testing:TennisTrackerUITests \
             -parallel-testing-enabled NO \
             -resultBundlePath iPhoneTests.xcresult \
             -configuration Debug \
@@ -177,7 +206,7 @@ jobs:
         if: always()
         run: |
           mkdir -p VisualReview
-          for suite in WatchTests iPhoneTests; do
+          for suite in WatchTests UnitTests iPhoneTests; do
             if [ -d "$suite.xcresult" ]; then
               xcrun xcresulttool export attachments --path "$suite.xcresult" --output-path "VisualReview/$suite" || true
             fi
@@ -190,8 +219,10 @@ jobs:
           name: tennis-tracker-simulator-test-results
           path: |
             WatchTests.xcresult
+            UnitTests.xcresult
             iPhoneTests.xcresult
             WatchDiagnostics
+            UnitDiagnostics
             VisualReview
           if-no-files-found: warn
           retention-days: 7

@@ -170,7 +170,7 @@ final class TennisWatchActivityPolishTests: XCTestCase {
         var other = training; other.id = UUID(); other.playerID = UUID()
         snapshot.trainingSessions = [training, other]
         let week = TennisGlance.make(kind: .week, snapshot: snapshot, now: now)
-        XCTAssertTrue(week.accessibilitySummary.contains("1 training session, 2 minutes 39 seconds"))
+        XCTAssertTrue(week.accessibilitySummary.contains("1 completed training session, 2 minutes 39 seconds"))
         let latest = TennisGlance.make(kind: .latest, snapshot: snapshot, now: now)
         XCTAssertTrue(latest.accessibilitySummary.contains("72 beats per minute"))
         XCTAssertEqual(latest.circularDetail, "2:39")

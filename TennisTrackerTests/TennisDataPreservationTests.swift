@@ -66,7 +66,10 @@ final class TennisDataPreservationTests: XCTestCase {
         XCTAssertEqual(reloaded.data.tournaments, data.tournaments)
         XCTAssertEqual(reloaded.data.settings, data.settings)
         XCTAssertEqual(reloaded.data.deletedRecordIDs, data.deletedRecordIDs)
-        XCTAssertEqual(reloaded.data.trainingSessions[0].context, training.context)
+        var completedContext = training.context
+        completedContext.coachesNeedDetails = false
+        completedContext.participantsNeedDetails = false
+        XCTAssertEqual(reloaded.data.trainingSessions[0].context, completedContext)
         XCTAssertEqual(reloaded.data.trainingSessions[0].workout, training.workout)
         XCTAssertEqual(reloaded.data.trainingSessions[0].actualStart, training.actualStart)
         XCTAssertEqual(reloaded.data.trainingSessions[0].actualFinish, training.actualFinish)
