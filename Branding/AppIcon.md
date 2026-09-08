@@ -15,6 +15,10 @@ The generation source is exported to 1024 pixels with Lanczos resampling and RGB
 pixel format. No rounded corners or circular mask are baked into the shipped PNG.
 `Scripts/test_app_icons.py` checks dimensions, opaque format and matching artwork;
 `Scripts/verify_app_icons.py` also checks both compiled bundles inside the IPA.
+The native check uses Apple's assetutil to verify opaque sRGB AppIcon renditions
+inside each Assets.car. watchOS stores its icon there without a loose PNG. The
+catalogue SHA-256 is retained so the signed Windows package must contain the exact
+catalogue inspected on the Mac builder.
 
 ## Apple Guidance
 

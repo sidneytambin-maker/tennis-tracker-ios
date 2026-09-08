@@ -3,6 +3,10 @@ name: iOS free development build
 on:
   workflow_dispatch:
     inputs:
+      verified_test_run:
+        description: Optional completed native test run; accepted only for unchanged app and test sources
+        type: string
+        default: ""
       stage:
         description: Capability stage to compile; never installs a physical device
         required: true
@@ -17,6 +21,10 @@ on:
       - codex/ios-poc
       - codex/product-integration
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build:
     name: Build unsigned iOS IPA
@@ -26,6 +34,21 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate reusable native test evidence
+        id: test_evidence
+        if: inputs.verified_test_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_RUN: ${{ inputs.verified_test_run }}
+          BUILD_STAGE: ${{ inputs.stage || 'core' }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python3 Scripts/verify_native_test_evidence.py --run "$TEST_RUN" --repo "$GITHUB_REPOSITORY" --stage "$BUILD_STAGE" | tee artifacts/native-test-evidence.json
+          echo 'reuse=true' >> "$GITHUB_OUTPUT"
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -33,8 +56,11 @@ jobs:
       - name: Validate iPhone and Watch app icon artwork
         run: python3 -m unittest discover -s Scripts -p test_app_icons.py -v
 
+      - name: Validate native test evidence guard
+        run: python3 -m unittest discover -s Scripts -p test_native_test_evidence.py -v
+
       - name: Compile Watch complication
-        if: inputs.stage == 'widgets'
+        if: inputs.stage == 'widgets' && steps.test_evidence.outputs.reuse != 'true'
         timeout-minutes: 10
         run: |
           set -euo pipefail
@@ -47,6 +73,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: Prepare Watch simulator
+        if: steps.test_evidence.outputs.reuse != 'true'
         timeout-minutes: 5
         run: |
           set -euo pipefail
@@ -58,6 +85,7 @@ jobs:
           printf 'WATCH_ID=%s\n' "$WATCH_ID" >> "$GITHUB_ENV"
 
       - name: Run native Watch accessibility UI tests
+        if: steps.test_evidence.outputs.reuse != 'true'
         timeout-minutes: 15
         run: |
           set -euo pipefail
@@ -104,7 +132,7 @@ jobs:
 
       - name: Generate iOS test project
         id: iphone_project
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.test_evidence.outputs.reuse != 'true' && steps.test_evidence.outcome != 'failure' }}
         run: xcodegen generate --spec project-tests.yml
 
       - name: Prepare iPhone simulator
@@ -182,7 +210,7 @@ jobs:
           xcodegen generate --spec "$SPEC"
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
-          python3 Scripts/verify_app_icons.py --ipa artifacts/TennisTracker-unsigned.ipa | tee artifacts/app-icon-verification.json
+          python3 Scripts/verify_app_icons.py --ipa artifacts/TennisTracker-unsigned.ipa --native | tee artifacts/app-icon-verification.json
           printf '\nCapability stage: %s\nPhysical acceptance: not tested by this workflow\n' "$BUILD_STAGE" >> artifacts/build-summary.txt
 
       - name: Report iPhone and Watch signing status
@@ -204,6 +232,7 @@ jobs:
             artifacts/TennisTracker-unsigned.ipa
             artifacts/build-summary.txt
             artifacts/app-icon-verification.json
+            artifacts/native-test-evidence.json
           if-no-files-found: error
           retention-days: 7
 
