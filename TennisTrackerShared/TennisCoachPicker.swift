@@ -3,14 +3,42 @@ import SwiftUI
 struct TennisCoachPicker: View {
     let coaches: [TennisCoach]
     @Binding var context: TennisActivityContext
+    @State private var showingChoices = false
 
     var body: some View {
+        #if os(watchOS)
+        Button { showingChoices = true } label: { label }
+            .accessibilityLabel("Coaches")
+            .accessibilityIdentifier("trainingCoachPicker")
+            .accessibilityValue(summary)
+            .accessibilityHint("Choose saved coaches or a one-off coach.")
+            .sheet(isPresented: $showingChoices) {
+                NavigationStack {
+                    TennisCoachChoices(coaches: coaches, context: $context)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) { Button("Done") { showingChoices = false } }
+                        }
+                }
+            }
+        #else
         NavigationLink("Coaches") {
             TennisCoachChoices(coaches: coaches, context: $context)
         }
         .accessibilityIdentifier("trainingCoachPicker")
         .accessibilityValue(context.coachSummary(in: coaches).fallback(context.otherCoachName == nil ? "None" : "Other"))
         .accessibilityHint("Choose saved coaches or a one-off coach.")
+        #endif
+    }
+
+    private var summary: String {
+        context.coachSummary(in: coaches).fallback(context.otherCoachName == nil ? "None" : "Other")
+    }
+
+    private var label: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Coaches")
+            Text(summary).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 }
 

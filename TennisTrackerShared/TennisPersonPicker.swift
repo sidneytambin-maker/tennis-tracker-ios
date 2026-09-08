@@ -23,6 +23,7 @@ struct TennisPersonPicker: View {
                     .tag(Optional(player.id))
             }
         }
+        .accessibilityIdentifier("activityPersonPicker." + title)
         .onChange(of: selection) { _, id in
             name = players.first(where: { $0.id == id })?.displayName ?? ""
         }

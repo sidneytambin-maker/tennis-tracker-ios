@@ -428,6 +428,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     func saveRecordedMatch(_ draft: MatchRecord) {
         guard !snapshot.deletedRecordIDs.contains(draft.id), TennisManualMatchEntry.validationMessage(for: draft) == nil else { return }
         var recorded = draft
+        if recorded.matchType == .singles {
+            recorded.partnerID = nil; recorded.partnerName = ""
+            recorded.opponent2ID = nil; recorded.opponent2Name = ""
+        }
         recorded.status = .completed
         recorded.liveScore = nil
         recorded.needsDetails = recorded.yourSetsWon + recorded.opponentSetsWon == 0 && recorded.setScores.isBlank

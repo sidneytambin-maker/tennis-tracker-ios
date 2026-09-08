@@ -176,10 +176,11 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(end.waitForExistence(timeout: 10))
         reveal(end, in: app)
         end.tap()
-        app.buttons["Cancel"].tap()
+        let close = app.buttons["AX_ActionContentControllerCancelButton"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5)); close.tap()
         XCTAssertTrue(app.buttons["Active training summary"].exists)
         end.tap()
-        let confirm = app.buttons["confirmEndTrainingWorkout"]
+        let confirm = app.buttons["End Workout and Save"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         confirm.tap()
         XCTAssertTrue(app.buttons["Completed training summary"].waitForExistence(timeout: 10))
@@ -310,7 +311,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         app.launchArguments = ["-ui-testing-watch", "-watch-page=Track", "-watch-manual-match"]
         app.launch()
         reveal(app.buttons["Record Match Result"], in: app); app.buttons["Record Match Result"].tap()
-        reveal(app.buttons["Opponent"], in: app); app.buttons["Opponent"].tap()
+        reveal(app.buttons["activityPersonPicker.Opponent"], in: app); app.buttons["activityPersonPicker.Opponent"].tap()
         app.buttons["Sam"].tap()
         reveal(app.buttons["matchCourtSetting"], in: app); app.buttons["matchCourtSetting"].tap()
         app.buttons["Outdoors"].tap()
@@ -334,17 +335,18 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<8 {
+        for _ in 0..<20 {
             // A partially visible Watch control may be hittable beneath the page indicator.
             let lowerEdge = app.frame.maxY - 32
-            if element.exists && element.isHittable && element.frame.midY < lowerEdge { return }
+            if element.exists && element.isHittable && element.frame.midY < lowerEdge && element.frame.midY > app.frame.minY + 40 { return }
             scrollUp(in: app)
         }
+        print(app.debugDescription)
         XCTAssertTrue(element.isHittable)
     }
 
     private func scrollUp(in app: XCUIApplication) {
-        if app.buttons["Menu"].exists || app.scrollViews.firstMatch.exists {
+        if app.collectionViews.firstMatch.exists || app.scrollViews.firstMatch.exists {
             let list = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app.collectionViews.firstMatch
             let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
             let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
