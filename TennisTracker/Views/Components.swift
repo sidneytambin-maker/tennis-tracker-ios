@@ -308,8 +308,15 @@ struct EmptyStateView: View {
     let message: String
 
     var body: some View {
-        ContentUnavailableView(title, systemImage: "plus.circle", description: Text(message))
-            .accessibilityElement(children: .combine)
+        Label(title, systemImage: "tray")
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isStaticText)
+            .accessibilityLabel(title)
+            .accessibilityHint(message)
     }
 }
 

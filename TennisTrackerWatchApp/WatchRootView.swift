@@ -112,34 +112,23 @@ struct WatchTrainingSetupView: View {
     @AppStorage("trackTrainingAsWorkout") private var useHealth = false
 
     var body: some View {
-        TennisChoiceList {
+        Form {
             Picker("Training type", selection: $type) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
             TennisTrainingFocusPicker(focus: $focus)
             NavigationLink("Coaches") {
-                TennisChoiceList {
-                    ForEach(store.snapshot.setup.coaches) { coach in
-                        TennisSelectionRow(name: coach.name, id: coach.id, selectedIDs: $context.coachIDs)
-                    }
-                    Toggle("Other: complete on iPhone", isOn: $otherCoaches)
-                }.navigationTitle("Coaches")
+                WatchCoachChoices(coaches: store.snapshot.setup.coaches, selectedIDs: $context.coachIDs, otherSelected: $otherCoaches)
             }
             .accessibilityValue(context.coachSummary(in: store.snapshot.setup.coaches).fallback("None"))
             WatchVenueFields(venueID: $context.venueID, venue: $venue, location: $location)
             NavigationLink("Players Present") {
-                TennisChoiceList {
-                    ForEach(store.snapshot.players.filter { $0.id != store.selectedPlayer?.id }) { player in
-                        TennisSelectionRow(name: player.displayName, id: player.id, selectedIDs: $context.participantIDs)
-                    }
-                    Toggle("Other", isOn: $otherPlayers)
-                }.navigationTitle("Players Present")
+                WatchPlayerChoices(players: store.snapshot.players.filter { $0.id != store.selectedPlayer?.id }, selectedIDs: $context.participantIDs, otherSelected: $otherPlayers)
             }
             .accessibilityValue(context.participantSummary(in: store.snapshot.players).fallback("None"))
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $context.tournamentID, customName: $context.customTournamentName)
             if store.healthClient.available {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Apple Health").font(.headline).accessibilityAddTraits(.isHeader)
+                Section("Apple Health") {
                     Toggle("Track Training as Workout", isOn: $useHealth)
                     WatchHealthAccessView(client: store.healthClient)
                     Text("Tennis Tracker can record workout duration, heart rate, active energy and available steps and distance in Apple Health. Tennis tracking still works if you decline.")
@@ -167,7 +156,7 @@ private struct WatchMatchSetupView: View {
     @State private var configured = false
 
     var body: some View {
-        TennisChoiceList {
+        Form {
             Picker("Singles or doubles", selection: $match.matchType) {
                 ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
             }
