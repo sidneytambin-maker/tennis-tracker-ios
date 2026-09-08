@@ -16,16 +16,13 @@ struct WatchActivityCard: View {
     @State private var showingDetails = false
 
     var body: some View {
-        Group {
-            if voiceOver || WatchAccessibilityNavigation.testingEnabled {
-                visualContent.accessibilityRepresentation { accessibleSummary }
-            } else {
-                visualContent
-            }
-        }
+        visualContent
         .sheet(isPresented: $showingDetails) {
             NavigationStack {
-                ScrollView { Text(summary).frame(maxWidth: .infinity, alignment: .leading).padding() }
+                ScrollView {
+                    Text(summary).frame(maxWidth: .infinity, alignment: .leading).padding()
+                        .accessibilityIdentifier("watchActivityDetailsSummary")
+                }
                     .navigationTitle("Summary")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingDetails = false } } }
             }
@@ -48,31 +45,34 @@ struct WatchActivityCard: View {
                             }
                         }
                     }
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(summary)
-            .accessibilityIdentifier(identifier)
-            HStack(spacing: 8) {
-                action(editTitle, symbol: "pencil", perform: edit)
-                if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
-                action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
-            }
-        }.padding(.vertical, 5)
-    }
-
-    private var accessibleSummary: some View {
-        Button { showingDetails = true } label: { Text(summary) }
             .accessibilityIdentifier(identifier)
             .accessibilityActions {
                 Button(editTitle, action: edit)
                 if let completeTitle { Button(completeTitle, action: complete) }
                 Button("Delete", role: .destructive, action: delete)
             }
+            if voiceOver || WatchAccessibilityNavigation.testingEnabled {
+                actionButtons.accessibilityRepresentation { EmptyView() }
+            } else {
+                actionButtons
+            }
+        }.padding(.vertical, 5)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            action(editTitle, symbol: "pencil", perform: edit)
+            if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
+            action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
+        }
     }
 
     private func action(_ title: String, symbol: String, perform: @escaping () -> Void) -> some View {
-        Button(action: perform) { Image(systemName: symbol).frame(maxWidth: .infinity, minHeight: 44) }
+        Button(action: perform) { Image(systemName: symbol).frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle()) }
             .buttonStyle(.plain).accessibilityLabel(title)
     }
 }

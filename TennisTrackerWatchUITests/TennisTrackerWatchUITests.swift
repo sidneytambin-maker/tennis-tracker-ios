@@ -115,7 +115,13 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertFalse(app.buttons["View Details"].exists)
         XCTAssertFalse(app.buttons["Track Training Session"].exists)
         app.buttons["Completed training summary"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "72 beats per minute")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Summary"].waitForExistence(timeout: 5))
+        let details = app.staticTexts["watchActivityDetailsSummary"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+        XCTAssertTrue(details.label.contains("72 beats per minute"))
+        capture(app, name: "Watch activated activity summary")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Completed training summary"].waitForExistence(timeout: 5))
     }
 
     func testEmptyAccessibleLivePageDoesNotExposeAdjacentPages() {
