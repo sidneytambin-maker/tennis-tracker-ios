@@ -30,6 +30,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         app.buttons["Track Training Session"].tap()
         XCTAssertFalse(app.buttons["Cancel"].exists)
         reveal(app.buttons["Coaches"], in: app)
+        let navigationStart = Date()
         app.buttons["Coaches"].tap()
         for name in ["Chris", "Sarah"] {
             let toggle = app.buttons[name]
@@ -37,6 +38,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
             toggle.tap()
             XCTAssertTrue(toggle.isSelected)
         }
+        XCTAssertLessThan(Date().timeIntervalSince(navigationStart), 20, "Coach selection must not stall during navigation")
         XCTAssertFalse(app.buttons["Cancel"].exists)
         XCTAssertLessThanOrEqual(app.buttons.matching(identifier: "Back").count, 1)
         capture(app, name: "Watch selected coaches");

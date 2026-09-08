@@ -24,6 +24,7 @@ struct TennisResultDashboardRow: View {
         .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel(title)
         .accessibilityValue(totals.summary + (trainingMatchCount > 0 ? " " + trainingContext : ""))
+        .accessibilityIdentifier("resultSummary." + title)
     }
 
     private var trainingContext: String { "Includes \(trainingMatchCount) \(trainingMatchCount == 1 ? "match" : "matches") played during training." }

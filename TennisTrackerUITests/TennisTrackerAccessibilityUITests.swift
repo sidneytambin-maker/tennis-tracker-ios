@@ -259,7 +259,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
 
     func testDashboardCountsTrainingDoublesOnceAndShowsCoach() {
         launchRegressionData()
-        let doubles = app.staticTexts["Doubles matches"]
+        let doubles = resultSummary("Doubles matches")
         XCTAssertTrue(doubles.waitForExistence(timeout: 5))
         XCTAssertTrue((doubles.value as? String)?.contains("3 matches. 1 win, 2 losses, 0 draws") == true)
         XCTAssertTrue((doubles.value as? String)?.contains("Includes 3 matches played during training") == true)
@@ -276,12 +276,24 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     func testAllThemesAndLargeTextVisualReview() {
         for theme in ["tennis", "classic", "contrast", "large-tennis"] {
             launchRegressionData(theme: theme)
-            XCTAssertTrue(app.staticTexts["Doubles matches"].waitForExistence(timeout: 5))
             let attachment = XCTAttachment(screenshot: app.screenshot())
             attachment.name = "Dashboard \(theme) theme build 26"
             attachment.lifetime = .keepAlways
             add(attachment)
+            let doubles = resultSummary("Doubles matches")
+            for _ in 0..<6 { if doubles.exists && doubles.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(doubles.exists)
+            XCTAssertTrue((doubles.value as? String)?.contains("3 matches. 1 win, 2 losses, 0 draws") == true)
+            let detail = XCTAttachment(screenshot: app.screenshot())
+            detail.name = "Doubles results \(theme) build 26"
+            detail.lifetime = .keepAlways
+            add(detail)
         }
+    }
+
+    private func resultSummary(_ title: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "resultSummary." + title)
+            .matching(NSPredicate(format: "value != nil")).firstMatch
     }
 
     private func launchRegressionData(theme: String = "tennis") {

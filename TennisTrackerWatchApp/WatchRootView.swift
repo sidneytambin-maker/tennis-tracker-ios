@@ -112,7 +112,7 @@ struct WatchTrainingSetupView: View {
     @AppStorage("trackTrainingAsWorkout") private var useHealth = false
 
     var body: some View {
-        Form {
+        TennisChoiceList {
             Picker("Training type", selection: $type) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -138,7 +138,8 @@ struct WatchTrainingSetupView: View {
             .accessibilityValue(context.participantSummary(in: store.snapshot.players).fallback("None"))
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $context.tournamentID, customName: $context.customTournamentName)
             if store.healthClient.available {
-                Section("Apple Health") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Apple Health").font(.headline).accessibilityAddTraits(.isHeader)
                     Toggle("Track Training as Workout", isOn: $useHealth)
                     WatchHealthAccessView(client: store.healthClient)
                     Text("Tennis Tracker can record workout duration, heart rate, active energy and available steps and distance in Apple Health. Tennis tracking still works if you decline.")
@@ -153,6 +154,7 @@ struct WatchTrainingSetupView: View {
             }
             .disabled(store.selectedPlayer == nil || store.activeTraining != nil || store.isFinishingWorkout)
         }
+        .pickerStyle(.navigationLink)
         .navigationTitle("Training")
         .onChange(of: useHealth) { _, _ in store.sendHealthStatus() }
     }
@@ -165,7 +167,7 @@ private struct WatchMatchSetupView: View {
     @State private var configured = false
 
     var body: some View {
-        Form {
+        TennisChoiceList {
             Picker("Singles or doubles", selection: $match.matchType) {
                 ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -185,6 +187,7 @@ private struct WatchMatchSetupView: View {
             }
             .disabled(!configured || store.activeMatch != nil)
         }
+        .pickerStyle(.navigationLink)
         .navigationTitle("Live Score a Match")
         .onAppear {
             guard !configured, let player = store.selectedPlayer else { return }
