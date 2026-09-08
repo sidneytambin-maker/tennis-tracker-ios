@@ -39,6 +39,11 @@ final class TennisTrackerWatchUITests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["Cancel"].exists)
         XCTAssertLessThanOrEqual(app.buttons.matching(identifier: "Back").count, 1)
+        capture(app, name: "Watch selected coaches");
+        app.navigationBars["Coaches"].buttons.firstMatch.tap()
+        app.buttons["Coaches"].tap()
+        XCTAssertTrue(app.buttons["Chris"].isSelected)
+        XCTAssertTrue(app.buttons["Sarah"].isSelected)
     }
 
     func testCompletedWorkoutHasOnePreciseFitnessSummaryAndEditorCancel() {
@@ -164,13 +169,13 @@ final class TennisTrackerWatchUITests: XCTestCase {
 
     func testMenuIsAButtonAndChangesScreensWithoutASlider() {
         let app = launch(page: "Live", accessibleNavigation: true)
-        let menu = app.buttons["Menu"]
+        let menu = app.buttons.matching(identifier: "watchScreenMenu").matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         XCTAssertEqual(app.sliders.count, 0)
         menu.tap()
         app.buttons["Track"].tap()
         XCTAssertTrue(app.buttons["Track Training Session"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["Menu"].value as? String, "Current screen: Track")
+        XCTAssertEqual(menu.value as? String, "Current screen: Track")
         capture(app, name: "Watch Menu destination")
     }
 
@@ -194,6 +199,14 @@ final class TennisTrackerWatchUITests: XCTestCase {
         reveal(app.textFields["otherTournamentName"], in: app)
         XCTAssertTrue(app.textFields["otherTournamentName"].exists)
         capture(app, name: "Watch Other tournament entry")
+        reveal(tournament, in: app); tournament.tap()
+        app.buttons["Club Open"].tap()
+        XCTAssertEqual(tournament.value as? String, "Club Open")
+        XCTAssertFalse(app.textFields["otherTournamentName"].exists)
+        reveal(tournament, in: app); tournament.tap()
+        app.buttons["No tournament"].tap()
+        XCTAssertEqual(tournament.value as? String, "No tournament")
+        XCTAssertFalse(app.textFields["otherTournamentName"].exists)
     }
 
     private func capture(_ app: XCUIApplication, name: String) {
@@ -213,8 +226,8 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     private func scrollUp(in app: XCUIApplication) {
-        if app.buttons["Menu"].exists {
-            let list = app.collectionViews.firstMatch
+        if app.buttons["Menu"].exists || app.scrollViews.firstMatch.exists {
+            let list = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app.collectionViews.firstMatch
             let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
             let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
             start.press(forDuration: 0.05, thenDragTo: end)

@@ -20,6 +20,7 @@ struct WatchPageSelector: View {
                 .foregroundStyle(TennisSportStyle.ink)
         }
         .accessibilityLabel("Menu")
+        .accessibilityIdentifier("watchScreenMenu")
         .accessibilityHint("Opens the five app screens. You can also choose a screen using Actions.")
         .sheet(isPresented: $showingPages) {
             NavigationStack {

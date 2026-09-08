@@ -21,6 +21,7 @@ struct TennisResultDashboardRow: View {
         }
         .padding(.vertical, 6)
         .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel(title)
         .accessibilityValue(totals.summary + (trainingMatchCount > 0 ? " " + trainingContext : ""))
     }
@@ -47,6 +48,7 @@ struct TennisFocusDashboardRow: View {
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel(item.focus)
         .accessibilityValue(item.summary)
     }

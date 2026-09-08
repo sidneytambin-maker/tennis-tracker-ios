@@ -12,7 +12,7 @@ struct WatchTrainingEditor: View {
             }
             TennisTrainingFocusPicker(focus: $draft.focus)
             NavigationLink("Coaches") {
-                List {
+                TennisChoiceList {
                     ForEach(store.snapshot.setup.coaches) { coach in
                         TennisSelectionRow(name: coach.name, id: coach.id, selectedIDs: $draft.context.coachIDs)
                     }
@@ -21,7 +21,7 @@ struct WatchTrainingEditor: View {
             .accessibilityValue(draft.context.coachSummary(in: store.snapshot.setup.coaches).fallback("None"))
             .onChange(of: draft.context.coachIDs) { _, _ in draft.context.coachName = "" }
             NavigationLink("Players Present") {
-                List {
+                TennisChoiceList {
                     ForEach(store.snapshot.players.filter { $0.id != draft.playerID }) { player in
                         TennisSelectionRow(name: player.displayName, id: player.id, selectedIDs: $draft.context.participantIDs)
                     }
