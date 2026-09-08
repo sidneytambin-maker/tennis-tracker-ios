@@ -1,6 +1,10 @@
 import XCTest
 
 final class TennisTrackerWatchUITests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
     private func launch(page: String, completedTraining: Bool = false, accessibleNavigation: Bool = false, scheduledTraining: Bool = false, activeMatch: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing-watch", "-watch-page=\(page)"]
@@ -335,24 +339,40 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<20 {
-            // A partially visible Watch control may be hittable beneath the page indicator.
+        var upward = true
+        var previousVisibleRows = ""
+        for _ in 0..<60 {
+            let upperEdge = max(app.frame.minY + 40, app.navigationBars.firstMatch.frame.maxY) + 8
             let lowerEdge = app.frame.maxY - 32
-            if element.exists && element.isHittable && element.frame.midY < lowerEdge && element.frame.midY > app.frame.minY + 40 { return }
-            scrollUp(in: app)
+            if element.exists {
+                let center = element.frame.midY
+                if element.isHittable && center > upperEdge && center < lowerEdge { return }
+                upward = center >= (upperEdge + lowerEdge) / 2
+            } else {
+                let rows = app.cells.allElementsBoundByIndex.filter { $0.frame.intersects(app.frame) }
+                    .map { "\($0.label):\(Int($0.frame.minY))" }.joined(separator: "|")
+                if !rows.isEmpty && rows == previousVisibleRows { upward.toggle() }
+                previousVisibleRows = rows
+            }
+            scroll(in: app, upward: upward)
         }
         print(app.debugDescription)
-        XCTAssertTrue(element.isHittable)
+        XCTFail("Could not reveal \(element) after searching both directions")
     }
 
     private func scrollUp(in app: XCUIApplication) {
+        scroll(in: app, upward: true)
+    }
+
+    private func scroll(in app: XCUIApplication, upward: Bool) {
         if app.collectionViews.firstMatch.exists || app.scrollViews.firstMatch.exists {
             let list = app.scrollViews.firstMatch.exists ? app.scrollViews.firstMatch : app.collectionViews.firstMatch
-            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
-            let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-            start.press(forDuration: 0.05, thenDragTo: end)
+            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upward ? 0.8 : 0.45))
+            let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upward ? 0.45 : 0.8))
+            // Holding at the end prevents inertial flings from skipping short Watch rows.
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
         } else {
-            app.swipeUp()
+            if upward { app.swipeUp() } else { app.swipeDown() }
         }
     }
 }

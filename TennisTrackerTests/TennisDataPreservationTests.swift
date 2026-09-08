@@ -44,7 +44,7 @@ final class TennisDataPreservationTests: XCTestCase {
         match.partnerID = data.players[2].id; match.partnerName = "Jo"
         match.opponent2ID = data.players[3].id; match.opponent2Name = "Kim"
         match.venueID = data.setup.venues[0].id; match.tournamentID = tournament.id
-        match.trainingSessionID = training.id; match.yourSetsWon = 1; match.setScores = "6-4"
+        match.trainingSessionID = training.id; match.yourSetsWon = 1; match.setScores = "6\u{2013}4, 7\u{2013}5"
         match.environment = TennisMatchEnvironment(noise: .loud, setting: .outdoors, weather: [.sunny, .lightRain, .windy])
         match.courtSurface = .artificialGrass; match.notes = "Keep match notes"
         data.matches = [match]; data.deletedRecordIDs = [UUID()]
