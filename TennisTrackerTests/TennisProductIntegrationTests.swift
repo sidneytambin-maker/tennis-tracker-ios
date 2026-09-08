@@ -220,7 +220,7 @@ final class TennisProductIntegrationTests: XCTestCase {
     }
 
     func testFiveWatchPagesAndDeepLinks() {
-        XCTAssertEqual(TennisWatchPage.allCases.map(\.rawValue), ["Today", "Track", "Live", "Recent", "Score"])
+        XCTAssertEqual(TennisWatchPage.allCases.map(\.rawValue), ["Overview", "Track", "Live", "Recent", "Score"])
         for page in TennisWatchPage.allCases { XCTAssertEqual(TennisWatchPage.destination(for: page.url), page) }
         XCTAssertNil(TennisWatchPage.destination(for: URL(string: "https://example.com/score")!))
     }

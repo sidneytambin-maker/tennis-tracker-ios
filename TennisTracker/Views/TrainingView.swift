@@ -171,12 +171,9 @@ struct TrainingEditorView: View {
     @State var session: TrainingSession
     @State private var validationMessage = ""
     @State private var participantName = ""
-    @State private var coachName = ""
     @State private var newPlayers: [PlayerProfile] = []
-    @State private var newCoaches: [TennisCoach] = []
     @FocusState private var personNameFocused: Bool
 
-    private var coaches: [TennisCoach] { store.data.setup.coaches + newCoaches }
     private var players: [PlayerProfile] { store.data.players + newPlayers }
 
     var body: some View {
@@ -196,29 +193,7 @@ struct TrainingEditorView: View {
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $session.date, hasStartTime: $session.hasStartTime)
                         .accessibilityIdentifier("trainingDatePicker")
                     StoredVenuePicker(id: $session.context.venueID, venue: $session.venue, location: $session.location, training: true)
-                    NavigationLink("Coaches") {
-                        TennisList {
-                            ForEach(coaches) { coach in
-                                TennisSelectionRow(name: coach.name, id: coach.id, selectedIDs: $session.context.coachIDs)
-                            }
-                            TextField("New coach name", text: $coachName)
-                                .focused($personNameFocused)
-                            Button("Add Coach") {
-                                let name = coachName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                var coach = coaches.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame } ?? TennisCoach()
-                                coach.name = name
-                                if !coaches.contains(where: { $0.id == coach.id }) { newCoaches.append(coach) }
-                                if !session.context.coachIDs.contains(coach.id) { session.context.coachIDs.append(coach.id) }
-                                coachName = ""
-                                personNameFocused = false
-                            }.disabled(coachName.isBlank)
-                            Toggle("Coaches need details", isOn: Binding(
-                                get: { session.context.coachesNeedDetails == true },
-                                set: { session.context.coachesNeedDetails = $0 }
-                            ))
-                        }.navigationTitle("Coaches")
-                    }
-                    .accessibilityValue(session.context.coachSummary(in: coaches).fallback("None"))
+                    TennisCoachPicker(coaches: store.data.setup.coaches, context: $session.context)
                     NavigationLink("Players Present") {
                         TennisList {
                             ForEach(players.filter { $0.id != session.playerID }) { player in
@@ -294,8 +269,8 @@ struct TrainingEditorView: View {
             UIAccessibility.post(notification: .announcement, argument: validationMessage)
             return
         }
-        session.needsDetails = session.context.participantsNeedDetails == true || session.context.coachesNeedDetails == true
-        store.upsertTraining(session, newPlayers: newPlayers, newCoaches: newCoaches)
+        session.needsDetails = session.context.participantsNeedDetails == true || session.context.coachesNeedDetails == true || session.context.needsOtherCoachName
+        store.upsertTraining(session, newPlayers: newPlayers)
         dismiss()
     }
 }

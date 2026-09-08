@@ -193,15 +193,26 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
 
     func testTrainingMultiSelectionIsAnnouncedAndCancelDiscardsDraftPeople() throws {
         completeOnboarding()
+        openDestination("Settings")
+        app.buttons["tennisSetupLink"].tap()
+        app.buttons["Coaches"].tap()
+        for name in ["Chris", "Sarah"] {
+            app.buttons["Add Coach"].tap()
+            let field = app.textFields["Name"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5))
+            field.tap(); field.typeText(name)
+            app.buttons["Save"].tap()
+            XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 5))
+        }
         openDestination("Training")
         app.buttons["addTrainingButton"].tap()
         tapPossiblyScrolledButton("Coaches")
+        XCTAssertFalse(app.textFields["New coach name"].exists)
+        XCTAssertFalse(app.textFields["otherCoachName"].exists)
         for name in ["Chris", "Sarah"] {
-            let field = app.textFields["New coach name"]
-            field.tap(); field.typeText(name)
-            app.buttons["Add Coach"].tap()
             let selected = app.buttons[name]
             XCTAssertTrue(selected.waitForExistence(timeout: 5))
+            selected.tap()
             XCTAssertTrue(selected.isSelected)
         }
         app.buttons["Chris"].tap()
@@ -224,8 +235,10 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.buttons["Cancel"].tap()
         app.buttons["addTrainingButton"].tap()
         tapPossiblyScrolledButton("Coaches")
-        XCTAssertFalse(app.buttons["Chris"].exists)
-        XCTAssertFalse(app.buttons["Sarah"].exists)
+        XCTAssertTrue(app.buttons["Chris"].exists)
+        XCTAssertTrue(app.buttons["Sarah"].exists)
+        XCTAssertFalse(app.buttons["Chris"].isSelected)
+        XCTAssertFalse(app.buttons["Sarah"].isSelected)
         app.navigationBars["Coaches"].buttons.firstMatch.tap()
         tapPossiblyScrolledButton("Players Present")
         XCTAssertFalse(app.buttons["Ben"].exists)
@@ -296,6 +309,53 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
             .matching(NSPredicate(format: "value != nil")).firstMatch
     }
 
+    func testSavedVenueAndLocationAreAvailableForTrainingAndTournaments() {
+        launchRegressionData()
+        for (tab, add) in [("Training", "addTrainingButton"), ("Tournaments", "addTournamentButton")] {
+            openDestination(tab); app.buttons[add].tap()
+            tapPossiblyScrolledButton("activityVenuePicker")
+            app.buttons["Training Court, Town"].tap()
+            XCTAssertEqual(app.buttons["activityVenuePicker"].value as? String, "Training Court, Town")
+            tapPossiblyScrolledButton("activityLocationPicker")
+            app.buttons["Saved Town"].tap()
+            XCTAssertEqual(app.buttons["activityLocationPicker"].value as? String, "Saved Town")
+            app.buttons["Cancel"].tap()
+        }
+    }
+
+    func testWeatherKeepsMultipleSelectedConditions() {
+        launchRegressionData(); openDestination("Matches")
+        app.buttons["addMatchButton"].tap()
+        tapPossiblyScrolledButton("matchCourtSetting"); app.buttons["Outdoors"].tap()
+        tapPossiblyScrolledButton("matchWeather")
+        for condition in ["Sunny", "Light showers", "Windy"] {
+            tapPossiblyScrolledButton(condition)
+            XCTAssertTrue(app.buttons[condition].isSelected)
+        }
+        app.navigationBars["Weather"].buttons.firstMatch.tap()
+        XCTAssertEqual(app.buttons["matchWeather"].value as? String, "Sunny, Light showers and Windy")
+        app.buttons["matchWeather"].tap()
+        for condition in ["Sunny", "Light showers", "Windy"] { XCTAssertTrue(app.buttons[condition].isSelected) }
+        app.buttons["Windy"].tap()
+        XCTAssertFalse(app.buttons["Windy"].isSelected)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "iPhone multi-select weather"
+        attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testBothHandsPersistsThroughTheSinglePlayerSettingsRoute() {
+        completeOnboarding(); openDestination("Settings")
+        XCTAssertFalse(app.buttons["Player Defaults"].exists)
+        XCTAssertFalse(app.buttons["Players"].exists)
+        app.buttons["tennisSetupLink"].tap(); app.buttons["Players"].tap()
+        tapPossiblyScrolledButton("editCurrentPlayerButton")
+        tapPossiblyScrolledButton("playerHandednessPicker"); app.buttons["Both hands"].tap()
+        app.buttons["savePlayerButton"].tap()
+        tapPossiblyScrolledButton("editCurrentPlayerButton")
+        XCTAssertTrue(app.buttons["playerHandednessPicker"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["playerHandednessPicker"].value as? String, "Both hands")
+    }
+
     private func launchRegressionData(theme: String = "tennis") {
         app.terminate()
         app.launchArguments = ["-ui-testing-reset-store", "-ui-testing-venue-dashboard", "-ui-theme-\(theme)"]
@@ -320,6 +380,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     private func openDestination(_ name: String) {
         if name == "Player" {
             app.tabBars.buttons["Settings"].tap()
+            app.buttons["tennisSetupLink"].tap()
             app.buttons["Players"].tap()
             return
         }

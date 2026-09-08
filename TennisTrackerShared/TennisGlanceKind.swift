@@ -25,7 +25,7 @@ enum TennisGlanceKind: String, CaseIterable {
         switch self {
         case .current: return "Live score or elapsed training and tournament time."
         case .next: return "The next scheduled tennis activity."
-        case .week: return "This week's training time and match results."
+        case .week: return "Completed training time and match results from Monday to Sunday."
         case .latest: return "The most recently completed tennis activity."
         case .startTraining: return "Start tennis training, with scheduled details ready near the start time."
         }
@@ -42,7 +42,7 @@ enum TennisGlanceKind: String, CaseIterable {
 }
 
 extension TennisGlance {
-    static func make(kind: TennisGlanceKind, snapshot: TennisWatchSnapshot, now: Date = Date()) -> Self {
+    static func make(kind: TennisGlanceKind, snapshot: TennisWatchSnapshot, now: Date = Date(), calendar: Calendar = .current) -> Self {
         var selected = snapshot
         selected.matches = snapshot.matches.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
         selected.trainingSessions = snapshot.trainingSessions.filter { snapshot.selectedPlayerID == nil || $0.playerID == snapshot.selectedPlayerID }
@@ -78,13 +78,13 @@ extension TennisGlance {
             if next.destination == .today { return next }
             return Self(title: "Next Tennis", detail: "Nothing scheduled", accessibilitySummary: "No upcoming tennis event is scheduled.", destination: .today, isStale: false, compactDetail: "None")
         case .week:
-            let start = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? Calendar.current.startOfDay(for: now)
+            let start = TennisReportingWeek.interval(containing: now, calendar: calendar).start
             let training = selected.trainingSessions.filter { !$0.isActive && ($0.actualStart ?? $0.date) >= start && ($0.actualFinish ?? $0.expectedEndDate) <= now }
             let matches = selected.matches.filter { $0.status == .completed && ($0.actualFinish ?? $0.date) >= start && ($0.actualFinish ?? $0.date) <= now }
             let seconds = training.reduce(0.0) { $0 + TennisDurationFormatter.trainingSeconds($1) }
             let wins = matches.filter { $0.result == .win }.count
             let duration = TennisDurationFormatter.text(seconds: seconds)
-            let summary = "This week. \(training.count) training \(training.count == 1 ? "session" : "sessions"), \(duration). \(matches.count) \(matches.count == 1 ? "match" : "matches"), \(wins) \(wins == 1 ? "win" : "wins")."
+            let summary = "This week. \(TennisReportingWeek.summary(containing: now, calendar: calendar)). \(training.count) completed training \(training.count == 1 ? "session" : "sessions"), \(duration). \(matches.count) completed \(matches.count == 1 ? "match" : "matches"), \(wins) \(wins == 1 ? "win" : "wins")."
             return Self(title: "This Week", detail: "\(training.count) training, \(matches.count) matches", accessibilitySummary: summary,
                 destination: .recent, isStale: false, compactDetail: "\(training.count) sessions")
         case .latest:

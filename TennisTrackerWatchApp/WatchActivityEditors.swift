@@ -11,11 +11,7 @@ struct WatchTrainingEditor: View {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
             TennisTrainingFocusPicker(focus: $draft.focus)
-            NavigationLink("Coaches") {
-                WatchCoachChoices(coaches: store.snapshot.setup.coaches, selectedIDs: $draft.context.coachIDs, otherSelected: .constant(false), allowsOther: false)
-            }
-            .accessibilityValue(draft.context.coachSummary(in: store.snapshot.setup.coaches).fallback("None"))
-            .onChange(of: draft.context.coachIDs) { _, _ in draft.context.coachName = "" }
+            TennisCoachPicker(coaches: store.snapshot.setup.coaches, context: $draft.context)
             NavigationLink("Players Present") {
                 WatchPlayerChoices(players: store.snapshot.players.filter { $0.id != draft.playerID }, selectedIDs: $draft.context.participantIDs, otherSelected: .constant(false), allowsOther: false)
             }
@@ -37,6 +33,7 @@ struct WatchTrainingEditor: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     draft.context.captureLegacyNames(coaches: store.snapshot.setup.coaches, players: store.snapshot.players)
+                    if draft.context.needsOtherCoachName { draft.needsDetails = true }
                     store.updateTrainingDetails(draft)
                     dismiss()
                 }
@@ -49,9 +46,17 @@ struct WatchMatchEditor: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State var draft: MatchRecord
+    @State private var validationMessage = ""
 
     var body: some View {
         Form {
+            if !validationMessage.isBlank { Text(validationMessage) }
+            if draft.status == .completed {
+                WatchDateField(title: "Match date", date: $draft.date)
+                Picker("Singles or doubles", selection: $draft.matchType) {
+                    ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
+                }
+            }
             TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.partnerID && $0.id != draft.opponent2ID }, selection: $draft.opponentID, name: $draft.opponentName)
             if draft.matchType == .doubles {
                 TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.opponentID && $0.id != draft.opponent2ID }, selection: $draft.partnerID, name: $draft.partnerName, regularPartnersFirst: true)
@@ -59,13 +64,34 @@ struct WatchMatchEditor: View {
             }
             WatchVenueFields(venueID: $draft.venueID, venue: $draft.venue, location: $draft.location)
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $draft.tournamentID, customName: $draft.customTournamentName)
+            if draft.status == .completed {
+                OrderedChoicePicker(title: "Match format", selection: $draft.matchFormat, values: MatchFormat.allCases) { $0.label }
+                Picker("Result", selection: $draft.result) {
+                    ForEach(MatchResult.allCases) { Text($0.rawValue).tag($0) }
+                }
+                OrderedChoicePicker(title: "Your sets won", selection: $draft.yourSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: draft.matchFormat))) { String($0) }
+                OrderedChoicePicker(title: "Opponent sets won", selection: $draft.opponentSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: draft.matchFormat))) { String($0) }
+                TextField("Set scores, optional", text: $draft.setScores)
+            }
+            Section("Conditions") { TennisMatchConditionsFields(match: $draft) }
             TextField("Notes", text: $draft.notes)
             Toggle("Details complete", isOn: Binding(get: { !draft.needsDetails }, set: { draft.needsDetails = !$0 }))
         }
         .navigationTitle("Edit Match")
+        .pickerStyle(.navigationLink)
+        .onChange(of: draft.matchFormat) { _, format in
+            draft.yourSetsWon = min(draft.yourSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
+            draft.opponentSetsWon = min(draft.opponentSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) { Button("Save") { store.updateMatchDetails(draft); dismiss() } }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    if draft.status == .completed, let error = TennisManualMatchEntry.validationMessage(for: draft) {
+                        validationMessage = error; store.announce(error)
+                    } else { store.updateMatchDetails(draft); dismiss() }
+                }
+            }
         }
     }
 }
@@ -74,6 +100,7 @@ struct WatchTournamentEditor: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State var draft: TournamentRecord
+    var isNew = false
 
     var body: some View {
         Form {
@@ -89,11 +116,14 @@ struct WatchTournamentEditor: View {
             TextField("Notes", text: $draft.notes)
             Toggle("Details complete", isOn: Binding(get: { !draft.needsDetails }, set: { draft.needsDetails = !$0 }))
         }
-        .navigationTitle("Edit Tournament")
+        .navigationTitle(isNew ? "Add Tournament" : "Edit Tournament")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { store.updateTournamentDetails(draft); dismiss() }.disabled(draft.name.isBlank)
+                Button("Save") {
+                    if isNew { store.saveTournamentRecord(draft) } else { store.updateTournamentDetails(draft) }
+                    dismiss()
+                }.disabled(draft.name.isBlank)
             }
         }
     }
@@ -106,11 +136,12 @@ struct WatchVenueFields: View {
     @Binding var location: String
 
     var body: some View {
-        TennisVenuePicker(choices: store.snapshot.availableVenueChoices, venueID: $venueID, venue: $venue, location: $location)
+        TennisVenuePicker(choices: store.snapshot.availableVenueChoices, locations: store.snapshot.setup.locations.map(\.name),
+            venueID: $venueID, venue: $venue, location: $location)
     }
 }
 
-private struct WatchDateField: View {
+struct WatchDateField: View {
     let title: String
     @Binding var date: Date
     private let calendar = Calendar.current

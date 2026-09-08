@@ -26,7 +26,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
         knownVenues = TennisVenueChoice.build(setup: data.setup, matches: data.matches, training: data.trainingSessions, tournaments: data.tournaments)
 
         let recentLimit = Calendar.current.date(byAdding: .day, value: -60, to: now) ?? now
-        let weekStart = Calendar.current.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        let weekStart = TennisReportingWeek.interval(containing: now).start
         matches = data.matches
             .filter { $0.status == .inProgress || $0.needsDetails || $0.date >= recentLimit || $0.date >= now }
             .sorted { $0.date > $1.date }

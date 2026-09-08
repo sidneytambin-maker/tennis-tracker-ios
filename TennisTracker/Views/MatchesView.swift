@@ -134,6 +134,7 @@ struct MatchDetailView: View {
                 SummaryRow(title: "Score", value: TennisSummaryFormatter.matchSummary(match).scoreText)
                 SummaryRow(title: "Rules", value: "\(match.sightLevel.label). \(match.allowedBounces) bounces. Sudden-death deuce \(match.suddenDeathDeuce ? "on" : "off").")
                 SummaryRow(title: "Place", value: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", ").fallback("not recorded"))
+                if !match.conditionsSummary.isBlank { SummaryRow(title: "Conditions", value: match.conditionsSummary) }
             }
 
             if store.data.settings.trackingMode != .basic {
@@ -300,13 +301,12 @@ struct MatchEditorView: View {
                     }
                 }
 
+                TennisSection("Conditions") { TennisMatchConditionsFields(match: $match) }
+
                 if store.data.settings.trackingMode != .basic {
                     TennisSection("Performance") {
                         Picker("Round or position", selection: $match.matchPosition) {
                             ForEach(MatchPosition.allCases) { Text($0.rawValue).tag($0) }
-                        }
-                        Picker("Court surface", selection: $match.courtSurface) {
-                            ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                         }
                         NumberChoicePicker(title: "Aces", value: $match.aces, range: 0...99)
                         NumberChoicePicker(title: "Double faults", value: $match.doubleFaults, range: 0...99)
@@ -596,6 +596,9 @@ struct LiveMatchView: View {
 
         TennisSection("Place") {
             StoredVenuePicker(id: binding(\.venueID), venue: binding(\.venue), location: binding(\.location))
+        }
+        TennisSection("Conditions") {
+            TennisMatchConditionsFields(match: Binding(get: { self.match ?? match }, set: { self.match = $0 }))
         }
 
         TennisSection("Rules") {

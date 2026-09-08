@@ -7,7 +7,6 @@ struct SettingsView: View {
     @EnvironmentObject private var router: AppRouter
     @State private var settings = AppSettings()
     @State private var savedMessage = ""
-    @State private var editingDefaults: PlayerProfile?
     @State private var loaded = false
     @ObservedObject private var watchSync = IPhoneWatchSyncService.shared
 
@@ -15,12 +14,8 @@ struct SettingsView: View {
         NavigationStack(path: $router.settingsPath) {
             TennisForm {
                 Section {
-                    NavigationLink("Players", value: TennisSettingsDestination.players)
                     NavigationLink("Tennis Setup", value: TennisSettingsDestination.setup)
                         .accessibilityIdentifier("tennisSetupLink")
-                    if let player = store.selectedPlayer {
-                        Button("Player Defaults") { editingDefaults = player }
-                    }
                 }
                 Section {
                     Button("Save Settings") {
@@ -153,7 +148,6 @@ struct SettingsView: View {
                 case .setup: TennisSetupView()
                 }
             }
-            .sheet(item: $editingDefaults) { PlayerEditorView(player: $0) }
             .onAppear {
                 guard !loaded else { return }
                 settings = store.data.settings

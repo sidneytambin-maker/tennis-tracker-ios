@@ -16,7 +16,7 @@ enum TennisSummaryFormatter {
         case .short: return summary.shortText
         case .long, .accessibility: return summary.longText
         case .detailed:
-            return "\(summary.longText) \(match.matchType.rawValue). \(match.matchFormat.label), \(match.suddenDeathDeuce ? "sudden-death deuce" : "advantage deuce"). Player classification: \(match.sightLevel.label). \(match.allowedBounces) bounces allowed."
+            return "\(summary.longText) \(match.matchType.rawValue). \(match.matchFormat.label), \(match.suddenDeathDeuce ? "sudden-death deuce" : "advantage deuce"). Player classification: \(match.sightLevel.label). \(match.allowedBounces) bounces allowed." + (match.conditionsSummary.isBlank ? "" : " " + match.conditionsSummary)
         }
     }
 

@@ -13,7 +13,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
     }
 
     func testFivePagesHaveDistinctHeadings() {
-        for page in ["Today", "Track", "Live", "Recent", "Score"] {
+        for page in ["Overview", "Track", "Live", "Recent", "Score"] {
             let app = launch(page: page)
             XCTAssertTrue(app.staticTexts[page].waitForExistence(timeout: 10) || app.navigationBars[page].exists)
             if page == "Track" {
@@ -167,6 +167,68 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Active training summary"].label.contains("Coaches: Chris"))
     }
 
+    func testEndWorkoutIsAVisibleAccessibleButtonOnLiveAndCancelKeepsItRunning() {
+        let app = launch(page: "Track", accessibleNavigation: true, scheduledTraining: true)
+        app.buttons["Track Training Session"].tap()
+        reveal(app.buttons["Start Training"], in: app)
+        app.buttons["Start Training"].tap()
+        let end = app.buttons["endTrainingWorkout"]
+        XCTAssertTrue(end.waitForExistence(timeout: 10))
+        reveal(end, in: app)
+        end.tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["Active training summary"].exists)
+        end.tap()
+        let confirm = app.buttons["confirmEndTrainingWorkout"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        XCTAssertTrue(app.buttons["Completed training summary"].waitForExistence(timeout: 10))
+        XCTAssertFalse(end.exists)
+        XCTAssertFalse(app.buttons["Active training summary"].exists)
+        capture(app, name: "Watch workout ended through accessible button")
+    }
+
+    func testEditingTrainingListsSavedCoachesAndOtherDoesNotOpenByDefault() {
+        let app = launch(page: "Live", completedTraining: true)
+        reveal(app.buttons["Edit Training and Focus"], in: app)
+        app.buttons["Edit Training and Focus"].tap()
+        reveal(app.buttons["trainingCoachPicker"], in: app)
+        app.buttons["trainingCoachPicker"].tap()
+        XCTAssertFalse(app.textFields["otherCoachName"].exists)
+        for name in ["Chris", "Sarah"] {
+            reveal(app.buttons[name], in: app)
+            app.buttons[name].tap()
+            XCTAssertTrue(app.buttons[name].isSelected)
+        }
+        let other = app.switches["otherCoachToggle"]
+        reveal(other, in: app); other.tap()
+        reveal(app.textFields["otherCoachName"], in: app)
+        XCTAssertTrue(app.textFields["otherCoachName"].exists)
+        capture(app, name: "Watch saved and one-off coach choices")
+    }
+
+    func testRecentDoesNotExposeEmptySectionHeadings() {
+        let app = launch(page: "Recent", accessibleNavigation: true)
+        XCTAssertTrue(app.staticTexts["No recent activity"].waitForExistence(timeout: 5))
+        for header in ["Matches", "Training", "Tournaments", "Needs Details"] {
+            XCTAssertFalse(app.staticTexts[header].exists)
+        }
+    }
+
+    func testTrackSeparatesRecordingResultsAndManagingTournaments() {
+        let app = launch(page: "Track")
+        reveal(app.buttons["Record Match Result"], in: app)
+        app.buttons["Record Match Result"].tap()
+        XCTAssertTrue(app.navigationBars["Record Match Result"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Record Point for Alex"].exists)
+        app.navigationBars["Record Match Result"].buttons.firstMatch.tap()
+        reveal(app.buttons["Manage Tournaments"], in: app)
+        app.buttons["Manage Tournaments"].tap()
+        XCTAssertTrue(app.buttons["Add Tournament"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Track Tournament"].exists)
+        capture(app, name: "Watch tournament management")
+    }
+
     func testSportingLayoutsForVisualReview() {
         for page in ["Track", "Score", "Live"] {
             let app = launch(page: page, completedTraining: page == "Live")
@@ -221,6 +283,54 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testSavedVenuesAndLocationsAreAvailableInTrainingAndTournamentEditors() {
+        for route in ["Track Training Session", "Manage Tournaments"] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ui-testing-watch", "-watch-page=Track", "-watch-venue-regression"]
+            app.launch()
+            reveal(app.buttons[route], in: app); app.buttons[route].tap()
+            if route == "Manage Tournaments" { app.buttons["Add Tournament"].tap() }
+            let venue = app.buttons["activityVenuePicker"]
+            reveal(venue, in: app); venue.tap()
+            app.buttons["Training Court, Town"].tap()
+            XCTAssertEqual(venue.value as? String, "Training Court, Town")
+            let location = app.buttons["activityLocationPicker"]
+            reveal(location, in: app); location.tap()
+            app.buttons["Saved Town"].tap()
+            XCTAssertEqual(location.value as? String, "Saved Town")
+            capture(app, name: "Watch saved venue in \(route)")
+            app.terminate()
+        }
+    }
+
+    func testManualMatchResultSavesWithoutStartingLiveScoringAndWeatherAllowsMultipleChoices() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-page=Track", "-watch-manual-match"]
+        app.launch()
+        reveal(app.buttons["Record Match Result"], in: app); app.buttons["Record Match Result"].tap()
+        reveal(app.buttons["Opponent"], in: app); app.buttons["Opponent"].tap()
+        app.buttons["Sam"].tap()
+        reveal(app.buttons["matchCourtSetting"], in: app); app.buttons["matchCourtSetting"].tap()
+        app.buttons["Outdoors"].tap()
+        reveal(app.buttons["matchWeather"], in: app); app.buttons["matchWeather"].tap()
+        for condition in ["Sunny", "Light showers", "Windy"] {
+            reveal(app.buttons[condition], in: app); app.buttons[condition].tap()
+            XCTAssertTrue(app.buttons[condition].isSelected)
+        }
+        capture(app, name: "Watch multiple weather selections")
+        app.navigationBars["Weather"].buttons.firstMatch.tap()
+        XCTAssertEqual(app.buttons["matchWeather"].value as? String, "Sunny, Light showers and Windy")
+        reveal(app.buttons["saveRecordedMatch"], in: app); app.buttons["saveRecordedMatch"].tap()
+        XCTAssertTrue(app.buttons["Menu"].waitForExistence(timeout: 5))
+        app.buttons["Menu"].tap(); app.buttons["Recent"].tap()
+        let summary = app.buttons["Match summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertTrue(summary.label.contains("Sam"))
+        XCTAssertTrue(summary.label.contains("Weather: Sunny, Light showers and Windy"))
+        XCTAssertFalse(app.buttons["Current match score"].exists)
+        capture(app, name: "Watch manually recorded completed match")
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {

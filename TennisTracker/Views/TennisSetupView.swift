@@ -144,7 +144,7 @@ private struct SetupRecordEditor: View {
                 }
                 if kind == .tournament {
                     Picker("Usual venue", selection: $draft.venueID) {
-                        Text("Other").tag(Optional<UUID>.none)
+                        Text("No venue").tag(Optional<UUID>.none)
                         ForEach(store.data.setup.venues) { Text($0.summary).tag(Optional($0.id)) }
                     }
                     Picker("Format", selection: $draft.format) {
@@ -174,6 +174,7 @@ struct StoredVenuePicker: View {
 
     var body: some View {
         TennisVenuePicker(choices: TennisVenueChoice.build(setup: store.data.setup, matches: store.data.matches,
-            training: store.data.trainingSessions, tournaments: store.data.tournaments), venueID: $id, venue: $venue, location: $location)
+            training: store.data.trainingSessions, tournaments: store.data.tournaments),
+            locations: store.data.setup.locations.map(\.name), venueID: $id, venue: $venue, location: $location)
     }
 }

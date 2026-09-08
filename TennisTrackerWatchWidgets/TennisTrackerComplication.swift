@@ -19,8 +19,9 @@ private struct TennisTimeline: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<TennisEntry>) -> Void) {
         let now = Date()
         let snapshot = TennisSharedSnapshotFile.read() ?? .empty
-        let entries = (0..<60).map { minute in
-            let date = now.addingTimeInterval(Double(minute) * 60)
+        let dates = kind == .week ? TennisReportingWeek.timelineDates(from: now)
+            : (0..<60).map { now.addingTimeInterval(Double($0) * 60) }
+        let entries = dates.map { date in
             return TennisEntry(date: date, glance: TennisGlance.make(kind: kind, snapshot: snapshot, now: date), kind: kind)
         }
         completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(3600))))

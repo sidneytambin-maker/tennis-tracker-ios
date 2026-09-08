@@ -29,10 +29,10 @@ struct OrderedChoicePicker<Value: Hashable>: View {
     }
 }
 
-struct TennisSelectionRow: View {
+struct TennisSelectionRow<Value: Hashable>: View {
     let name: String
-    let id: UUID
-    @Binding var selectedIDs: [UUID]
+    let id: Value
+    @Binding var selectedIDs: [Value]
 
     private var selected: Bool { selectedIDs.contains(id) }
 

@@ -25,6 +25,22 @@ enum TennisWatchRecordEdits {
         updated.venueID = draft.venueID; updated.venue = draft.venue; updated.location = draft.location
         updated.tournamentID = draft.tournamentID; updated.notes = draft.notes
         updated.customTournamentName = draft.customTournamentName
+        updated.courtSurface = draft.courtSurface
+        updated.environment = draft.environment
+        updated.matchConditions = draft.matchConditions
+        if current.status == .completed && draft.status == .completed {
+            updated.date = draft.date
+            updated.matchType = draft.matchType
+            updated.matchFormat = draft.matchFormat
+            updated.result = draft.result
+            updated.yourSetsWon = draft.yourSetsWon
+            updated.opponentSetsWon = draft.opponentSetsWon
+            updated.setScores = draft.setScores
+            if draft.matchType == .singles {
+                updated.partnerID = nil; updated.partnerName = ""
+                updated.opponent2ID = nil; updated.opponent2Name = ""
+            }
+        }
         updated.needsDetails = draft.needsDetails
         return TennisRecordConflictResolver.prepareLocalMatch(updated, now: now)
     }

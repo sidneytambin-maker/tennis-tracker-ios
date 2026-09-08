@@ -11,6 +11,8 @@ struct WatchActivityCard: View {
     var editTitle = "Edit"
     let edit: () -> Void
     var completeTitle: String?
+    var actionHint = "Opens the full summary. More options are available in Actions."
+    var showsCompletionButton = true
     var complete: () -> Void = {}
     let delete: () -> Void
     @State private var showingDetails = false
@@ -50,6 +52,7 @@ struct WatchActivityCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel(summary)
             .accessibilityIdentifier(identifier)
+            .accessibilityHint(actionHint)
             .accessibilityActions {
                 Button(editTitle, action: edit)
                 if let completeTitle { Button(completeTitle, action: complete) }
@@ -66,7 +69,7 @@ struct WatchActivityCard: View {
     private var actionButtons: some View {
         HStack(spacing: 8) {
             action(editTitle, symbol: "pencil", perform: edit)
-            if let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
+            if showsCompletionButton, let completeTitle { action(completeTitle, symbol: "checkmark", perform: complete) }
             action("Delete", symbol: "trash", perform: delete).foregroundStyle(.red)
         }
     }
@@ -105,6 +108,13 @@ struct WatchTrainingRow: View {
     var body: some View {
         Group {
             if training.isActive {
+                Button { finishing = true } label: {
+                    Label("End Workout", systemImage: "stop.circle.fill")
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .accessibilityIdentifier("endTrainingWorkout")
+                .accessibilityHint("Ends timing and saves this training session and its available workout data after confirmation.")
+                .disabled(store.isPreparingWorkout || store.isFinishingWorkout)
                 WatchLiveTrainingCard(training: training, client: store.healthClient,
                     edit: { editingTraining = training }, finish: { finishing = true }, delete: { deleting = true })
             } else {
@@ -122,8 +132,10 @@ struct WatchTrainingRow: View {
         }
         .sheet(item: $editingTraining) { draft in NavigationStack { WatchTrainingEditor(draft: draft) } }
         .modifier(WatchDeleteConfirmation(isPresented: $deleting, deletion: TennisRecordDeletion(id: training.id, kind: .training)))
-        .confirmationDialog("Finish training session?", isPresented: $finishing, titleVisibility: .visible) {
-            Button("Finish") { store.finishTrainingSession() }.disabled(store.isPreparingWorkout || store.isFinishingWorkout)
+        .confirmationDialog("End workout and save training?", isPresented: $finishing, titleVisibility: .visible) {
+            Button("End Workout and Save") { store.finishTrainingSession() }
+                .accessibilityIdentifier("confirmEndTrainingWorkout")
+                .disabled(store.isPreparingWorkout || store.isFinishingWorkout)
             Button("Cancel", role: .cancel) {}
         }
     }
@@ -147,7 +159,10 @@ private struct WatchLiveTrainingCard: View {
                         distance: client.distanceMeters, steps: client.stepCount) + " " + client.statusMessage,
                 symbol: "figure.tennis", fitness: WatchFitnessMetric.make(heart: client.latestHeartRate, energy: client.activeEnergy,
                     distance: client.distanceMeters, steps: client.stepCount), identifier: "Active training summary", editTitle: "Edit Training and Focus", edit: edit,
-                completeTitle: store.isPreparingWorkout ? nil : "Finish", complete: finish, delete: delete)
+                completeTitle: store.isPreparingWorkout ? nil : "End Workout",
+                actionHint: "Opens the full summary. End Workout is available in Actions and as a button on the Live screen.",
+                showsCompletionButton: false,
+                complete: finish, delete: delete)
         }
     }
 }

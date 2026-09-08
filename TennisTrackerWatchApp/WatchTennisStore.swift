@@ -40,6 +40,10 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             data.players = [player]
             data.setup.coaches = [TennisCoach(name: "Chris"), TennisCoach(name: "Sarah")]
             data.selectedPlayerID = player.id
+            if ProcessInfo.processInfo.arguments.contains("-watch-manual-match") {
+                var opponent = PlayerProfile(); opponent.name = "Sam"
+                data.players.append(opponent)
+            }
             if ProcessInfo.processInfo.arguments.contains("-watch-venue-regression") {
                 data = TennisRegressionFixtures.venueAndDashboard()
             }
@@ -419,6 +423,24 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         if activeMatch?.id == updated.id { activeMatch = updated }
         mergeMatch(updated); send(.upsertMatch(updated))
         announce("Match details saved on Watch.")
+    }
+
+    func saveRecordedMatch(_ draft: MatchRecord) {
+        guard !snapshot.deletedRecordIDs.contains(draft.id), TennisManualMatchEntry.validationMessage(for: draft) == nil else { return }
+        var recorded = draft
+        recorded.status = .completed
+        recorded.liveScore = nil
+        recorded.needsDetails = recorded.yourSetsWon + recorded.opponentSetsWon == 0 && recorded.setScores.isBlank
+        recorded = TennisRecordConflictResolver.prepareLocalMatch(recorded)
+        mergeMatch(recorded); send(.upsertMatch(recorded))
+        announce("Match result saved on Watch. " + TennisSummaryFormatter.match(recorded))
+    }
+
+    func saveTournamentRecord(_ draft: TournamentRecord) {
+        guard !draft.name.isBlank, !snapshot.deletedRecordIDs.contains(draft.id) else { return }
+        let saved = TennisRecordConflictResolver.prepareLocalTournament(draft)
+        mergeTournament(saved); send(.upsertTournament(saved))
+        announce("Tournament saved on Watch.")
     }
 
     func updateTournamentDetails(_ draft: TournamentRecord) {

@@ -6,6 +6,7 @@ private enum VenueSelection: Hashable {
 
 struct TennisVenuePicker: View {
     let choices: [TennisVenueChoice]
+    var locations: [String] = []
     @Binding var venueID: UUID?
     @Binding var venue: String
     @Binding var location: String
@@ -50,7 +51,56 @@ struct TennisVenuePicker: View {
         .accessibilityIdentifier("activityVenuePicker")
         if isOther {
             TextField("Other venue name", text: $venue).accessibilityIdentifier("otherVenueName")
-            TextField("Town or city", text: $location)
+        }
+        TennisLocationPicker(locations: locations + choices.map(\.location), location: $location)
+    }
+}
+
+private enum LocationSelection: Hashable {
+    case none, other, saved(String)
+}
+
+private struct TennisLocationPicker: View {
+    let locations: [String]
+    @Binding var location: String
+    @State private var otherSelected = false
+
+    private var choices: [String] {
+        var seen = Set<String>()
+        return locations.filter { !$0.isBlank && seen.insert(TennisVenueChoice.key("", $0)).inserted }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+    private var saved: String? {
+        choices.first { TennisVenueChoice.key("", $0) == TennisVenueChoice.key("", location) }
+    }
+    private var isOther: Bool { otherSelected || (!location.isBlank && saved == nil) }
+    private var selection: Binding<LocationSelection> {
+        Binding {
+            isOther ? .other : saved.map { .saved($0) } ?? .none
+        } set: { value in
+            switch value {
+            case .none: location = ""; otherSelected = false
+            case .other: otherSelected = true
+            case .saved(let name): location = name; otherSelected = false
+            }
+        }
+    }
+    var body: some View {
+        Picker("Location", selection: selection) {
+            Text("No location").tag(LocationSelection.none)
+            ForEach(choices, id: \.self) { Text($0).tag(LocationSelection.saved($0)) }
+            Text("Other").tag(LocationSelection.other)
+        }
+        #if os(watchOS)
+        .pickerStyle(.navigationLink)
+        #else
+        .pickerStyle(.menu)
+        #endif
+        .accessibilityValue(isOther ? "Other" : location.fallback("No location"))
+        .accessibilityIdentifier("activityLocationPicker")
+        .onChange(of: location) { _, _ in if saved != nil || location.isBlank { otherSelected = false } }
+        if isOther {
+            TextField("Town or city", text: $location).accessibilityIdentifier("otherLocationName")
         }
     }
 }

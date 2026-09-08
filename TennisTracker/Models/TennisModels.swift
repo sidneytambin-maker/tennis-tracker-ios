@@ -75,6 +75,10 @@ enum CourtSurface: String, Codable, CaseIterable, Identifiable {
     case clay = "Clay"
     case grass = "Grass"
     case carpet = "Carpet"
+    case artificialGrass = "Artificial grass"
+    case artificialClay = "Artificial clay"
+    case wood = "Wooden sports floor"
+    case rubber = "Rubber sports floor"
     case indoor = "Indoor"
 
     var id: String { rawValue }
@@ -455,6 +459,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var nextPracticeFocus = ""
     var courtSurface: CourtSurface = .notSpecified
     var matchConditions = ""
+    var environment = TennisMatchEnvironment()
     var matchStrengths = ""
     var matchNeedsWork = ""
     var notes = ""
@@ -537,6 +542,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         nextPracticeFocus = try container.decodeIfPresent(String.self, forKey: .nextPracticeFocus) ?? ""
         courtSurface = try container.decodeIfPresent(CourtSurface.self, forKey: .courtSurface) ?? .notSpecified
         matchConditions = try container.decodeIfPresent(String.self, forKey: .matchConditions) ?? ""
+        environment = try container.decodeIfPresent(TennisMatchEnvironment.self, forKey: .environment) ?? TennisMatchEnvironment()
         matchStrengths = try container.decodeIfPresent(String.self, forKey: .matchStrengths) ?? ""
         matchNeedsWork = try container.decodeIfPresent(String.self, forKey: .matchNeedsWork) ?? ""
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""

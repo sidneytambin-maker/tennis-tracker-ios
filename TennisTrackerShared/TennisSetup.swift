@@ -46,6 +46,7 @@ struct TennisActivityContext: Codable, Equatable {
         set { coachIDs = newValue.map { [$0] } ?? [] }
     }
     var coachName = ""
+    var otherCoachName: String?
     var coachesNeedDetails: Bool?
     var participantIDs: [UUID] = []
     var participantNames: [String] = []
@@ -57,7 +58,7 @@ struct TennisActivityContext: Codable, Equatable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case coachIDs, coachID, coachName, coachesNeedDetails, participantIDs, participantNames
+        case coachIDs, coachID, coachName, otherCoachName, coachesNeedDetails, participantIDs, participantNames
         case participantsNeedDetails, venueID, tournamentID, customTournamentName
     }
 
@@ -66,6 +67,7 @@ struct TennisActivityContext: Codable, Equatable {
         let legacyID = try c.decodeIfPresent(UUID.self, forKey: .coachID)
         coachIDs = Self.unique(try c.decodeIfPresent([UUID].self, forKey: .coachIDs) ?? legacyID.map { [$0] } ?? [])
         coachName = try c.decodeIfPresent(String.self, forKey: .coachName) ?? ""
+        otherCoachName = try c.decodeIfPresent(String.self, forKey: .otherCoachName)
         coachesNeedDetails = try c.decodeIfPresent(Bool.self, forKey: .coachesNeedDetails)
         participantIDs = Self.unique(try c.decodeIfPresent([UUID].self, forKey: .participantIDs) ?? [])
         participantNames = try c.decodeIfPresent([String].self, forKey: .participantNames) ?? []
@@ -80,6 +82,7 @@ struct TennisActivityContext: Codable, Equatable {
         try c.encode(Self.unique(coachIDs), forKey: .coachIDs)
         try c.encodeIfPresent(coachID, forKey: .coachID)
         try c.encode(coachName, forKey: .coachName)
+        try c.encodeIfPresent(otherCoachName, forKey: .otherCoachName)
         try c.encodeIfPresent(coachesNeedDetails, forKey: .coachesNeedDetails)
         try c.encode(Self.unique(participantIDs), forKey: .participantIDs)
         try c.encode(participantNames, forKey: .participantNames)
@@ -91,7 +94,20 @@ struct TennisActivityContext: Codable, Equatable {
 
     func coachSummary(in coaches: [TennisCoach]) -> String {
         let names = Self.unique(coachIDs).compactMap { id in coaches.first { $0.id == id }?.name }
-        return !coachIDs.isEmpty && names.count == Self.unique(coachIDs).count ? Self.names(names) : coachName
+        if !coachIDs.isEmpty && names.count == Self.unique(coachIDs).count {
+            return Self.names(names + [otherCoachName ?? ""])
+        }
+        if coachIDs.isEmpty, let otherCoachName { return otherCoachName }
+        return coachName
+    }
+
+    var needsOtherCoachName: Bool { otherCoachName?.isBlank == true }
+
+    mutating func clearCoaches() {
+        coachIDs = []
+        coachName = ""
+        otherCoachName = nil
+        coachesNeedDetails = false
     }
 
     func participantSummary(in players: [PlayerProfile]) -> String {
@@ -143,12 +159,13 @@ struct TennisPracticeResult: Codable, Equatable {
 }
 
 enum TennisWatchPage: String, CaseIterable, Identifiable {
-    case today = "Today", track = "Track", live = "Live", recent = "Recent", score = "Score"
+    case today = "Overview", track = "Track", live = "Live", recent = "Recent", score = "Score"
     var id: String { rawValue }
-    var url: URL { URL(string: "tennistracker://watch/\(rawValue.lowercased())")! }
+    var url: URL { URL(string: "tennistracker://watch/\(self == .today ? "today" : rawValue.lowercased())")! }
     static func destination(for url: URL) -> Self? {
         guard url.scheme == "tennistracker", url.host == "watch" else { return nil }
         if url.lastPathComponent == "start-training" { return .track }
+        if url.lastPathComponent == "today" { return .today }
         return allCases.first { url.lastPathComponent == $0.rawValue.lowercased() }
     }
 }

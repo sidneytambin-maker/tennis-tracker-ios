@@ -79,10 +79,12 @@ struct PlayerEditorView: View {
                         Text("Not known").tag("")
                         Text("Right-handed").tag("Right-handed")
                         Text("Left-handed").tag("Left-handed")
-                        if !["", "Right-handed", "Left-handed"].contains(player.playingHand) {
+                        Text("Both hands").tag("Both hands")
+                        if !["", "Right-handed", "Left-handed", "Both hands"].contains(player.playingHand) {
                             Text(player.playingHand).tag(player.playingHand)
                         }
                     }
+                    .accessibilityIdentifier("playerHandednessPicker")
                     Picker("Usual bounce allowance", selection: $player.bounceAllowance) {
                         Text(player.sightLevel == .notKnown ? "Not known" : "Classification default: \(player.sightLevel.allowedBounces)")
                             .tag(Optional<Int>.none)

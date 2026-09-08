@@ -8,6 +8,7 @@ enum TennisRegressionFixtures {
         data.players = [player]; data.selectedPlayerID = player.id
         data.setup.venues = [TennisVenue(name: "Training Court", town: "Town", usedForTraining: true, usedForMatches: false)]
         data.setup.coaches = [TennisCoach(name: "Chris")]
+        data.setup.locations = [TennisLocation(name: "Saved Town")]
         var training = TrainingSession(playerID: player.id)
         training.date = Date().addingTimeInterval(-7200)
         training.trainingType = .oneToOneCoaching
