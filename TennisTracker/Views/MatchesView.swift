@@ -194,23 +194,14 @@ struct MatchEditorView: View {
     @EnvironmentObject private var store: TennisStore
     @Environment(\.dismiss) private var dismiss
     @State var match: MatchRecord
-    @State private var setCount = 0
-    @State private var playerGames = Array(repeating: 0, count: 5)
-    @State private var opponentGames = Array(repeating: 0, count: 5)
-    @State private var tiebreakSets = Set<Int>()
+    @State private var validationMessage = ""
 
     var body: some View {
         NavigationStack {
             TennisForm {
+                if !validationMessage.isBlank { Text(validationMessage).accessibilityIdentifier("recordMatchValidation") }
                 TennisSection("Players") {
-                    TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName, fieldIdentifier: "matchOpponentNameField")
-                    Picker("Match type", selection: $match.matchType) {
-                        ForEach(MatchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
-                    }
-                    if match.matchType == .doubles {
-                        TennisPersonPicker(title: "Partner", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.opponentID }, selection: $match.partnerID, name: $match.partnerName, regularPartnersFirst: true)
-                        TennisPersonPicker(title: "Second opponent", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
-                    }
+                    TennisMatchPeopleFields(players: store.data.players, match: $match, singlesTitle: "Opponent name", opponentFieldIdentifier: "matchOpponentNameField")
                 }
 
                 TennisSection("Place") {
@@ -222,12 +213,10 @@ struct MatchEditorView: View {
                         .accessibilityIdentifier("matchDatePicker")
                     OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
                     .accessibilityIdentifier("matchFormatPicker")
-                    .onChange(of: match.matchFormat) { _, newValue in
-                        setCount = min(max(setCount, newValue.defaultSetsToEnter), newValue.maximumSetsToEnter)
-                    }
                 }
 
                     Section {
+                        TennisTrainingSessionPicker(sessions: store.selectedTraining, coaches: store.data.setup.coaches, selection: $match.trainingSessionID)
                         TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: $match.tournamentID, customName: $match.customTournamentName)
                         .onChange(of: match.tournamentID) { _, _ in
                             applyTournamentDefaults()
@@ -242,27 +231,7 @@ struct MatchEditorView: View {
                         ForEach(MatchStatus.allCases) { status in Text(status.rawValue).tag(status) }
                     }
                     if match.status == .completed {
-                        if match.matchFormat == .custom {
-                            Picker("Result", selection: $match.result) {
-                                ForEach(MatchResult.allCases) { result in Text(result.rawValue).tag(result) }
-                            }
-                            NumberChoicePicker(title: "Player sets won", value: $match.yourSetsWon, range: 0...5, suffix: "sets")
-                            NumberChoicePicker(title: "Opponent sets won", value: $match.opponentSetsWon, range: 0...5, suffix: "sets")
-                            TextField("Set scores", text: $match.setScores)
-                        } else {
-                            ForEach(0..<setCount, id: \.self) { index in
-                                SetScoreEntryRow(
-                                    setNumber: index + 1,
-                                    playerGames: binding($playerGames, index: index),
-                                    opponentGames: binding($opponentGames, index: index),
-                                    hadTiebreak: tiebreakBinding(index)
-                                )
-                            }
-                            SummaryRow(title: "Calculated result", value: calculatedResultSummary)
-                        }
-                        if match.matchFormat == .custom || !tiebreakSets.isEmpty || match.hadTiebreak {
-                            TextField("Tie-break notes", text: $match.tiebreakScore)
-                        }
+                        TennisRecordedScoreFields(match: $match)
                     } else if match.status == .inProgress {
                         SummaryRow(title: "In-progress score", value: match.liveScore == nil ? "No live score saved yet." : liveScoreSummary)
                     } else {
@@ -292,12 +261,6 @@ struct MatchEditorView: View {
                             OrderedChoicePicker(title: "Tie-break target", selection: $match.tieBreakTarget, values: [7, 10, 12, 21]) { "\($0) points" }
                             Toggle("Win tie-break by two", isOn: $match.tieBreakWinByTwo)
                         }
-                        if !store.selectedTraining.isEmpty {
-                            Picker("Training session", selection: $match.trainingSessionID) {
-                                Text("No training session").tag(Optional<UUID>.none)
-                                ForEach(store.selectedTraining) { Text("\($0.date.shortTennisDate), \($0.trainingType.rawValue)").tag(Optional($0.id)) }
-                            }.accessibilityIdentifier("matchTrainingPicker")
-                        }
                     }
                 }
 
@@ -310,11 +273,12 @@ struct MatchEditorView: View {
                         }
                         NumberChoicePicker(title: "Aces", value: $match.aces, range: 0...99)
                         NumberChoicePicker(title: "Double faults", value: $match.doubleFaults, range: 0...99)
-                        TextField("Next practice focus", text: $match.nextPracticeFocus, axis: .vertical)
                     }
                 }
 
                 TennisSection("Notes") {
+                    TextField("Next practice focus", text: $match.nextPracticeFocus, axis: .vertical)
+                        .accessibilityHint("Your latest completed match review appears in What to work on on the dashboard.")
                     TextField("Notes", text: $match.notes, axis: .vertical)
                         .lineLimit(3...6)
                         .accessibilityIdentifier("matchNotesField")
@@ -322,16 +286,14 @@ struct MatchEditorView: View {
             }
             .tennisThemedList()
             .navigationTitle("Match")
-            .onAppear(perform: loadScoreRows)
-            .onChange(of: playerGames) { _, _ in updateRequiredSets() }
-            .onChange(of: opponentGames) { _, _ in updateRequiredSets() }
-            .onChange(of: match.matchFormat) { _, _ in updateRequiredSets() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         keepDateInsideLinkedTournament()
-                        applyCalculatedScoreIfNeeded()
+                        if match.status == .completed, let error = TennisRecordedScore.validationMessage(for: match) {
+                            validationMessage = error; store.announce(error); return
+                        }
                         match.needsDetails = match.opponentName.isBlank || match.opponentName == "Opponent"
                             || (match.matchType == .doubles && (match.partnerName.isBlank || match.opponent2Name.isBlank))
                             || (match.status == .completed && match.setScores.isBlank)
@@ -342,18 +304,6 @@ struct MatchEditorView: View {
                 }
             }
         }
-    }
-
-    private var calculatedResultSummary: String {
-        let score = calculatedScore()
-        let result = score.playerSets > score.opponentSets ? "Win" : score.opponentSets > score.playerSets ? "Loss" : "Draw"
-        let setText = score.setScores.isBlank ? "no completed sets entered" : score.setScores
-        return "\(result), \(setText)."
-    }
-
-    private func updateRequiredSets() {
-        guard match.matchFormat != .custom else { return }
-        setCount = TennisSetEntry.requiredRows(format: match.matchFormat, player: playerGames, opponent: opponentGames)
     }
 
     private var liveScoreSummary: String {
@@ -408,103 +358,6 @@ struct MatchEditorView: View {
         return SightLevel.allCases.first { $0.rawValue.uppercased().hasPrefix(normalized) }
     }
 
-    private func loadScoreRows() {
-        guard setCount == 0 else { return }
-        setCount = min(max(match.setsPlayed, match.matchFormat.defaultSetsToEnter), match.matchFormat.maximumSetsToEnter)
-        let parsed = match.setScores
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        for (index, score) in parsed.prefix(5).enumerated() {
-            let parts = score.split(separator: "-").compactMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            guard parts.count == 2 else { continue }
-            playerGames[index] = parts[0]
-            opponentGames[index] = parts[1]
-            if abs(parts[0] - parts[1]) == 1 && max(parts[0], parts[1]) >= 7 {
-                tiebreakSets.insert(index)
-            }
-        }
-        if match.hadTiebreak && tiebreakSets.isEmpty {
-            tiebreakSets.insert(0)
-        }
-    }
-
-    private func calculatedScore() -> (playerSets: Int, opponentSets: Int, setScores: String, hadTiebreak: Bool) {
-        var playerSets = 0
-        var opponentSets = 0
-        var entered: [String] = []
-        var hadTiebreak = false
-        for index in 0..<setCount {
-            let player = playerGames[index]
-            let opponent = opponentGames[index]
-            guard player > 0 || opponent > 0 else { continue }
-            entered.append("\(player)-\(opponent)")
-            if player > opponent { playerSets += 1 }
-            if opponent > player { opponentSets += 1 }
-            if tiebreakSets.contains(index) || (abs(player - opponent) == 1 && max(player, opponent) >= 7) {
-                hadTiebreak = true
-            }
-        }
-        return (playerSets, opponentSets, entered.joined(separator: ", "), hadTiebreak)
-    }
-
-    private func applyCalculatedScoreIfNeeded() {
-        guard match.status == .completed, match.matchFormat != .custom else { return }
-        let score = calculatedScore()
-        match.yourSetsWon = score.playerSets
-        match.opponentSetsWon = score.opponentSets
-        match.setScores = score.setScores
-        match.hadTiebreak = score.hadTiebreak
-        if score.playerSets > score.opponentSets {
-            match.result = .win
-        } else if score.opponentSets > score.playerSets {
-            match.result = .loss
-        } else {
-            match.result = .draw
-        }
-    }
-
-    private func binding(_ values: Binding<[Int]>, index: Int) -> Binding<Int> {
-        Binding(
-            get: { values.wrappedValue[index] },
-            set: {
-                var copy = values.wrappedValue
-                copy[index] = $0
-                values.wrappedValue = copy
-            }
-        )
-    }
-
-    private func tiebreakBinding(_ index: Int) -> Binding<Bool> {
-        Binding(
-            get: { tiebreakSets.contains(index) },
-            set: { isOn in
-                if isOn {
-                    tiebreakSets.insert(index)
-                } else {
-                    tiebreakSets.remove(index)
-                }
-            }
-        )
-    }
-}
-
-struct SetScoreEntryRow: View {
-    let setNumber: Int
-    @Binding var playerGames: Int
-    @Binding var opponentGames: Int
-    @Binding var hadTiebreak: Bool
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("Set \(setNumber)")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            OrderedChoicePicker(title: "Your games", selection: $playerGames, values: Array(0...max(30, playerGames))) { "\($0) games" }
-            OrderedChoicePicker(title: "Opponent games", selection: $opponentGames, values: Array(0...max(30, opponentGames))) { "\($0) games" }
-            Toggle("Set decided by tie-break", isOn: $hadTiebreak)
-        }
-        .accessibilityElement(children: .contain)
-    }
 }
 
 struct LiveMatchView: View {
@@ -585,13 +438,7 @@ struct LiveMatchView: View {
         TennisSection("Players") {
             TextField("Player name", text: binding(\.playerName))
                 .accessibilityIdentifier("livePlayerNameField")
-            if match.matchType == .doubles {
-                TennisPersonPicker(title: "Partner", players: store.data.players.filter { $0.id != match.playerID }, selection: binding(\.partnerID), name: binding(\.partnerName), regularPartnersFirst: true)
-                TennisPersonPicker(title: "Opponent team player one", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.partnerID }, selection: binding(\.opponentID), name: binding(\.opponentName))
-                TennisPersonPicker(title: "Opponent team player two", players: store.data.players.filter { $0.id != match.playerID && $0.id != match.partnerID && $0.id != match.opponentID }, selection: binding(\.opponent2ID), name: binding(\.opponent2Name))
-            } else {
-                TennisPersonPicker(title: "Opponent name", players: store.data.players.filter { $0.id != match.playerID }, selection: binding(\.opponentID), name: binding(\.opponentName), fieldIdentifier: "liveOpponentNameField")
-            }
+            TennisMatchPeopleFields(players: store.data.players, match: Binding(get: { self.match ?? match }, set: { self.match = $0 }), showsKind: false, singlesTitle: "Opponent name", opponentFieldIdentifier: "liveOpponentNameField")
         }
 
         TennisSection("Place") {
@@ -626,12 +473,7 @@ struct LiveMatchView: View {
 
             Section {
                 TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: binding(\.tournamentID), customName: binding(\.customTournamentName))
-                Picker("Training session", selection: binding(\.trainingSessionID)) {
-                    Text("No training session").tag(Optional<UUID>.none)
-                    ForEach(store.selectedTraining) { session in
-                        Text("\(session.date.shortTennisDate), \(session.trainingType.rawValue)").tag(Optional(session.id))
-                    }
-                }
+                TennisTrainingSessionPicker(sessions: store.selectedTraining, coaches: store.data.setup.coaches, selection: binding(\.trainingSessionID))
         }
 
     }

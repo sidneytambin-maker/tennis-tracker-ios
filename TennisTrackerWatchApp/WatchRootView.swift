@@ -110,6 +110,7 @@ struct WatchTrainingSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var type: TrainingType = .singlesPractice
     @State private var focus = ""
+    @State private var additionalFocus: [String] = []
     @State private var context = TennisActivityContext()
     @State private var venue = ""
     @State private var location = ""
@@ -121,7 +122,7 @@ struct WatchTrainingSetupView: View {
             Picker("Training type", selection: $type) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
-            TennisTrainingFocusPicker(focus: $focus)
+            TennisTrainingFocusPicker(focus: $focus, additionalFocus: $additionalFocus)
             TennisCoachPicker(coaches: store.snapshot.setup.coaches, context: $context)
             WatchVenueFields(venueID: $context.venueID, venue: $venue, location: $location)
             NavigationLink("Players Present") {
@@ -140,7 +141,7 @@ struct WatchTrainingSetupView: View {
                 context.captureLegacyNames(coaches: store.snapshot.setup.coaches, players: store.snapshot.players)
                 context.coachesNeedDetails = context.needsOtherCoachName
                 context.participantsNeedDetails = otherPlayers
-                store.trackTrainingSession(type: type, focus: focus, context: context, venue: venue, location: location, useHealth: useHealth)
+                store.trackTrainingSession(type: type, focus: focus, additionalFocus: additionalFocus, context: context, venue: venue, location: location, useHealth: useHealth)
                 dismiss()
             }
             .disabled(store.selectedPlayer == nil || store.activeTraining != nil || store.isFinishingWorkout)
@@ -159,17 +160,11 @@ private struct WatchMatchSetupView: View {
 
     var body: some View {
         Form {
-            Picker("Singles or doubles", selection: $match.matchType) {
-                ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
-            }
-            TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != match.playerID }, selection: $match.opponentID, name: $match.opponentName)
-            if match.matchType == .doubles {
-                TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID }, selection: $match.partnerID, name: $match.partnerName, regularPartnersFirst: true)
-                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
-            }
+            TennisMatchPeopleFields(players: store.snapshot.players, match: $match)
             OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
             WatchVenueFields(venueID: $match.venueID, venue: $match.venue, location: $match.location)
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $match.tournamentID, customName: $match.customTournamentName)
+            TennisTrainingSessionPicker(sessions: store.snapshot.trainingSessions.filter { $0.playerID == match.playerID }, coaches: store.snapshot.setup.coaches, selection: $match.trainingSessionID)
             Section("Conditions") { TennisMatchConditionsFields(match: $match) }
             Button("Begin Match Scoring") {
                 match.needsDetails = match.opponentName.isBlank || (match.matchType == .doubles && (match.partnerName.isBlank || match.opponent2Name.isBlank)) || match.venue.isBlank

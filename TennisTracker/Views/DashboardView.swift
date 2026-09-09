@@ -11,6 +11,9 @@ struct DashboardView: View {
     @State private var trainingToEdit: TrainingSession?
     @State private var showingNewTraining = false
     @State private var confirmDeleteMatch = false
+    @State private var focusToEdit: TrainingSession?
+    @State private var showingGoals = false
+    @State private var showingMatchReviews = false
 
     private var stats: TennisStatistics {
         TennisStatistics.build(matches: store.selectedMatches, training: store.selectedTraining, tournaments: store.selectedTournaments)
@@ -116,20 +119,34 @@ struct DashboardView: View {
                     ForEach(progress.focus) { item in
                         TennisFocusDashboardRow(item: item, maximum: progress.focus.map(\.sessions).max() ?? 1)
                     }
-                    if let session = store.selectedTraining.first(where: { $0.focus.isBlank || $0.dashboardFocusSummary == "Specific focus not recorded" }) {
-                        Button { trainingToEdit = session } label: {
+                    if let id = progress.trainingNeedingFocus.first, let session = store.selectedTraining.first(where: { $0.id == id }) {
+                        Button { focusToEdit = session } label: {
                             Label("Choose Focus for \(session.date.fullTennisDate)", systemImage: "scope")
                         }
+                        .accessibilityIdentifier("dashboardChooseFocus")
+                        .accessibilityLabel("Choose training focus for \(session.date.fullTennisDate), \(session.trainingType.rawValue), \(session.placeText)")
+                        .accessibilityHint("Opens the focus choices directly. Choose one or more, then Save.")
                     }
                 }
 
                 TennisSection("What to work on") {
                     if progress.suggestions.isEmpty {
                         Text("No personal goals or match-review priorities recorded.")
+                            .accessibilityHint("Use Edit Goals and Priorities to add a personal goal or coaching priority. Use Review a Match to record what to practise next.")
                     }
                     ForEach(progress.suggestions) { suggestion in
-                        SummaryRow(title: suggestion.source, value: suggestion.detail)
+                        SummaryRow(title: suggestion.source, value: suggestion.detail,
+                            hint: suggestion.source.hasPrefix("Your match review") ? "Use Review a Match to update this priority." : "Use Edit Goals and Priorities to change this.")
+                            .accessibilityAction(named: suggestion.source.hasPrefix("Your match review") ? "Review a Match" : "Edit Goals and Priorities") {
+                                if suggestion.source.hasPrefix("Your match review") { showingMatchReviews = true } else { showingGoals = true }
+                            }
                     }
+                    Button("Edit Goals and Priorities") { showingGoals = true }
+                        .accessibilityIdentifier("dashboardEditGoals")
+                        .accessibilityHint("Opens your personal tennis goal and coaching priority. Save to update this dashboard.")
+                    Button("Review a Match") { showingMatchReviews = true }
+                        .accessibilityIdentifier("dashboardReviewMatch")
+                        .accessibilityHint("Choose a completed match and record your next practice focus.")
                     Button("Plan Next Training Session") { showingNewTraining = true }
                 }
 
@@ -195,6 +212,24 @@ struct DashboardView: View {
             .sheet(isPresented: $showingNewTraining) {
                 if let session = store.makeDefaultTraining() {
                     TrainingEditorView(session: session)
+                }
+            }
+            .sheet(item: $focusToEdit) { TrainingFocusEditor(session: $0) }
+            .sheet(isPresented: $showingGoals) {
+                if let player = store.selectedPlayer { PlayerGoalsEditor(player: player) }
+            }
+            .sheet(isPresented: $showingMatchReviews) {
+                NavigationStack {
+                    TennisList {
+                        ForEach(store.selectedMatches.filter { $0.status == .completed }) { match in
+                            NavigationLink(TennisSummaryFormatter.match(match, style: .short)) { MatchReviewEditor(match: match) }
+                        }
+                        if !store.selectedMatches.contains(where: { $0.status == .completed }) {
+                            Text("No completed matches to review.")
+                        }
+                    }
+                    .navigationTitle("Review a Match")
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingMatchReviews = false } } }
                 }
             }
             .sheet(item: $trainingToEdit) { session in

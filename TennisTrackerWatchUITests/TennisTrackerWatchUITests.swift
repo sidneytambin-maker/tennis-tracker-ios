@@ -76,7 +76,9 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertEqual(focus.value as? String, "No focus selected")
         focus.tap()
         app.buttons["trainingFocusOption.Returns"].tap()
-        XCTAssertEqual(focus.value as? String, "Returns")
+        app.buttons["trainingFocusOption.Serves"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertEqual(focus.value as? String, "Returns and Serves")
         capture(app, name: "Watch explicit training focus")
     }
 
@@ -88,6 +90,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(app.buttons["trainingFocusPicker"].waitForExistence(timeout: 5))
         app.buttons["trainingFocusPicker"].tap()
         app.buttons["trainingFocusOption.Serves"].tap()
+        app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5))
         app.buttons["Save"].tap()
         XCTAssertTrue(complete.waitForNonExistence(timeout: 5))
@@ -338,6 +341,42 @@ final class TennisTrackerWatchUITests: XCTestCase {
         XCTAssertTrue(summary.label.contains("Weather: Sunny, Light showers and Windy"))
         XCTAssertFalse(app.buttons["Current match score"].exists)
         capture(app, name: "Watch manually recorded completed match")
+    }
+
+
+    func testRecordedWatchTiebreakAndTrainingLinkPersist() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-page=Track", "-watch-manual-match", "-watch-scheduled-training"]
+        app.launch()
+        app.buttons["Record Match Result"].tap()
+        app.buttons["activityPersonPicker.Opponent"].tap(); app.buttons["Sam"].tap()
+        reveal(app.buttons["matchTrainingPicker"], in: app)
+        XCTAssertEqual(app.buttons["matchTrainingPicker"].value as? String, "No training session")
+        app.buttons["matchTrainingPicker"].tap()
+        let session = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Coaches: Chris")).firstMatch
+        reveal(session, in: app); session.tap()
+        let format = app.descendants(matching: .any).matching(identifier: "matchFormatPicker").firstMatch
+        reveal(format, in: app); format.tap()
+        app.buttons["One set"].tap()
+        chooseRecordedScore("set1YourGames", value: "6 games", in: app)
+        chooseRecordedScore("set1OpponentGames", value: "6 games", in: app)
+        chooseRecordedScore("set1YourTiebreak", value: "7 points", in: app)
+        chooseRecordedScore("set1OpponentTiebreak", value: "5 points", in: app)
+        reveal(app.buttons["saveRecordedMatch"], in: app); app.buttons["saveRecordedMatch"].tap()
+        let menu = app.buttons.matching(identifier: "watchScreenMenu")
+            .matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5)); menu.tap()
+        reveal(app.buttons["Recent"], in: app); app.buttons["Recent"].tap()
+        let summary = app.buttons["Match summary"]
+        reveal(summary, in: app)
+        XCTAssertTrue(summary.label.contains("tie-break: your 7 points, opponent 5 points"))
+        capture(app, name: "Watch recorded tie-break result")
+    }
+
+    private func chooseRecordedScore(_ identifier: String, value: String, in app: XCUIApplication) {
+        let control = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        reveal(control, in: app); control.tap()
+        reveal(app.buttons[value], in: app); app.buttons[value].tap()
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {

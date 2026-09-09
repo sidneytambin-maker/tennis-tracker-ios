@@ -367,6 +367,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var venue = ""
     var surface: CourtSurface = .notSpecified
     var focus = ""
+    var additionalFocus: [String] = []
     var effortLevel: RatingLevel = .medium
     var confidenceLevel: RatingLevel = .medium
     var sessionOutcome = ""
@@ -416,6 +417,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         venue = try container.decodeIfPresent(String.self, forKey: .venue) ?? ""
         surface = try container.decodeIfPresent(CourtSurface.self, forKey: .surface) ?? .notSpecified
         focus = try container.decodeIfPresent(String.self, forKey: .focus) ?? ""
+        additionalFocus = try container.decodeIfPresent([String].self, forKey: .additionalFocus) ?? []
         effortLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .effortLevel) ?? .medium
         confidenceLevel = try container.decodeIfPresent(RatingLevel.self, forKey: .confidenceLevel) ?? .medium
         sessionOutcome = try container.decodeIfPresent(String.self, forKey: .sessionOutcome) ?? ""
@@ -476,6 +478,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
     var yourSetsWon = 0
     var opponentSetsWon = 0
     var setScores = ""
+    var recordedSets: [TennisRecordedSet] = []
     var hadTiebreak = false
     var tiebreakScore = ""
     var tournamentID: UUID?
@@ -559,6 +562,7 @@ struct MatchRecord: Identifiable, Codable, Equatable {
         yourSetsWon = try container.decodeIfPresent(Int.self, forKey: .yourSetsWon) ?? 0
         opponentSetsWon = try container.decodeIfPresent(Int.self, forKey: .opponentSetsWon) ?? 0
         setScores = try container.decodeIfPresent(String.self, forKey: .setScores) ?? ""
+        recordedSets = try container.decodeIfPresent([TennisRecordedSet].self, forKey: .recordedSets) ?? []
         hadTiebreak = try container.decodeIfPresent(Bool.self, forKey: .hadTiebreak) ?? false
         tiebreakScore = try container.decodeIfPresent(String.self, forKey: .tiebreakScore) ?? ""
         tournamentID = try container.decodeIfPresent(UUID.self, forKey: .tournamentID)

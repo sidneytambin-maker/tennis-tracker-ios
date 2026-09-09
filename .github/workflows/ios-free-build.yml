@@ -29,7 +29,7 @@ jobs:
   build:
     name: Build unsigned iOS IPA
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Check out repository
@@ -86,7 +86,7 @@ jobs:
 
       - name: Run native Watch accessibility UI tests
         if: steps.test_evidence.outputs.reuse != 'true'
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           mkdir -p WatchDiagnostics

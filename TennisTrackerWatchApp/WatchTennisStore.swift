@@ -136,7 +136,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         try? WCSession.default.updateApplicationContext(["healthStatusData": data])
     }
 
-    func trackTrainingSession(type: TrainingType = .singlesPractice, focus: String = "", context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
+    func trackTrainingSession(type: TrainingType = .singlesPractice, focus: String = "", additionalFocus: [String] = [], context: TennisActivityContext = TennisActivityContext(), venue: String = "", location: String = "", useHealth: Bool = false) {
         guard let playerID = selectedPlayer?.id else {
             announce("Set up a player on iPhone first.")
             return
@@ -144,6 +144,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         guard activeTraining == nil && !isPreparingWorkout && !isRestoringWorkout && !isFinishingWorkout else { page = .live; return }
         var session = TennisWatchActivityFactory.trainingSession(playerID: playerID, type: type)
         session.focus = focus
+        session.additionalFocus = additionalFocus
         session.context = context
         session.venue = venue
         session.location = location
@@ -423,6 +424,15 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         if activeMatch?.id == updated.id { activeMatch = updated }
         mergeMatch(updated); send(.upsertMatch(updated))
         announce("Match details saved on Watch.")
+    }
+
+    func updateTrainingLinks(_ session: TrainingSession, original: Set<UUID>, selected: Set<UUID>) {
+        guard snapshot.trainingSessions.contains(where: { $0.id == session.id }), !snapshot.deletedRecordIDs.contains(session.id) else { return }
+        for match in TennisTrainingLinks.changes(sessionID: session.id, playerID: session.playerID, matches: snapshot.matches, original: original, selected: selected) {
+            let updated = TennisRecordConflictResolver.prepareLocalMatch(match)
+            if activeMatch?.id == updated.id { activeMatch = updated }
+            mergeMatch(updated); send(.upsertMatch(updated))
+        }
     }
 
     func saveRecordedMatch(_ draft: MatchRecord) {

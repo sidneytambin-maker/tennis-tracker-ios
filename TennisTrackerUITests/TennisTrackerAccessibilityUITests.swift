@@ -106,6 +106,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertEqual(focus.value as? String, "No focus selected")
         focus.tap()
         app.buttons["trainingFocusOption.Serve and return"].tap()
+        app.buttons["Done"].tap()
         XCTAssertEqual(focus.value as? String, "Serve and return")
         app.buttons["saveTrainingButton"].tap()
         let training = app.buttons.matching(NSPredicate(format: "value CONTAINS %@", "Focus: Serve and return")).firstMatch
@@ -114,11 +115,14 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.navigationBars.buttons["Edit"].tap()
         app.buttons["trainingFocusPicker"].tap()
         app.buttons["trainingFocusOption.Serves"].tap()
+        app.buttons["Done"].tap()
         app.buttons["Cancel"].tap()
         XCTAssertTrue(textContaining("Focus: Serve and return").waitForExistence(timeout: 5))
         app.navigationBars.buttons["Edit"].tap()
         app.buttons["trainingFocusPicker"].tap()
+        app.buttons["trainingFocusOption.none"].tap()
         app.buttons["trainingFocusOption.Returns"].tap()
+        app.buttons["Done"].tap()
         app.buttons["saveTrainingButton"].tap()
         XCTAssertTrue(textContaining("Focus: Returns").waitForExistence(timeout: 5))
         XCTAssertTrue(textContaining("Doubles practice").exists)
@@ -336,7 +340,7 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertEqual(app.buttons["matchWeather"].value as? String, "Sunny, Light showers and Windy")
         app.buttons["matchWeather"].tap()
         for condition in ["Sunny", "Light showers", "Windy"] { XCTAssertTrue(app.buttons[condition].isSelected) }
-        app.buttons["Windy"].tap()
+        tapPossiblyScrolledButton("Windy")
         XCTAssertFalse(app.buttons["Windy"].isSelected)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "iPhone multi-select weather"
@@ -354,6 +358,63 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         tapPossiblyScrolledButton("editCurrentPlayerButton")
         XCTAssertTrue(app.buttons["playerHandednessPicker"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["playerHandednessPicker"].value as? String, "Both hands")
+    }
+
+
+    func testRecordedTiebreakAndTrainingLinkCanBeEnteredWithPickers() {
+        launchMatchUpdateData()
+        openDestination("Matches")
+        app.buttons["addMatchButton"].tap()
+        app.buttons["activityPersonPicker.Opponent name"].tap()
+        app.buttons["Sam"].tap()
+        tapPossiblyScrolledButton("matchFormatPicker"); app.buttons["One set"].tap()
+        tapPossiblyScrolledButton("matchTrainingPicker")
+        let session = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Coaches: Chris")).firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 5)); session.tap()
+        XCTAssertNotEqual(app.buttons["matchTrainingPicker"].value as? String, "No training session")
+        tapPossiblyScrolledButton("set1YourGames"); app.buttons["6 games"].tap()
+        tapPossiblyScrolledButton("set1OpponentGames"); app.buttons["6 games"].tap()
+        tapPossiblyScrolledButton("set1YourTiebreak"); app.buttons["7 points"].tap()
+        tapPossiblyScrolledButton("set1OpponentTiebreak"); app.buttons["5 points"].tap()
+        XCTAssertTrue(app.staticTexts["recordedScoreSummary"].label.contains("Win"))
+        app.buttons["saveMatchButton"].tap()
+        let score = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "tie-break: your 7 points", "tie-break: your 7 points")).firstMatch
+        XCTAssertTrue(score.waitForExistence(timeout: 5))
+    }
+
+    func testDashboardFocusRepairOpensChoicesAndGoalsCanBeSaved() {
+        launchMatchUpdateData()
+        tapPossiblyScrolledButton("dashboardChooseFocus")
+        XCTAssertTrue(app.buttons["trainingFocusOption.Serves"].waitForExistence(timeout: 5))
+        app.buttons["trainingFocusOption.Serves"].tap()
+        app.buttons["trainingFocusOption.Returns"].tap()
+        XCTAssertTrue(app.buttons["trainingFocusOption.Serves"].isSelected)
+        XCTAssertTrue(app.buttons["trainingFocusOption.Returns"].isSelected)
+        app.buttons["saveDashboardFocus"].tap()
+        XCTAssertFalse(app.buttons["dashboardChooseFocus"].exists)
+        tapPossiblyScrolledButton("dashboardEditGoals")
+        let goal = app.descendants(matching: .any).matching(identifier: "personalGoalField").firstMatch
+        XCTAssertTrue(goal.waitForExistence(timeout: 5)); goal.tap(); goal.typeText("Improve second serve")
+        app.buttons["savePlayerGoals"].tap()
+        XCTAssertTrue(textContaining("Improve second serve").waitForExistence(timeout: 5))
+        tapPossiblyScrolledButton("dashboardReviewMatch")
+        let match = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Sam")).firstMatch
+        XCTAssertTrue(match.waitForExistence(timeout: 5)); match.tap()
+        let priority = app.descendants(matching: .any).matching(identifier: "matchReviewPriorityField").firstMatch
+        XCTAssertTrue(priority.waitForExistence(timeout: 5)); priority.tap(); priority.typeText("Return depth")
+        app.buttons["saveMatchReview"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(textContaining("Return depth").waitForExistence(timeout: 5))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "iPhone actionable goals and focus dashboard"
+        attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func launchMatchUpdateData() {
+        app.terminate()
+        app.launchArguments = ["-ui-testing-reset-store", "-ui-testing-venue-dashboard", "-ui-testing-match-update"]
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 10))
     }
 
     private func launchRegressionData(theme: String = "tennis") {

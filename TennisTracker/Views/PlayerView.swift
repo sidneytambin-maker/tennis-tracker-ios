@@ -97,6 +97,10 @@ struct PlayerEditorView: View {
                     TextField("Notes", text: $player.profileNotes, axis: .vertical)
                 }
                 Section("Player defaults") {
+                    TextField("Personal tennis goal", text: $player.primaryGoal, axis: .vertical)
+                        .accessibilityHint("Appears in What to work on on your dashboard.")
+                    TextField("Coaching priority", text: $player.coachingFocus, axis: .vertical)
+                        .accessibilityHint("An area to discuss or practise with your coach. Also available in dashboard Goals and Priorities.")
                     OrderedChoicePicker(title: "Default Match Format", selection: $player.defaultMatchFormat, values: MatchFormat.allCases) { $0.label }
                     .accessibilityIdentifier("playerDefaultFormatPicker")
                     Picker("Preferred match type", selection: $player.preferredMatchType) {

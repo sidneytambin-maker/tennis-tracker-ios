@@ -44,13 +44,14 @@ struct TennisFocusDashboardRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(item.focus).font(.headline)
-            Text(item.summary).font(.callout).fixedSize(horizontal: false, vertical: true)
+            Text("\(item.sessions) \(item.sessions == 1 ? "session" : "sessions")").font(.callout).fixedSize(horizontal: false, vertical: true)
             ProgressView(value: Double(item.sessions), total: Double(max(1, maximum)))
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel(item.focus)
-        .accessibilityValue(item.summary)
+        .accessibilityValue("\(item.sessions) \(item.sessions == 1 ? "session" : "sessions")")
+        .accessibilityHint("Counts sessions including this focus. A session can include several focuses. Total duration is in Training activity.")
     }
 }

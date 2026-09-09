@@ -172,6 +172,9 @@ struct TrainingEditorView: View {
     @State private var validationMessage = ""
     @State private var participantName = ""
     @State private var newPlayers: [PlayerProfile] = []
+    @State private var linkedMatchIDs: [UUID] = []
+    @State private var originalMatchIDs = Set<UUID>()
+    @State private var loadedLinks = false
     @FocusState private var personNameFocused: Bool
 
     private var players: [PlayerProfile] { store.data.players + newPlayers }
@@ -189,7 +192,7 @@ struct TrainingEditorView: View {
                         ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .accessibilityIdentifier("trainingTypePicker")
-                    TennisTrainingFocusPicker(focus: $session.focus)
+                    TennisTrainingFocusPicker(focus: $session.focus, additionalFocus: $session.additionalFocus)
                     AccessibleDateTimeEditor(dateTitle: "Date", timeTitle: "Start time", date: $session.date, hasStartTime: $session.hasStartTime)
                         .accessibilityIdentifier("trainingDatePicker")
                     StoredVenuePicker(id: $session.context.venueID, venue: $session.venue, location: $session.location, training: true)
@@ -220,6 +223,7 @@ struct TrainingEditorView: View {
                     }
                     .accessibilityValue(session.context.participantSummary(in: players).fallback("None"))
                     TennisTournamentPicker(tournaments: store.selectedTournaments, tournamentID: $session.context.tournamentID, customName: $session.context.customTournamentName)
+                    TennisLinkedMatchesPicker(matches: store.selectedMatches, sessionID: session.id, selected: $linkedMatchIDs)
                     Picker("Surface", selection: $session.surface) {
                         ForEach(CourtSurface.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -247,6 +251,11 @@ struct TrainingEditorView: View {
             }
             .tennisThemedList()
             .navigationTitle("Training")
+            .onAppear {
+                guard !loadedLinks else { return }
+                linkedMatchIDs = store.selectedMatches.filter { $0.trainingSessionID == session.id }.map(\.id)
+                originalMatchIDs = Set(linkedMatchIDs); loadedLinks = true
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -271,6 +280,7 @@ struct TrainingEditorView: View {
         }
         session.needsDetails = session.context.participantsNeedDetails == true || session.context.coachesNeedDetails == true || session.context.needsOtherCoachName
         store.upsertTraining(session, newPlayers: newPlayers)
+        store.updateTrainingLinks(session, original: originalMatchIDs, selected: Set(linkedMatchIDs))
         dismiss()
     }
 }

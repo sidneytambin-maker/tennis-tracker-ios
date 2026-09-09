@@ -36,8 +36,12 @@ private struct TennisWeatherChoices: View {
         TennisChoiceList {
             Button("Not recorded") { selected = [] }
                 .accessibilityAddTraits(selected.isEmpty ? .isSelected : [])
-            ForEach(TennisWeather.allCases) { weather in
-                TennisSelectionRow(name: weather.rawValue, id: weather, selectedIDs: $selected)
+            ForEach(TennisWeather.groups, id: \.title) { group in
+                Section(group.title) {
+                    ForEach(group.values) { weather in
+                        TennisSelectionRow(name: weather.rawValue, id: weather, selectedIDs: $selected)
+                    }
+                }
             }
         }.navigationTitle("Weather")
     }

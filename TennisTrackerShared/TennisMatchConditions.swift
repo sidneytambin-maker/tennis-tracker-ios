@@ -15,7 +15,21 @@ enum TennisWeather: String, Codable, CaseIterable, Identifiable {
     case sunny = "Sunny", cloudy = "Cloudy"
     case lightRain = "Light showers", rain = "Rain", windy = "Windy"
     case hot = "Hot", cold = "Cold", mixed = "Mixed conditions"
+    case partlyCloudy = "Partly cloudy", overcast = "Overcast", mist = "Mist", fog = "Fog"
+    case calm = "Calm", lightBreeze = "Light breeze", moderateBreeze = "Moderate breeze"
+    case strongWind = "Strong wind", gusty = "Gusty wind"
+    case drizzle = "Drizzle", heavyRain = "Heavy rain", intermittentRain = "Intermittent rain"
+    case sleet = "Sleet", snow = "Snow", hail = "Hail", thunder = "Thunderstorms"
+    case cool = "Cool", mild = "Mild", warm = "Warm", humid = "Humid", dry = "Dry", frost = "Frost"
     var id: String { rawValue }
+
+    static var groups: [(title: String, values: [Self])] { [
+        ("Sky", [.sunny, .partlyCloudy, .cloudy, .overcast, .mist, .fog]),
+        ("Rain and snow", [.lightRain, .drizzle, .rain, .heavyRain, .intermittentRain, .sleet, .snow, .hail, .thunder]),
+        ("Wind", [.calm, .lightBreeze, .moderateBreeze, .windy, .strongWind, .gusty]),
+        ("Temperature and air", [.cold, .cool, .mild, .warm, .hot, .humid, .dry, .frost]),
+        ("Variable conditions", [.mixed])
+    ] }
 }
 
 struct TennisMatchEnvironment: Codable, Equatable {
@@ -48,6 +62,7 @@ enum TennisManualMatchEntry {
     }
 
     static func validationMessage(for match: MatchRecord) -> String? {
+        if let error = TennisRecordedScore.validationMessage(for: match) { return error }
         guard !match.opponentName.isBlank else { return "Choose an opponent." }
         if match.matchType == .doubles && (match.partnerName.isBlank || match.opponent2Name.isBlank) {
             return "Choose your partner and both opponents."

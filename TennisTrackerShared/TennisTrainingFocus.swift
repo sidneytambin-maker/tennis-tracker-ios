@@ -19,17 +19,28 @@ enum TennisTrainingFocus: String, CaseIterable, Identifiable {
     case pressure = "Playing under pressure"
 
     var id: String { rawValue }
+
+    static func selections(focus: String, additional: [String]) -> [String] {
+        var seen = Set<String>()
+        return ([focus] + additional).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+    }
+
+    static func isSpecific(_ value: String) -> Bool {
+        if allCases.contains(where: { $0.rawValue.localizedCaseInsensitiveCompare(value) == .orderedSame }) { return true }
+        let generic = TrainingType.allCases.map(\.rawValue) + ["General practice", "Technical session", "Tactical session"]
+        return !value.isBlank && !generic.contains { $0.localizedCaseInsensitiveCompare(value) == .orderedSame }
+    }
 }
 
 extension TrainingSession {
     var dashboardFocusSummary: String {
-        let value = focus.trimmingCharacters(in: .whitespacesAndNewlines)
-        if TrainingType.allCases.contains(where: { $0.rawValue.localizedCaseInsensitiveCompare(value) == .orderedSame }) {
-            return "Specific focus not recorded"
-        }
-        return focusSummary
+        if focusSelections.isEmpty { return "No focus selected" }
+        return TennisActivityContext.names(specificFocusSelections).fallback("Specific focus not recorded")
     }
-    var focusSummary: String { focus.trimmingCharacters(in: .whitespacesAndNewlines).fallback("No focus selected") }
+    var focusSelections: [String] { TennisTrainingFocus.selections(focus: focus, additional: additionalFocus) }
+    var specificFocusSelections: [String] { focusSelections.filter(TennisTrainingFocus.isSpecific) }
+    var focusSummary: String { TennisActivityContext.names(specificFocusSelections).fallback("No focus selected") }
 
     func isRecordedTraining(at now: Date) -> Bool {
         guard !isActive else { return false }

@@ -5,6 +5,7 @@ enum TennisWatchRecordEdits {
         var updated = current
         updated.trainingType = draft.trainingType
         updated.focus = draft.focus
+        updated.additionalFocus = draft.additionalFocus
         updated.context = draft.context
         updated.venue = draft.venue
         updated.location = draft.location
@@ -25,9 +26,12 @@ enum TennisWatchRecordEdits {
         updated.venueID = draft.venueID; updated.venue = draft.venue; updated.location = draft.location
         updated.tournamentID = draft.tournamentID; updated.notes = draft.notes
         updated.customTournamentName = draft.customTournamentName
+        updated.trainingSessionID = draft.trainingSessionID
         updated.courtSurface = draft.courtSurface
         updated.environment = draft.environment
         updated.matchConditions = draft.matchConditions
+        updated.nextPracticeFocus = draft.nextPracticeFocus
+        updated.matchNeedsWork = draft.matchNeedsWork
         if current.status == .completed && draft.status == .completed {
             updated.date = draft.date
             updated.matchType = draft.matchType
@@ -36,6 +40,9 @@ enum TennisWatchRecordEdits {
             updated.yourSetsWon = draft.yourSetsWon
             updated.opponentSetsWon = draft.opponentSetsWon
             updated.setScores = draft.setScores
+            updated.recordedSets = draft.recordedSets
+            updated.hadTiebreak = draft.hadTiebreak
+            updated.tiebreakScore = draft.tiebreakScore
             if draft.matchType == .singles {
                 updated.partnerID = nil; updated.partnerName = ""
                 updated.opponent2ID = nil; updated.opponent2Name = ""

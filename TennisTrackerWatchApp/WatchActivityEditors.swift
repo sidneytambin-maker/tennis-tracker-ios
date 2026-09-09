@@ -4,13 +4,16 @@ struct WatchTrainingEditor: View {
     @EnvironmentObject private var store: WatchTennisStore
     @Environment(\.dismiss) private var dismiss
     @State var draft: TrainingSession
+    @State private var linkedMatchIDs: [UUID] = []
+    @State private var originalMatchIDs = Set<UUID>()
+    @State private var loadedLinks = false
 
     var body: some View {
         Form {
             Picker("Training type", selection: $draft.trainingType) {
                 ForEach(TrainingType.allCases) { Text($0.rawValue).tag($0) }
             }
-            TennisTrainingFocusPicker(focus: $draft.focus)
+            TennisTrainingFocusPicker(focus: $draft.focus, additionalFocus: $draft.additionalFocus)
             TennisCoachPicker(coaches: store.snapshot.setup.coaches, context: $draft.context)
             NavigationLink("Players Present") {
                 WatchPlayerChoices(players: store.snapshot.players.filter { $0.id != draft.playerID }, selectedIDs: $draft.context.participantIDs, otherSelected: .constant(false), allowsOther: false)
@@ -19,6 +22,7 @@ struct WatchTrainingEditor: View {
             .onChange(of: draft.context.participantIDs) { _, _ in draft.context.participantNames = [] }
             WatchVenueFields(venueID: $draft.context.venueID, venue: $draft.venue, location: $draft.location)
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $draft.context.tournamentID, customName: $draft.context.customTournamentName)
+            TennisLinkedMatchesPicker(matches: store.snapshot.matches.filter { $0.playerID == draft.playerID }, sessionID: draft.id, selected: $linkedMatchIDs)
             TextField("Notes", text: $draft.notes)
             Toggle("Include session feedback", isOn: $draft.hasSessionDetails)
             if draft.hasSessionDetails {
@@ -28,6 +32,11 @@ struct WatchTrainingEditor: View {
             Toggle("Details complete", isOn: Binding(get: { !draft.needsDetails }, set: { draft.needsDetails = !$0 }))
         }
         .navigationTitle("Edit Training")
+        .onAppear {
+            guard !loadedLinks else { return }
+            linkedMatchIDs = store.snapshot.matches.filter { $0.trainingSessionID == draft.id }.map(\.id)
+            originalMatchIDs = Set(linkedMatchIDs); loadedLinks = true
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
@@ -35,6 +44,7 @@ struct WatchTrainingEditor: View {
                     draft.context.captureLegacyNames(coaches: store.snapshot.setup.coaches, players: store.snapshot.players)
                     if draft.context.needsOtherCoachName { draft.needsDetails = true }
                     store.updateTrainingDetails(draft)
+                    store.updateTrainingLinks(draft, original: originalMatchIDs, selected: Set(linkedMatchIDs))
                     dismiss()
                 }
             }
@@ -51,38 +61,23 @@ struct WatchMatchEditor: View {
     var body: some View {
         Form {
             if !validationMessage.isBlank { Text(validationMessage) }
-            if draft.status == .completed {
-                WatchDateField(title: "Match date", date: $draft.date)
-                Picker("Singles or doubles", selection: $draft.matchType) {
-                    ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
-                }
-            }
-            TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.partnerID && $0.id != draft.opponent2ID }, selection: $draft.opponentID, name: $draft.opponentName)
-            if draft.matchType == .doubles {
-                TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.opponentID && $0.id != draft.opponent2ID }, selection: $draft.partnerID, name: $draft.partnerName, regularPartnersFirst: true)
-                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != draft.playerID && $0.id != draft.opponentID && $0.id != draft.partnerID }, selection: $draft.opponent2ID, name: $draft.opponent2Name)
-            }
+            TennisMatchPeopleFields(players: store.snapshot.players, match: $draft, showsKind: draft.status == .completed)
+            if draft.status == .completed { WatchDateField(title: "Match date", date: $draft.date) }
             WatchVenueFields(venueID: $draft.venueID, venue: $draft.venue, location: $draft.location)
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $draft.tournamentID, customName: $draft.customTournamentName)
+            TennisTrainingSessionPicker(sessions: store.snapshot.trainingSessions.filter { $0.playerID == draft.playerID }, coaches: store.snapshot.setup.coaches, selection: $draft.trainingSessionID)
             if draft.status == .completed {
                 OrderedChoicePicker(title: "Match format", selection: $draft.matchFormat, values: MatchFormat.allCases) { $0.label }
-                Picker("Result", selection: $draft.result) {
-                    ForEach(MatchResult.allCases) { Text($0.rawValue).tag($0) }
-                }
-                OrderedChoicePicker(title: "Your sets won", selection: $draft.yourSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: draft.matchFormat))) { String($0) }
-                OrderedChoicePicker(title: "Opponent sets won", selection: $draft.opponentSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: draft.matchFormat))) { String($0) }
-                TextField("Set scores, optional", text: $draft.setScores)
+                TennisRecordedScoreFields(match: $draft)
             }
             Section("Conditions") { TennisMatchConditionsFields(match: $draft) }
+            TextField("Next practice focus", text: $draft.nextPracticeFocus)
+                .accessibilityHint("Your latest completed match review appears in What to work on on the iPhone dashboard.")
             TextField("Notes", text: $draft.notes)
             Toggle("Details complete", isOn: Binding(get: { !draft.needsDetails }, set: { draft.needsDetails = !$0 }))
         }
         .navigationTitle("Edit Match")
         .pickerStyle(.navigationLink)
-        .onChange(of: draft.matchFormat) { _, format in
-            draft.yourSetsWon = min(draft.yourSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
-            draft.opponentSetsWon = min(draft.opponentSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
-        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {

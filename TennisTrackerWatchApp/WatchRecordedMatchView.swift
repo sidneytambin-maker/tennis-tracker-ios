@@ -10,25 +10,17 @@ struct WatchRecordedMatchView: View {
     var body: some View {
         Form {
             if !validationMessage.isBlank { Text(validationMessage).accessibilityIdentifier("recordMatchValidation") }
-            Picker("Singles or doubles", selection: $match.matchType) {
-                ForEach(MatchKind.allCases) { Text($0.rawValue).tag($0) }
-            }
-            TennisPersonPicker(title: "Opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.partnerID && $0.id != match.opponent2ID }, selection: $match.opponentID, name: $match.opponentName)
-            if match.matchType == .doubles {
-                TennisPersonPicker(title: "Partner", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.opponent2ID }, selection: $match.partnerID, name: $match.partnerName, regularPartnersFirst: true)
-                TennisPersonPicker(title: "Second opponent", players: store.snapshot.players.filter { $0.id != match.playerID && $0.id != match.opponentID && $0.id != match.partnerID }, selection: $match.opponent2ID, name: $match.opponent2Name)
-            }
+            TennisMatchPeopleFields(players: store.snapshot.players, match: $match)
             WatchDateField(title: "Match date", date: $match.date)
             WatchVenueFields(venueID: $match.venueID, venue: $match.venue, location: $match.location)
             TennisTournamentPicker(tournaments: store.snapshot.tournaments, tournamentID: $match.tournamentID, customName: $match.customTournamentName)
+            TennisTrainingSessionPicker(sessions: store.snapshot.trainingSessions.filter { $0.playerID == match.playerID }, coaches: store.snapshot.setup.coaches, selection: $match.trainingSessionID)
             OrderedChoicePicker(title: "Match format", selection: $match.matchFormat, values: MatchFormat.allCases) { $0.label }
-            Picker("Result", selection: $match.result) {
-                ForEach(MatchResult.allCases) { Text($0.rawValue).tag($0) }
-            }.accessibilityIdentifier("recordedMatchResult")
-            OrderedChoicePicker(title: "Your sets won", selection: $match.yourSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: match.matchFormat))) { String($0) }
-            OrderedChoicePicker(title: "Opponent sets won", selection: $match.opponentSetsWon, values: Array(0...TennisManualMatchEntry.maximumTeamSets(for: match.matchFormat))) { String($0) }
-            TextField("Set scores, optional", text: $match.setScores)
+                .accessibilityIdentifier("matchFormatPicker")
+            TennisRecordedScoreFields(match: $match)
             Section("Conditions") { TennisMatchConditionsFields(match: $match) }
+            TextField("Next practice focus", text: $match.nextPracticeFocus)
+                .accessibilityHint("Your latest completed match review appears in What to work on on the iPhone dashboard.")
             TextField("Notes", text: $match.notes)
             Button("Save Match Result") {
                 if let error = TennisManualMatchEntry.validationMessage(for: match) {
@@ -52,10 +44,6 @@ struct WatchRecordedMatchView: View {
             match.suddenDeathDeuce = player.playerMode == .blindTennis
             match.date = Calendar.current.startOfDay(for: Date())
             configured = true
-        }
-        .onChange(of: match.matchFormat) { _, format in
-            match.yourSetsWon = min(match.yourSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
-            match.opponentSetsWon = min(match.opponentSetsWon, TennisManualMatchEntry.maximumTeamSets(for: format))
         }
     }
 }

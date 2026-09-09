@@ -23,6 +23,7 @@ struct TennisRecordDeletion: Codable, Equatable {
         tournaments.removeAll { deletedIDs.contains($0.id) }
         for index in matches.indices {
             if let id = matches[index].tournamentID, deletedIDs.contains(id) { matches[index].tournamentID = nil }
+            if let id = matches[index].trainingSessionID, deletedIDs.contains(id) { matches[index].trainingSessionID = nil }
         }
         for index in training.indices {
             if let id = training[index].context.tournamentID, deletedIDs.contains(id) { training[index].context.tournamentID = nil }

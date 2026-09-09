@@ -153,6 +153,9 @@ enum TennisSummaryFormatter {
             let state = TennisScoreState(snapshot: live)
             return [live.completedSetScores.joined(separator: ", "), "\(live.playerGames)-\(live.opponentGames)", state.pointScore(suddenDeathDeuce: match.suddenDeathDeuce)].filter { !$0.isBlank }.joined(separator: ", ")
         }
+        if !match.recordedSets.isEmpty {
+            return match.recordedSets.enumerated().map { "Set \($0.offset + 1): \($0.element.spokenScore)" }.joined(separator: "; ")
+        }
         if !match.setScores.isBlank { return match.setScores }
         if match.yourSetsWon + match.opponentSetsWon > 0 { return "sets \(match.yourSetsWon)-\(match.opponentSetsWon)" }
         return ""

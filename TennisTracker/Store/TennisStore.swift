@@ -30,6 +30,16 @@ final class TennisStore: ObservableObject {
         #if targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-venue-dashboard") {
             data = TennisRegressionFixtures.venueAndDashboard()
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-match-update") {
+                for name in ["Chris", "Sam", "Jo"] {
+                    var person = PlayerProfile(); person.name = name; data.players.append(person)
+                }
+                data.trainingSessions[0].focus = ""
+                var focused = data.trainingSessions[0]; focused.id = UUID()
+                focused.date = focused.date.addingTimeInterval(-600)
+                focused.focus = "Serve and return"; focused.practiceResult = nil
+                data.trainingSessions.append(focused)
+            }
             if ProcessInfo.processInfo.arguments.contains("-ui-theme-classic") { data.settings.theme = .classic }
             if ProcessInfo.processInfo.arguments.contains("-ui-theme-contrast") { data.settings.theme = .highContrast }
         }
@@ -143,6 +153,13 @@ final class TennisStore: ObservableObject {
     func deleteTraining(_ session: TrainingSession) {
         data.delete(TennisRecordDeletion(id: session.id, kind: .training))
         saveAndAnnounce("Deleted training session.")
+    }
+
+    func updateTrainingLinks(_ session: TrainingSession, original: Set<UUID>, selected: Set<UUID>) {
+        guard data.trainingSessions.contains(where: { $0.id == session.id }), !data.deletedRecordIDs.contains(session.id) else { return }
+        let changes = TennisTrainingLinks.changes(sessionID: session.id, playerID: session.playerID, matches: data.matches, original: original, selected: selected)
+        for match in changes { upsert(TennisRecordConflictResolver.prepareLocalMatch(match), in: \.matches) }
+        if !changes.isEmpty { saveAndAnnounce("Training session and linked matches saved.") }
     }
 
     func upsertTournament(_ tournament: TournamentRecord) {

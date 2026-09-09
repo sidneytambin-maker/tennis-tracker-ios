@@ -42,6 +42,7 @@ struct TennisPlayerProgress: Equatable {
     var focus: [TennisFocusProgress] = []
     var trainingTypes: [TennisFocusProgress] = []
     var suggestions: [TennisPracticeSuggestion] = []
+    var trainingNeedingFocus: [UUID] = []
 
     static func build(player: PlayerProfile?, matches: [MatchRecord], training: [TrainingSession], coaches: [TennisCoach] = [], now: Date = Date()) -> Self {
         guard let player else { return Self() }
@@ -66,7 +67,17 @@ struct TennisPlayerProgress: Equatable {
                     seconds: sessions.reduce(0) { $0 + TennisDurationFormatter.trainingSeconds($1) })
             }.sorted { $0.sessions == $1.sessions ? $0.focus < $1.focus : $0.sessions > $1.sessions }
         }
-        progress.focus = breakdown { $0.dashboardFocusSummary }
+        var focusSessions: [String: [TrainingSession]] = [:]
+        for session in recent {
+            let names = session.specificFocusSelections
+            for name in names.isEmpty ? [session.dashboardFocusSummary] : names {
+                focusSessions[name, default: []].append(session)
+            }
+        }
+        progress.focus = focusSessions.map { name, sessions in
+            TennisFocusProgress(focus: name, sessions: sessions.count, seconds: sessions.reduce(0) { $0 + TennisDurationFormatter.trainingSeconds($1) })
+        }.sorted { $0.sessions == $1.sessions ? $0.focus < $1.focus : $0.sessions > $1.sessions }
+        progress.trainingNeedingFocus = recent.filter { $0.specificFocusSelections.isEmpty }.sorted { $0.date > $1.date }.map(\.id)
         progress.trainingTypes = breakdown { session in
             let names = session.context.coachSummary(in: coaches)
             let coaching = session.trainingType == .oneToOneCoaching || session.trainingType == .groupCoaching
