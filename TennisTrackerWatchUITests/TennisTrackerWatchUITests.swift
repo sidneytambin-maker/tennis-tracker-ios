@@ -358,6 +358,7 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let format = app.descendants(matching: .any).matching(identifier: "matchFormatPicker").firstMatch
         reveal(format, in: app); format.tap()
         app.buttons["One set"].tap()
+        closeNativePicker(in: app)
         chooseRecordedScore("set1YourGames", value: "6 games", in: app)
         chooseRecordedScore("set1OpponentGames", value: "6 games", in: app)
         chooseRecordedScore("set1YourTiebreak", value: "7 points", in: app)
@@ -377,6 +378,16 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let control = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         reveal(control, in: app); control.tap()
         reveal(app.buttons[value], in: app); app.buttons[value].tap()
+        closeNativePicker(in: app)
+    }
+
+    private func closeNativePicker(in app: XCUIApplication) {
+        // watchOS keeps native Picker sheets open after a value is selected.
+        let close = app.buttons.matching(identifier: "close-sheet").firstMatch
+        if close.waitForExistence(timeout: 1) {
+            close.tap()
+            XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        }
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {

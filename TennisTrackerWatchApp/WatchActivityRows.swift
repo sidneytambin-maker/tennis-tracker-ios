@@ -50,9 +50,12 @@ struct WatchActivityCard: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(summary)
             .accessibilityIdentifier(identifier)
             .accessibilityHint(actionHint)
+            .accessibilityAction(.default) { showingDetails = true }
             .accessibilityActions {
                 Button(editTitle, action: edit)
                 if let completeTitle { Button(completeTitle, action: complete) }
