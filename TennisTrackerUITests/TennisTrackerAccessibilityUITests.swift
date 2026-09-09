@@ -282,11 +282,14 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue((doubles.value as? String)?.contains("Includes 3 matches played during training") == true)
         XCTAssertFalse(app.staticTexts["Current activity"].exists)
         XCTAssertFalse(app.staticTexts["Training practice results, all time"].exists)
+        let coaching = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ AND value != nil", "One-to-one coaching, coaches: Chris")).firstMatch
         for _ in 0..<6 {
-            if app.staticTexts["One-to-one coaching, coaches: Chris"].isHittable { break }
+            if coaching.exists && coaching.isHittable { break }
             app.swipeUp()
         }
-        XCTAssertTrue(app.staticTexts["One-to-one coaching, coaches: Chris"].exists)
+        XCTAssertTrue(coaching.exists)
+        XCTAssertEqual(coaching.value as? String, "1 session, 1 hour.")
         XCTAssertFalse(app.staticTexts["Training types, last 30 days"].exists)
     }
 
@@ -339,7 +342,9 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         app.navigationBars["Weather"].buttons.firstMatch.tap()
         XCTAssertEqual(app.buttons["matchWeather"].value as? String, "Sunny, Light showers and Windy")
         app.buttons["matchWeather"].tap()
-        for condition in ["Sunny", "Light showers", "Windy"] { XCTAssertTrue(app.buttons[condition].isSelected) }
+        for condition in ["Sunny", "Light showers", "Windy"] {
+            XCTAssertTrue(revealButton(condition).isSelected)
+        }
         tapPossiblyScrolledButton("Windy")
         XCTAssertFalse(app.buttons["Windy"].isSelected)
         let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -454,11 +459,15 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     }
 
     private func tapPossiblyScrolledButton(_ identifier: String) {
+        revealButton(identifier).tap()
+    }
+
+    private func revealButton(_ identifier: String) -> XCUIElement {
         let button = app.buttons[identifier]
         for _ in 0..<8 { if button.isHittable { break }; app.swipeUp() }
         XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing button \(identifier)")
         XCTAssertTrue(button.isHittable, "Button \(identifier) is not available for interaction")
-        button.tap()
+        return button
     }
 
     private func textContaining(_ text: String) -> XCUIElement {

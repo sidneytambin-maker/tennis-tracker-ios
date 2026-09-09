@@ -9,28 +9,19 @@ struct TennisRecordedScoreFields: View {
     var body: some View {
         Group {
         ForEach(0..<count, id: \.self) { index in
+            #if os(watchOS)
+            // Each native Watch picker needs its own Form row and presentation owner.
+            Section {
+                setFields(index)
+            } header: {
+                Text("Set \(index + 1)")
+            }
+            #else
             VStack(alignment: .leading) {
                 Text("Set \(index + 1)").font(.headline).accessibilityAddTraits(.isHeader)
-                OrderedChoicePicker(title: "Your games", selection: games(index, yours: true), values: Array(0...max(30, sets[index].yourGames))) { "\($0) games" }
-                    .accessibilityLabel("Set \(index + 1), your games")
-                    .accessibilityIdentifier("set\(index + 1)YourGames")
-                OrderedChoicePicker(title: "Opponent games", selection: games(index, yours: false), values: Array(0...max(30, sets[index].opponentGames))) { "\($0) games" }
-                    .accessibilityLabel("Set \(index + 1), opponent games")
-                    .accessibilityIdentifier("set\(index + 1)OpponentGames")
-                Toggle("Tie-break played", isOn: field(index, \.hasTiebreak))
-                    .accessibilityLabel("Set \(index + 1), tie-break played")
-                    .accessibilityIdentifier("set\(index + 1)Tiebreak")
-                if sets[index].hasTiebreak {
-                    OrderedChoicePicker(title: "Your tie-break points", selection: field(index, \.yourTiebreak),
-                        values: [Int?.none] + (0...max(50, sets[index].yourTiebreak ?? 0)).map { Optional($0) }) { $0.map { "\($0) points" } ?? "Not recorded" }
-                        .accessibilityLabel("Set \(index + 1), your tie-break points")
-                        .accessibilityIdentifier("set\(index + 1)YourTiebreak")
-                    OrderedChoicePicker(title: "Opponent tie-break points", selection: field(index, \.opponentTiebreak),
-                        values: [Int?.none] + (0...max(50, sets[index].opponentTiebreak ?? 0)).map { Optional($0) }) { $0.map { "\($0) points" } ?? "Not recorded" }
-                        .accessibilityLabel("Set \(index + 1), opponent tie-break points")
-                        .accessibilityIdentifier("set\(index + 1)OpponentTiebreak")
-                }
+                setFields(index)
             }.accessibilityElement(children: .contain)
+            #endif
         }
         if !match.setScores.isBlank {
             Toggle("Match ended by retirement", isOn: Binding(
@@ -60,6 +51,29 @@ struct TennisRecordedScoreFields: View {
         .onChange(of: match.matchFormat) { _, _ in
             guard loaded, !match.recordedSets.isEmpty else { return }
             TennisRecordedScore.apply(sets, to: &match)
+        }
+    }
+
+    @ViewBuilder
+    private func setFields(_ index: Int) -> some View {
+        OrderedChoicePicker(title: "Your games", selection: games(index, yours: true), values: Array(0...max(30, sets[index].yourGames))) { "\($0) games" }
+            .accessibilityLabel("Set \(index + 1), your games")
+            .accessibilityIdentifier("set\(index + 1)YourGames")
+        OrderedChoicePicker(title: "Opponent games", selection: games(index, yours: false), values: Array(0...max(30, sets[index].opponentGames))) { "\($0) games" }
+            .accessibilityLabel("Set \(index + 1), opponent games")
+            .accessibilityIdentifier("set\(index + 1)OpponentGames")
+        Toggle("Tie-break played", isOn: field(index, \.hasTiebreak))
+            .accessibilityLabel("Set \(index + 1), tie-break played")
+            .accessibilityIdentifier("set\(index + 1)Tiebreak")
+        if sets[index].hasTiebreak {
+            OrderedChoicePicker(title: "Your tie-break points", selection: field(index, \.yourTiebreak),
+                values: [Int?.none] + (0...max(50, sets[index].yourTiebreak ?? 0)).map { Optional($0) }) { $0.map { "\($0) points" } ?? "Not recorded" }
+                .accessibilityLabel("Set \(index + 1), your tie-break points")
+                .accessibilityIdentifier("set\(index + 1)YourTiebreak")
+            OrderedChoicePicker(title: "Opponent tie-break points", selection: field(index, \.opponentTiebreak),
+                values: [Int?.none] + (0...max(50, sets[index].opponentTiebreak ?? 0)).map { Optional($0) }) { $0.map { "\($0) points" } ?? "Not recorded" }
+                .accessibilityLabel("Set \(index + 1), opponent tie-break points")
+                .accessibilityIdentifier("set\(index + 1)OpponentTiebreak")
         }
     }
 
