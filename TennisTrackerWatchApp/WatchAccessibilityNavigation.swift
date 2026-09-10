@@ -30,6 +30,7 @@ struct WatchPageSelector: View {
                         Button(page.rawValue) { store.page = page; showingPages = false }
                     }
                     NavigationLink("Achievements") { TennisAchievementsView(achievements: store.snapshot.achievements) }
+                        .accessibilityIdentifier("watchMenuAchievements")
                     Button("Preview Tennis Sound") { previewFailed = !TennisSoundPlayer.shared.preview(store.snapshot.settings.sounds.selected) }
                         .accessibilityValue(store.snapshot.settings.sounds.selected.title)
                         .accessibilityHint("Previews the sound chosen in iPhone Settings, Notifications and Sounds. Respects silent mode and volume.")

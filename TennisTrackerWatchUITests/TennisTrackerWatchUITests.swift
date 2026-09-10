@@ -416,7 +416,9 @@ final class TennisTrackerWatchUITests: XCTestCase {
         let preview = app.buttons["watchPreviewTennisSound"]
         reveal(preview, in: app); preview.tap()
         XCTAssertEqual(preview.value as? String, "Tennis bounce")
-        reveal(app.buttons["Achievements"], in: app); app.buttons["Achievements"].tap()
+        XCTAssertFalse(app.staticTexts["watchSoundPreviewFailed"].exists)
+        let achievements = app.buttons["watchMenuAchievements"]
+        reveal(achievements, in: app); achievements.tap()
         XCTAssertTrue(app.staticTexts["achievementCollectionSummary"].waitForExistence(timeout: 8))
         capture(app, name: "Watch achievements collection")
     }
