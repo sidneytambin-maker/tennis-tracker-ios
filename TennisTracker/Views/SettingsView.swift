@@ -81,23 +81,12 @@ struct SettingsView: View {
                     Text("Automatic speaks the new score after each point. Reduced speaks the point winner and current game score. Off keeps the Hear full score button available.")
                 }
 
-                Section("Reminders") {
-                    Toggle("Match reminders", isOn: $settings.matchRemindersEnabled)
-                    Toggle("Match result follow-ups", isOn: $settings.matchResultRemindersEnabled)
-                    Toggle("Training reminders", isOn: $settings.trainingRemindersEnabled)
-                    Toggle("Tournament reminders", isOn: $settings.tournamentRemindersEnabled)
-                    Toggle("Post-session reflection", isOn: $settings.postSessionRemindersEnabled)
-                    Toggle("Weekly summary", isOn: $settings.weeklySummaryEnabled)
-                    OrderedChoicePicker(title: "Reminder lead time", selection: $settings.reminderLeadMinutes, values: [15, 30, 60, 120, 1440]) { $0.durationText }
-                    OrderedChoicePicker(title: "Reflection delay", selection: $settings.postSessionDelayMinutes, values: [60, 120, 240]) { $0.durationText }
-                    Button("Allow iPhone notifications") {
-                        Task {
-                            let granted = await TennisNotificationService.shared.requestAuthorization()
-                            saveSettings(announce: false)
-                            savedMessage = granted ? "Notifications are allowed." : "Notifications were not allowed."
-                            UIAccessibility.post(notification: .announcement, argument: savedMessage)
-                        }
+                Section("Notifications & Sounds") {
+                    NavigationLink { NotificationSettingsView(settings: $settings) } label: {
+                        Label("Notifications & Sounds", systemImage: "bell.badge")
                     }
+                    .accessibilityIdentifier("notificationSettingsLink")
+                    .accessibilityHint("Reminder schedules, five previewable tennis sounds, and separate save, completion and milestone sound settings. Changes save automatically and sync to Watch.")
                 }
 
                 Section("Calendar") {
@@ -135,7 +124,7 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
-                    SummaryRow(title: "Version", value: "0.9.0")
+                    SummaryRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")
                     SummaryRow(title: "Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
                 }
 

@@ -114,6 +114,12 @@ struct DashboardView: View {
                     }
                 }
 
+                Section {
+                    NavigationLink { TennisAchievementsView(achievements: store.data.achievements).tennisThemedList() } label: {
+                        TennisAchievementsSummary(achievements: store.data.achievements)
+                    }
+                }
+
                 TennisSection("Training focus, last 30 days") {
                     if progress.focus.isEmpty { Text("No completed training recorded in the last 30 days.") }
                     ForEach(progress.focus) { item in

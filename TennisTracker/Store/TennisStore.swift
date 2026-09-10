@@ -43,6 +43,10 @@ final class TennisStore: ObservableObject {
             if ProcessInfo.processInfo.arguments.contains("-ui-theme-classic") { data.settings.theme = .classic }
             if ProcessInfo.processInfo.arguments.contains("-ui-theme-contrast") { data.settings.theme = .highContrast }
         }
+        if !ProcessInfo.processInfo.arguments.contains("-test-notification-warm"),
+           let route = TennisNotificationTestSupport.route(training: data.trainingSessions, matches: data.matches, tournaments: data.tournaments) {
+            TennisNotificationInbox.enqueue(route.url)
+        }
         #endif
     }
 
@@ -103,8 +107,10 @@ final class TennisStore: ObservableObject {
         TennisSummaryFormatter.training(session, style: style, now: now, coaches: data.setup.coaches, players: data.players)
     }
 
-    func upsertMatch(_ match: MatchRecord) {
+    func upsertMatch(_ match: MatchRecord, audibleFeedback: Bool = true) {
         guard !data.deletedRecordIDs.contains(match.id) else { return }
+        let wasCompleted = data.matches.first { $0.id == match.id }?.status == .completed
+        let beforeAchievements = TennisAchievement.earnedIDs(records: data.achievementRecords, playerID: match.playerID)
         var latest = match
         latest.revision = max(latest.revision, data.matches.first(where: { $0.id == match.id })?.revision ?? 0)
         var saved = TennisRecordConflictResolver.prepareLocalMatch(latest)
@@ -118,7 +124,9 @@ final class TennisStore: ObservableObject {
             saved.liveScore = nil
         }
         upsert(saved, in: \.matches)
-        saveAndAnnounce("Saved match against \(match.opponentSummary.fallback("opponent not recorded")).")
+        let event = TennisAchievement.feedback(before: beforeAchievements, records: data.achievementRecords, playerID: match.playerID,
+            settings: data.settings.sounds, otherwise: saved.status == .completed && !wasCompleted ? .completion : .save)
+        saveAndAnnounce("Saved match against \(match.opponentSummary.fallback("opponent not recorded")).", feedback: audibleFeedback ? event : nil)
     }
 
     func deleteMatch(_ match: MatchRecord) {
@@ -128,6 +136,8 @@ final class TennisStore: ObservableObject {
 
     func upsertTraining(_ session: TrainingSession, newPlayers: [PlayerProfile] = [], newCoaches: [TennisCoach] = []) {
         guard !data.deletedRecordIDs.contains(session.id) else { return }
+        let now = Date()
+        let beforeAchievements = TennisAchievement.earnedIDs(records: data.achievementRecords, playerID: session.playerID)
         for player in newPlayers where !player.name.isBlank && !data.players.contains(where: { $0.id == player.id }) {
             data.players.append(player)
         }
@@ -138,6 +148,7 @@ final class TennisStore: ObservableObject {
         let existing = data.trainingSessions.first { $0.id == session.id }
         // An older editor cannot erase the live workout completed on the Watch.
         if latest.workout == nil { latest.workout = existing?.workout }
+        if latest.trackedOnWatch == nil { latest.trackedOnWatch = existing?.trackedOnWatch }
         if latest.actualStart == nil { latest.actualStart = existing?.actualStart }
         if latest.actualFinish == nil, let finished = existing?.actualFinish {
             latest.actualFinish = finished
@@ -147,7 +158,10 @@ final class TennisStore: ObservableObject {
         latest.revision = max(latest.revision, data.trainingSessions.first(where: { $0.id == session.id })?.revision ?? 0)
         let saved = TennisRecordConflictResolver.prepareLocalTraining(latest)
         upsert(saved, in: \.trainingSessions)
-        saveAndAnnounce("Saved training at \(session.placeText).")
+        let completed = saved.isRecordedTraining(at: now) && existing?.isRecordedTraining(at: now) != true
+        let event = TennisAchievement.feedback(before: beforeAchievements, records: data.achievementRecords, playerID: session.playerID,
+            settings: data.settings.sounds, otherwise: completed ? .completion : .save)
+        saveAndAnnounce("Saved training at \(session.placeText).", feedback: event)
     }
 
     func deleteTraining(_ session: TrainingSession) {
@@ -164,11 +178,14 @@ final class TennisStore: ObservableObject {
 
     func upsertTournament(_ tournament: TournamentRecord) {
         guard !data.deletedRecordIDs.contains(tournament.id) else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: data.achievementRecords, playerID: tournament.playerID)
         var latest = tournament
         latest.revision = max(latest.revision, data.tournaments.first(where: { $0.id == tournament.id })?.revision ?? 0)
         let saved = TennisRecordConflictResolver.prepareLocalTournament(latest)
         upsert(saved, in: \.tournaments)
-        saveAndAnnounce("Saved tournament \(tournament.name.fallback("unnamed tournament")).")
+        let event = TennisAchievement.feedback(before: beforeAchievements, records: data.achievementRecords, playerID: tournament.playerID,
+            settings: data.settings.sounds, otherwise: .save)
+        saveAndAnnounce("Saved tournament \(tournament.name.fallback("unnamed tournament")).", feedback: event)
     }
 
     func linkedMatches(for tournament: TournamentRecord) -> [MatchRecord] {
@@ -230,6 +247,8 @@ final class TennisStore: ObservableObject {
         case .requestSnapshot:
             save()
             announce("Apple Watch sync refreshed.")
+        case .requestActivity(let id):
+            IPhoneWatchSyncService.shared.sendSnapshot(data, including: id)
         case .upsertMatch(let match):
             mergeWatchMatch(match)
             saveAndAnnounce("Synced match from Apple Watch.")
@@ -333,6 +352,8 @@ final class TennisStore: ObservableObject {
     }
 
     private func mergeWatchTraining(_ incoming: TrainingSession) {
+        var incoming = incoming
+        if incoming.trackedOnWatch == nil { incoming.trackedOnWatch = data.trainingSessions.first { $0.id == incoming.id }?.trackedOnWatch }
         guard let index = data.trainingSessions.firstIndex(where: { $0.id == incoming.id }) else {
             data.trainingSessions.append(incoming)
             return
@@ -364,8 +385,11 @@ final class TennisStore: ObservableObject {
         }
     }
 
-    private func saveAndAnnounce(_ message: String) {
-        save()
+    private func saveAndAnnounce(_ message: String, feedback: TennisFeedbackEvent? = nil) {
+        guard save() else { announce("Changes could not be saved. Please try again."); return }
+        if let feedback, UIApplication.shared.applicationState == .active {
+            TennisSoundPlayer.shared.feedback(feedback, settings: data.settings.sounds)
+        }
         announce(message)
     }
 
@@ -377,16 +401,20 @@ final class TennisStore: ObservableObject {
         data = decoded
     }
 
-    private func save() {
+    @discardableResult
+    private func save() -> Bool {
         data.removeDeletedRecords()
-        guard let encoded = try? JSONEncoder.tennisTracker.encode(data) else { return }
-        try? encoded.write(to: storeURL, options: [.atomic])
+        do {
+            let encoded = try JSONEncoder.tennisTracker.encode(data)
+            try encoded.write(to: storeURL, options: [.atomic])
+        } catch { return false }
         Task {
             await TennisNotificationService.shared.rescheduleAll(for: data)
         }
         #if os(iOS)
         IPhoneWatchSyncService.shared.sendSnapshot(data)
         #endif
+        return true
     }
 
     private func sightLevel(from category: String) -> SightLevel? {

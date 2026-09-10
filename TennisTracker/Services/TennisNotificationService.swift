@@ -55,28 +55,30 @@ enum TennisNotificationPlanner {
 
         if settings.postSessionRemindersEnabled {
             let delay = TimeInterval(settings.postSessionDelayMinutes * 60)
-            for session in data.trainingSessions where !session.isActive && session.hasStartTime && session.expectedEndDate <= now && session.expectedEndDate.addingTimeInterval(delay) > now {
+            for session in data.trainingSessions where !session.isActive && session.hasStartTime && session.notes.isBlank && session.sessionOutcome.isBlank {
+                let fireDate = (session.actualFinish ?? session.expectedEndDate).addingTimeInterval(delay)
+                guard fireDate > now else { continue }
                 requests.append(PlannedNotification(
                     identifier: "training-reflection-\(session.id)",
                     title: "Training reflection",
-                    body: "\(TennisSummaryFormatter.training(session, style: .short, coaches: data.setup.coaches, players: data.players)) Add your training notes.",
-                    fireDate: session.expectedEndDate.addingTimeInterval(delay),
-                    deepLink: URL(string: "tennistracker://training/\(session.id.uuidString)")!
+                    body: "\(TennisSummaryFormatter.training(session, style: .short, coaches: data.setup.coaches, players: data.players)) Reflect on your focus, progress and next steps.",
+                    fireDate: fireDate,
+                    deepLink: TennisActivityRoute(kind: .training, recordID: session.id, action: .reflection).url
                 ))
             }
         }
 
         if settings.matchResultRemindersEnabled {
             for match in data.matches where match.hasStartTime && match.status != .completed {
-                let expectedEnd = match.date.addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 120) * 60))
+                let expectedEnd = (match.actualStart ?? match.date).addingTimeInterval(TimeInterval((match.hasExpectedDuration ? match.expectedDurationMinutes : 120) * 60))
                 let fireDate = expectedEnd.addingTimeInterval(TimeInterval(settings.postSessionDelayMinutes * 60))
-                if expectedEnd <= now && fireDate > now {
+                if fireDate > now {
                     requests.append(PlannedNotification(
                         identifier: "match-result-\(match.id)",
                         title: "Match result",
                     body: "Record Result for \(TennisSummaryFormatter.match(match, tournaments: data.tournaments, style: .short))",
                         fireDate: fireDate,
-                        deepLink: URL(string: "tennistracker://match/\(match.id.uuidString)")!
+                        deepLink: TennisActivityRoute(kind: .match, recordID: match.id, action: .result).url
                     ))
                 }
             }
@@ -84,12 +86,14 @@ enum TennisNotificationPlanner {
 
         if settings.weeklySummaryEnabled {
             let nextWeek = Calendar.current.nextDate(after: now, matching: DateComponents(hour: 9, minute: 0, weekday: 2), matchingPolicy: .nextTime) ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+            let monday = TennisReportingWeek.interval(containing: nextWeek).start
+            let reviewStart = Calendar.current.date(byAdding: .day, value: -7, to: monday) ?? monday
             requests.append(PlannedNotification(
                 identifier: "weekly-summary",
                 title: "Tennis weekly summary",
-                body: "Review your recent matches, training, and tournaments.",
+                body: "Review your matches, training and tournaments for \(TennisReportingWeek.summary(containing: reviewStart)).",
                 fireDate: nextWeek,
-                deepLink: URL(string: "tennistracker://dashboard")!
+                deepLink: TennisActivityRoute(kind: .weekly, weekStart: reviewStart).url
             ))
         }
 
@@ -114,11 +118,11 @@ final class TennisNotificationService {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         let requests = TennisNotificationPlanner.plannedRequests(data: data)
-        for planned in requests {
+        for planned in requests.prefix(64) {
             let content = UNMutableNotificationContent()
             content.title = planned.title
             content.body = planned.body
-            content.sound = .default
+            content.sound = data.settings.sounds.notificationSound()
             content.userInfo = ["url": planned.deepLink.absoluteString]
 
             let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: planned.fireDate)

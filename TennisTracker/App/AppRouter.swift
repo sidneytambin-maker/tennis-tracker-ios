@@ -6,10 +6,12 @@ enum TennisSettingsDestination: Hashable { case players, setup }
 final class AppRouter: ObservableObject {
     @Published var selectedTab = "dashboard"
     @Published var targetID: UUID?
+    @Published var activityRoute: TennisActivityRoute?
     @Published var settingsPath: [TennisSettingsDestination] = []
 
     func open(_ url: URL) {
         guard url.scheme == "tennistracker" else { return }
+        activityRoute = TennisActivityRoute(url: url)
         let host = url.host?.lowercased()
         let idText = url.pathComponents.dropFirst().first
         targetID = idText.flatMap(UUID.init(uuidString:))
@@ -33,6 +35,7 @@ final class AppRouter: ObservableObject {
     }
 
     func openPendingIntentRoute() {
+        if let url = TennisNotificationInbox.take() { open(url); return }
         guard let route = UserDefaults.standard.string(forKey: "pendingIntentRoute") else { return }
         UserDefaults.standard.removeObject(forKey: "pendingIntentRoute")
         if route == "player" {

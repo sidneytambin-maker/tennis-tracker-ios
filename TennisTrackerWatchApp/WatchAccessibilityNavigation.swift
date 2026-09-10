@@ -13,6 +13,7 @@ enum WatchAccessibilityNavigation {
 struct WatchPageSelector: View {
     @EnvironmentObject private var store: WatchTennisStore
     @State private var showingPages = false
+    @State private var previewFailed = false
     var body: some View {
         Button { showingPages = true } label: {
             Image(systemName: "square.grid.2x2")
@@ -28,6 +29,12 @@ struct WatchPageSelector: View {
                     ForEach(TennisWatchPage.allCases) { page in
                         Button(page.rawValue) { store.page = page; showingPages = false }
                     }
+                    NavigationLink("Achievements") { TennisAchievementsView(achievements: store.snapshot.achievements) }
+                    Button("Preview Tennis Sound") { previewFailed = !TennisSoundPlayer.shared.preview(store.snapshot.settings.sounds.selected) }
+                        .accessibilityValue(store.snapshot.settings.sounds.selected.title)
+                        .accessibilityHint("Previews the sound chosen in iPhone Settings, Notifications and Sounds. Respects silent mode and volume.")
+                        .accessibilityIdentifier("watchPreviewTennisSound")
+                    if previewFailed { Text("Sound preview unavailable.").accessibilityIdentifier("watchSoundPreviewFailed") }
                 }.navigationTitle("Menu")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showingPages = false } } }
             }

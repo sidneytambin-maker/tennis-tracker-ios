@@ -4,6 +4,7 @@ struct WatchRootView: View {
     @StateObject private var store = WatchTennisStore()
     @Environment(\.scenePhase) private var scenePhase
     @State private var quickTraining = false
+    @State private var notificationRoute: TennisActivityRoute?
     var body: some View {
         NavigationStack {
             selectedPage.toolbar {
@@ -14,17 +15,25 @@ struct WatchRootView: View {
         .environmentObject(store)
         .tint(store.snapshot.settings.theme == .tennis ? TennisSportStyle.ball : .cyan)
         .sheet(isPresented: $quickTraining) { NavigationStack { WatchTrainingEntryView() }.environmentObject(store) }
-        .onAppear { store.activate() }
+        .sheet(item: $notificationRoute) { route in WatchNotificationDestination(route: route).environmentObject(store) }
+        .onAppear { store.activate(); openPendingNotification() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.restoreWorkoutIfNeeded() }
+            if phase == .active { store.restoreWorkoutIfNeeded(); openPendingNotification() }
+            else { TennisSoundPlayer.shared.stop() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .tennisWorkoutRecovery)) { _ in store.restoreWorkoutIfNeeded() }
+        .onReceive(NotificationCenter.default.publisher(for: .tennisTrackerOpenURL)) { _ in openPendingNotification() }
         .onOpenURL { url in
-            if let page = TennisWatchPage.destination(for: url) {
+            if let route = TennisActivityRoute(url: url) { notificationRoute = route }
+            else if let page = TennisWatchPage.destination(for: url) {
                 store.page = page
                 if url.lastPathComponent == "start-training" { quickTraining = true }
             }
         }
+    }
+
+    private func openPendingNotification() {
+        if let url = TennisNotificationInbox.take() { notificationRoute = TennisActivityRoute(url: url) }
     }
 
     @ViewBuilder private var selectedPage: some View {
@@ -71,6 +80,11 @@ private struct WatchTodayView: View {
             }
             if store.needsDetailsCount > 0 {
                 Button("Review \(store.needsDetailsCount) activities needing details") { store.page = .recent }
+            }
+            if store.selectedPlayer != nil {
+                NavigationLink { TennisAchievementsView(achievements: store.snapshot.achievements) } label: {
+                    TennisAchievementsSummary(achievements: store.snapshot.achievements)
+                }
             }
             Text(store.lastSyncStatus).font(.footnote)
         }

@@ -30,6 +30,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private var queuedCommands: [TennisWatchSyncCommand] = []
     private var pointHistory: [TennisScoreSnapshot] = []
     private var isRestoringWorkout = false
+    var openNotificationRecordIDs = Set<UUID>()
 
     override init() {
         super.init()
@@ -77,6 +78,9 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
                 activeMatch = match
             }
             snapshot = TennisWatchSnapshot(data: data)
+            if let route = TennisNotificationTestSupport.route(training: snapshot.trainingSessions, matches: snapshot.matches, tournaments: snapshot.tournaments) {
+                TennisNotificationInbox.enqueue(route.url)
+            }
             if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-watch-page=") }),
                let destination = TennisWatchPage(rawValue: String(argument.dropFirst("-watch-page=".count))) { page = destination }
             return
@@ -175,11 +179,14 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         let finishDate = Date()
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: activeTraining.playerID)
         let finished = TennisWatchActivityFactory.finishTrainingSession(activeTraining, finishDate: finishDate)
         self.activeTraining = nil
         completedTraining = finished
         mergeTraining(finished)
         send(.upsertTraining(finished))
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: finished.playerID,
+            settings: snapshot.settings.sounds, otherwise: .completion))
         haptic(.success)
         announce("Training finished. " + TennisDurationFormatter.training(finished) + ".")
         finishWorkout(for: finished.id, at: finishDate)
@@ -248,6 +255,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         healthClient.clearMetrics()
         workoutMessage = useHealth ? "Requesting Health workout access." : "Training started."
         var session = planned
+        session.trackedOnWatch = true
         session.actualStart = Date()
         session.actualFinish = nil
         session = TennisRecordConflictResolver.prepareLocalTraining(session)
@@ -356,6 +364,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func finishTournament() {
         guard var tournament = snapshot.tournaments.first(where: { $0.id == activeTournamentID }) else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: tournament.playerID)
         tournament.finalResult = .completed
         if let start = tournament.actualStart { tournament.actualFinish = max(start, Date()) }
         tournament = TennisRecordConflictResolver.prepareLocalTournament(tournament)
@@ -364,6 +373,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         activeTournamentID = nil
         UserDefaults.standard.removeObject(forKey: "activeTournamentID")
         announce("Tournament tracking finished.")
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: tournament.playerID,
+            settings: snapshot.settings.sounds, otherwise: .completion))
     }
 
     func savePracticeResult(_ result: TennisPracticeResult) {
@@ -411,11 +422,14 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func updateTrainingDetails(_ draft: TrainingSession) {
         guard let current = snapshot.trainingSessions.first(where: { $0.id == draft.id }) else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: draft.playerID)
         let updated = TennisWatchRecordEdits.training(draft, current: current)
         if activeTraining?.id == updated.id { activeTraining = updated }
         if completedTraining?.id == updated.id { completedTraining = updated }
         mergeTraining(updated); send(.upsertTraining(updated))
         announce("Training details saved on Watch.")
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: draft.playerID,
+            settings: snapshot.settings.sounds, otherwise: .save))
     }
 
     func updateMatchDetails(_ draft: MatchRecord) {
@@ -424,6 +438,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         if activeMatch?.id == updated.id { activeMatch = updated }
         mergeMatch(updated); send(.upsertMatch(updated))
         announce("Match details saved on Watch.")
+        sound(.save)
     }
 
     func updateTrainingLinks(_ session: TrainingSession, original: Set<UUID>, selected: Set<UUID>) {
@@ -437,6 +452,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func saveRecordedMatch(_ draft: MatchRecord) {
         guard !snapshot.deletedRecordIDs.contains(draft.id), TennisManualMatchEntry.validationMessage(for: draft) == nil else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: draft.playerID)
+        let wasCompleted = snapshot.matches.first { $0.id == draft.id }?.status == .completed
         var recorded = draft
         if recorded.matchType == .singles {
             recorded.partnerID = nil; recorded.partnerName = ""
@@ -448,13 +465,18 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         recorded = TennisRecordConflictResolver.prepareLocalMatch(recorded)
         mergeMatch(recorded); send(.upsertMatch(recorded))
         announce("Match result saved on Watch. " + TennisSummaryFormatter.match(recorded))
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: draft.playerID,
+            settings: snapshot.settings.sounds, otherwise: wasCompleted ? .save : .completion))
     }
 
     func saveTournamentRecord(_ draft: TournamentRecord) {
         guard !draft.name.isBlank, !snapshot.deletedRecordIDs.contains(draft.id) else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: draft.playerID)
         let saved = TennisRecordConflictResolver.prepareLocalTournament(draft)
         mergeTournament(saved); send(.upsertTournament(saved))
         announce("Tournament saved on Watch.")
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: draft.playerID,
+            settings: snapshot.settings.sounds, otherwise: .save))
     }
 
     func updateTournamentDetails(_ draft: TournamentRecord) {
@@ -462,6 +484,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         let updated = TennisWatchRecordEdits.tournament(draft, current: current)
         mergeTournament(updated); send(.upsertTournament(updated))
         announce("Tournament details saved on Watch.")
+        sound(.save)
     }
 
     func markMatchComplete(_ id: UUID) {
@@ -531,6 +554,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         send(.upsertMatch(match))
         haptic(.success)
         announce("Saved match progress.")
+        sound(.save)
     }
 
     func startTieBreak() {
@@ -551,6 +575,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func finishMatch() {
         guard let match = activeMatch else { return }
+        let beforeAchievements = TennisAchievement.earnedIDs(records: snapshot.achievementRecords, playerID: match.playerID)
         let finished = TennisWatchActivityFactory.finishMatch(match, score: scoreState)
         activeMatch = nil
         mergeMatch(finished)
@@ -558,6 +583,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         haptic(.success)
         page = .recent
         announce(TennisSummaryFormatter.match(finished, tournaments: snapshot.tournaments))
+        sound(TennisAchievement.feedback(before: beforeAchievements, records: snapshot.achievementRecords, playerID: match.playerID,
+            settings: snapshot.settings.sounds, otherwise: .completion))
     }
 
     func markDetailsComplete() {
@@ -663,7 +690,8 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func applySnapshotData(_ data: Data) {
-        guard let incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
+        guard var incoming = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) else { return }
+        incoming.retainOpenActivities(openNotificationRecordIDs, from: snapshot)
         let previousMatch = activeMatch
         let result = TennisWatchReconciliation.reconcile(incoming: incoming, pending: queuedCommands, localDeletedIDs: snapshot.deletedRecordIDs)
         snapshot = result.snapshot
@@ -722,6 +750,13 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         lastAnnouncement = message
         #if os(watchOS)
         AccessibilityNotification.Announcement(message).post()
+        #endif
+    }
+
+    private func sound(_ event: TennisFeedbackEvent) {
+        #if os(watchOS)
+        guard WKExtension.shared().applicationState == .active else { return }
+        TennisSoundPlayer.shared.feedback(event, settings: snapshot.settings.sounds)
         #endif
     }
 

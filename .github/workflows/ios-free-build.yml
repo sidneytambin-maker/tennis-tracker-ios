@@ -59,6 +59,9 @@ jobs:
       - name: Validate native test evidence guard
         run: python3 -m unittest discover -s Scripts -p test_native_test_evidence.py -v
 
+      - name: Validate five independent tennis sound resources
+        run: python3 -m unittest discover -s Scripts -p test_tennis_sounds.py -v
+
       - name: Compile Watch complication
         if: inputs.stage == 'widgets' && steps.test_evidence.outputs.reuse != 'true'
         timeout-minutes: 10
@@ -211,6 +214,7 @@ jobs:
           chmod +x Scripts/build_unsigned_ipa.sh
           Scripts/build_unsigned_ipa.sh
           python3 Scripts/verify_app_icons.py --ipa artifacts/TennisTracker-unsigned.ipa --native | tee artifacts/app-icon-verification.json
+          python3 Scripts/verify_tennis_sounds.py --ipa artifacts/TennisTracker-unsigned.ipa | tee artifacts/tennis-sound-verification.json
           printf '\nCapability stage: %s\nPhysical acceptance: not tested by this workflow\n' "$BUILD_STAGE" >> artifacts/build-summary.txt
 
       - name: Report iPhone and Watch signing status
@@ -232,6 +236,7 @@ jobs:
             artifacts/TennisTracker-unsigned.ipa
             artifacts/build-summary.txt
             artifacts/app-icon-verification.json
+            artifacts/tennis-sound-verification.json
             artifacts/native-test-evidence.json
           if-no-files-found: error
           retention-days: 7

@@ -55,8 +55,8 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
         sendSnapshot(store.data)
     }
 
-    func sendSnapshot(_ data: AppData) {
-        guard let encoded = try? JSONEncoder.tennisTracker.encode(TennisWatchSnapshot(data: data)) else { return }
+    func sendSnapshot(_ data: AppData, including recordID: UUID? = nil) {
+        guard let encoded = try? JSONEncoder.tennisTracker.encode(TennisWatchSnapshot(data: data, including: recordID)) else { return }
         pendingSnapshot = encoded
         flushSnapshot()
     }

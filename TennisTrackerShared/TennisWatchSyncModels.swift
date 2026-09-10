@@ -11,18 +11,22 @@ struct TennisWatchSnapshot: Codable, Equatable {
     var settings = AppSettings()
     var setup = TennisSetup()
     var knownVenues: [TennisVenueChoice] = []
+    var achievementHistory: [TennisAchievementRecord] = []
+    var requestedActivityID: UUID?
+    var requestedActivityFound: Bool?
 
     static let empty = TennisWatchSnapshot()
 
     init() {}
 
-    init(data: AppData, now: Date = Date()) {
+    init(data: AppData, now: Date = Date(), including recordID: UUID? = nil) {
         generatedAt = now
         deletedRecordIDs = data.deletedRecordIDs
         selectedPlayerID = data.selectedPlayerID
         players = data.players
         settings = data.settings
         setup = data.setup
+        achievementHistory = TennisAchievementRecord.collect(matches: data.matches, training: data.trainingSessions, tournaments: data.tournaments, now: now)
         knownVenues = TennisVenueChoice.build(setup: data.setup, matches: data.matches, training: data.trainingSessions, tournaments: data.tournaments)
 
         let recentLimit = Calendar.current.date(byAdding: .day, value: -60, to: now) ?? now
@@ -52,6 +56,14 @@ struct TennisWatchSnapshot: Codable, Equatable {
         tournaments += data.tournaments.filter { record in
             (!record.isCompleted || record.needsDetails) && !tournaments.contains { $0.id == record.id }
         }
+        if let recordID {
+            requestedActivityID = recordID
+            requestedActivityFound = !data.deletedRecordIDs.contains(recordID) &&
+                (data.matches.contains { $0.id == recordID } || data.trainingSessions.contains { $0.id == recordID } || data.tournaments.contains { $0.id == recordID })
+            matches += data.matches.filter { $0.id == recordID && !matches.contains { $0.id == recordID } }
+            trainingSessions += data.trainingSessions.filter { $0.id == recordID && !trainingSessions.contains { $0.id == recordID } }
+            tournaments += data.tournaments.filter { $0.id == recordID && !tournaments.contains { $0.id == recordID } }
+        }
     }
 
     init(from decoder: Decoder) throws {
@@ -66,11 +78,22 @@ struct TennisWatchSnapshot: Codable, Equatable {
         settings = try c.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
         setup = try c.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
         knownVenues = try c.decodeIfPresent([TennisVenueChoice].self, forKey: .knownVenues) ?? []
+        achievementHistory = try c.decodeIfPresent([TennisAchievementRecord].self, forKey: .achievementHistory) ?? []
+        requestedActivityID = try c.decodeIfPresent(UUID.self, forKey: .requestedActivityID)
+        requestedActivityFound = try c.decodeIfPresent(Bool.self, forKey: .requestedActivityFound)
+    }
+
+    mutating func retainOpenActivities(_ ids: Set<UUID>, from local: Self) {
+        let retained = ids.subtracting(deletedRecordIDs).subtracting(local.deletedRecordIDs)
+        matches += local.matches.filter { record in retained.contains(record.id) && !matches.contains { $0.id == record.id } }
+        trainingSessions += local.trainingSessions.filter { record in retained.contains(record.id) && !trainingSessions.contains { $0.id == record.id } }
+        tournaments += local.tournaments.filter { record in retained.contains(record.id) && !tournaments.contains { $0.id == record.id } }
     }
 }
 
 enum TennisWatchSyncCommand: Codable, Equatable {
     case requestSnapshot
+    case requestActivity(UUID)
     case snapshotReceived(Date)
     case upsertMatch(MatchRecord)
     case upsertTraining(TrainingSession)
@@ -119,6 +142,7 @@ enum TennisWatchActivityFactory {
         var session = TrainingSession(playerID: playerID)
         session.date = startDate
         session.actualStart = startDate
+        session.trackedOnWatch = true
         session.hasStartTime = true
         session.durationMinutes = 1
         session.trainingType = type

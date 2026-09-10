@@ -8,17 +8,17 @@ targets:
   TennisTracker:
     info:
       properties:
-        CFBundleVersion: "28"
+        CFBundleVersion: "29"
     settings:
       base:
-        CURRENT_PROJECT_VERSION: "28"
+        CURRENT_PROJECT_VERSION: "29"
   TennisTrackerWatchApp:
     dependencies:
       - target: TennisTrackerWatchWidgets
         embed: true
     info:
       properties:
-        CFBundleVersion: "28"
+        CFBundleVersion: "29"
         TennisSharedAppGroup: $(TENNIS_APP_GROUP)
         CFBundleURLTypes:
           - CFBundleURLName: TennisTrackerWatch
@@ -26,7 +26,7 @@ targets:
               - tennistracker
     settings:
       base:
-        CURRENT_PROJECT_VERSION: "28"
+        CURRENT_PROJECT_VERSION: "29"
     entitlements:
       path: TennisTrackerWatchApp/HealthAndWidgets.entitlements
       properties:
@@ -46,7 +46,7 @@ targets:
       properties:
         CFBundleDisplayName: Tennis Tracker
         CFBundleShortVersionString: "0.9.0"
-        CFBundleVersion: "28"
+        CFBundleVersion: "29"
         TennisSharedAppGroup: $(TENNIS_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -59,7 +59,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.inclusophy.tennistracker.dev.watchkitapp.widgets
         PRODUCT_NAME: TennisTrackerWatchWidgets
-        CURRENT_PROJECT_VERSION: "28"
+        CURRENT_PROJECT_VERSION: "29"
         MARKETING_VERSION: "0.9.0"
         SKIP_INSTALL: "YES"
         CODE_SIGNING_ALLOWED: "NO"

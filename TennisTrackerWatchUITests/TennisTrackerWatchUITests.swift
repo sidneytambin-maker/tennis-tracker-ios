@@ -374,6 +374,53 @@ final class TennisTrackerWatchUITests: XCTestCase {
         capture(app, name: "Watch recorded tie-break result")
     }
 
+    func testNotificationReflectionOpensExactCompletedSessionOnWatch() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-completed-training", "-test-notification=reflection"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Training Reflection"].waitForExistence(timeout: 8))
+        let focus = app.buttons["trainingFocusPicker"]
+        reveal(focus, in: app); XCTAssertTrue(focus.isHittable)
+        let save = app.buttons["saveTrainingReflection"]
+        reveal(save, in: app); save.tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "watchScreenMenu").matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch.waitForExistence(timeout: 8))
+        capture(app, name: "Watch notification reflection saved")
+    }
+
+    func testNotificationResultOpensScorePickersOnWatch() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-venue-regression", "-test-notification=result"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Match Result"].waitForExistence(timeout: 8))
+        let score = app.descendants(matching: .any).matching(identifier: "set1YourGames").firstMatch
+        reveal(score, in: app); XCTAssertTrue(score.isHittable)
+        capture(app, name: "Watch exact match result reminder")
+    }
+
+    func testMissingWatchNotificationRequestsExactActivityWithoutOpeningAnother() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-test-notification=missing"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["notificationActivityUnavailable"].waitForExistence(timeout: 8))
+        let retry = app.buttons["Request Activity Again"]
+        reveal(retry, in: app); retry.tap()
+        XCTAssertFalse(app.buttons["saveTrainingReflection"].exists)
+    }
+
+    func testWatchMenuSoundPreviewAndAchievementCollection() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing-watch", "-watch-completed-training"]
+        app.launch()
+        let menu = app.buttons.matching(identifier: "watchScreenMenu").matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 8)); menu.tap()
+        let preview = app.buttons["watchPreviewTennisSound"]
+        reveal(preview, in: app); preview.tap()
+        XCTAssertEqual(preview.value as? String, "Tennis bounce")
+        reveal(app.buttons["Achievements"], in: app); app.buttons["Achievements"].tap()
+        XCTAssertTrue(app.staticTexts["achievementCollectionSummary"].waitForExistence(timeout: 8))
+        capture(app, name: "Watch achievements collection")
+    }
+
     private func chooseRecordedScore(_ identifier: String, value: String, in app: XCUIApplication) {
         let control = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         reveal(control, in: app); control.tap()

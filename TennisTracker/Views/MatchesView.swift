@@ -657,7 +657,7 @@ struct LiveMatchView: View {
             saved.result = scorer.state.playerSets > scorer.state.opponentSets ? .win : .loss
         }
         match = saved
-        store.upsertMatch(saved)
+        store.upsertMatch(saved, audibleFeedback: !quiet || scorer.state.isMatchComplete)
         if !quiet {
             announce(scorer.state.isMatchComplete ? "Saved completed match." : "Saved match progress.", force: store.data.settings.scoreAnnouncementMode != .off)
         }

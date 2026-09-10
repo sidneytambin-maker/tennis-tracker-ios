@@ -3,6 +3,7 @@ import SwiftUI
 struct TennisTrackerRootView: View {
     @EnvironmentObject private var store: TennisStore
     @StateObject private var router = AppRouter()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -45,19 +46,33 @@ struct TennisTrackerRootView: View {
                 .toolbarBackground(.visible, for: .tabBar)
                 .onOpenURL { url in
                     router.open(url)
-                    store.announce("Opened \(router.selectedTab).")
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .tennisTrackerOpenURL)) { notification in
-                    guard let url = notification.object as? URL else { return }
-                    router.open(url)
-                    store.announce("Opened \(router.selectedTab).")
+                    router.openPendingIntentRoute()
                 }
                 .onAppear {
                     router.openPendingIntentRoute()
                 }
+                #if targetEnvironment(simulator)
+                .overlay(alignment: .bottomTrailing) {
+                    if ProcessInfo.processInfo.arguments.contains("-test-notification-warm") {
+                        Button("Open Test Reminder") {
+                            if let route = TennisNotificationTestSupport.route(training: store.data.trainingSessions, matches: store.data.matches, tournaments: store.data.tournaments) {
+                                TennisNotificationInbox.enqueue(route.url)
+                                NotificationCenter.default.post(name: .tennisTrackerOpenURL, object: route.url)
+                            }
+                        }.accessibilityIdentifier("openTestReminder")
+                    }
+                }
+                #endif
             }
         }
         .environmentObject(router)
+        .sheet(item: $router.activityRoute) { route in TennisNotificationDestination(route: route).environmentObject(store) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { TennisSoundPlayer.shared.stop() }
+            else if !store.needsOnboarding { router.openPendingIntentRoute() }
+        }
         .tint(store.data.settings.theme.accentColor)
         .preferredColorScheme(store.data.settings.theme.preferredColorScheme)
     }

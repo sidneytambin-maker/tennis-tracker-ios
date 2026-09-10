@@ -1,7 +1,9 @@
 import SwiftUI
+import Charts
 
 struct TennisResultDashboardRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let totals: TennisResultTotals
     let symbol: String
@@ -10,11 +12,26 @@ struct TennisResultDashboardRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: symbol).font(.headline)
+            Chart {
+                ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
+                    BarMark(xStart: .value("Start", slices.prefix(index).reduce(0) { $0 + $1.count }),
+                            xEnd: .value("End", slices.prefix(index + 1).reduce(0) { $0 + $1.count }),
+                            y: .value("Results", "Results"), height: .ratio(0.8))
+                        .foregroundStyle(slice.color)
+                }
+            }
+            .chartXScale(domain: 0...max(1, totals.count))
+            .chartXAxis(.hidden).chartYAxis(.hidden).chartLegend(.hidden)
+            .frame(height: 32)
+            .background(.primary.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: typeSize.isAccessibilitySize ? 2 : 4), alignment: .leading, spacing: 12) {
-                metric("Matches", value: totals.count)
-                metric("Wins", value: totals.wins)
-                metric("Losses", value: totals.losses)
-                metric("Draws", value: totals.draws)
+                metric("Matches", value: totals.count, symbol: "tennisball", color: .primary)
+                metric("Wins", value: totals.wins, symbol: "checkmark", color: slices[0].color)
+                metric("Losses", value: totals.losses, symbol: "xmark", color: slices[1].color)
+                metric("Draws", value: totals.draws, symbol: "equal", color: slices[2].color)
             }
             if totals.retired > 0 { Text("\(totals.retired) retired").font(.callout) }
             if trainingMatchCount > 0 { Text(trainingContext).font(.callout) }
@@ -29,8 +46,16 @@ struct TennisResultDashboardRow: View {
 
     private var trainingContext: String { "Includes \(trainingMatchCount) \(trainingMatchCount == 1 ? "match" : "matches") played during training." }
 
-    private func metric(_ name: String, value: Int) -> some View {
+    private var slices: [(count: Int, color: Color)] {
+        [(totals.wins, colorScheme == .dark ? .mint : TennisSportStyle.court),
+         (totals.losses, colorScheme == .dark ? .pink : Color(red: 0.60, green: 0.09, blue: 0.23)),
+         (totals.draws, colorScheme == .dark ? .cyan : Color(red: 0.08, green: 0.25, blue: 0.62)),
+         (totals.retired, .secondary)]
+    }
+
+    private func metric(_ name: String, value: Int, symbol: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
+            Image(systemName: symbol).font(.caption.weight(.bold)).foregroundStyle(color)
             Text(value.formatted()).font(.title2.weight(.semibold)).monospacedDigit()
             Text(name).font(.caption).fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -38,6 +63,7 @@ struct TennisResultDashboardRow: View {
 }
 
 struct TennisFocusDashboardRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let item: TennisFocusProgress
     let maximum: Int
 
@@ -46,6 +72,8 @@ struct TennisFocusDashboardRow: View {
             Text(item.focus).font(.headline)
             Text("\(item.sessions) \(item.sessions == 1 ? "session" : "sessions")").font(.callout).fixedSize(horizontal: false, vertical: true)
             ProgressView(value: Double(item.sessions), total: Double(max(1, maximum)))
+                .tint(colorScheme == .dark ? TennisSportStyle.ball : TennisSportStyle.court)
+                .accessibilityHidden(true)
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .ignore)

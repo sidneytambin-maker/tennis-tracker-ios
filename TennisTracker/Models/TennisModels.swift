@@ -379,6 +379,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
     var actualStart: Date?
     var actualFinish: Date?
     var workout: TennisWorkoutResult?
+    var trackedOnWatch: Bool?
     var practiceResult: TennisPracticeResult?
 
     var isActive: Bool { actualStart != nil && actualFinish == nil }
@@ -428,6 +429,7 @@ struct TrainingSession: Identifiable, Codable, Equatable {
         actualStart = try container.decodeIfPresent(Date.self, forKey: .actualStart)
         actualFinish = try container.decodeIfPresent(Date.self, forKey: .actualFinish)
         workout = try container.decodeIfPresent(TennisWorkoutResult.self, forKey: .workout)
+        trackedOnWatch = try container.decodeIfPresent(Bool.self, forKey: .trackedOnWatch)
         practiceResult = try container.decodeIfPresent(TennisPracticeResult.self, forKey: .practiceResult)
     }
 }
@@ -664,6 +666,7 @@ struct AppSettings: Codable, Equatable {
     var reminderLeadMinutes = 60
     var postSessionDelayMinutes = 120
     var calendarIntegrationEnabled = false
+    var sounds = TennisSoundSettings()
 
     mutating func applyModeDefaults() {
         switch trackingMode {
@@ -700,6 +703,7 @@ struct AppSettings: Codable, Equatable {
         reminderLeadMinutes = try container.decodeIfPresent(Int.self, forKey: .reminderLeadMinutes) ?? 60
         postSessionDelayMinutes = try container.decodeIfPresent(Int.self, forKey: .postSessionDelayMinutes) ?? 120
         calendarIntegrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .calendarIntegrationEnabled) ?? false
+        sounds = try container.decodeIfPresent(TennisSoundSettings.self, forKey: .sounds) ?? TennisSoundSettings()
     }
 }
 
