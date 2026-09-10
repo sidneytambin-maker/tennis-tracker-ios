@@ -1,6 +1,12 @@
 name: TestFlight beta validation
 on:
   workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: Sign and upload to Apple after all validation jobs pass
+        required: true
+        default: false
+        type: boolean
   push:
     branches: [codex/testflight-beta]
 permissions:
@@ -79,3 +85,26 @@ jobs:
           name: testflight-unsigned-archive
           path: testflight-unsigned-archive.tar.gz
           retention-days: 7
+  upload:
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_to_testflight && github.ref == 'refs/heads/codex/testflight-beta'
+    needs: [iphone-tests, watch-tests, release-privacy]
+    runs-on: macos-latest
+    timeout-minutes: 45
+    environment: testflight
+    concurrency:
+      group: tennis-testflight-upload
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Build, sign, inspect and upload without publishing signing material
+        env:
+          TENNIS_DISTRIBUTION_P12: ${{ secrets.TENNIS_DISTRIBUTION_P12 }}
+          TENNIS_DISTRIBUTION_PASSWORD: ${{ secrets.TENNIS_DISTRIBUTION_PASSWORD }}
+          TENNIS_PHONE_PROFILE: ${{ secrets.TENNIS_PHONE_PROFILE }}
+          TENNIS_WATCH_PROFILE: ${{ secrets.TENNIS_WATCH_PROFILE }}
+          TENNIS_WIDGET_PROFILE: ${{ secrets.TENNIS_WIDGET_PROFILE }}
+          TENNIS_ASC_PRIVATE_KEY: ${{ secrets.TENNIS_ASC_PRIVATE_KEY }}
+          TENNIS_ASC_KEY_ID: ${{ secrets.TENNIS_ASC_KEY_ID }}
+          TENNIS_ASC_ISSUER_ID: ${{ secrets.TENNIS_ASC_ISSUER_ID }}
+        run: python3 Scripts/upload_testflight.py

@@ -15,3 +15,8 @@ selfIdentity.plist
 work/
 __pycache__/
 *.pyc
+project-testflight-signing.generated.json
+Distribution/Generated/
+*.p8
+*.p12
+*.mobileprovision

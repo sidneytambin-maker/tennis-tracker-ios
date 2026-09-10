@@ -38,4 +38,18 @@ Target: version 0.1.0, build 30; team HT5X86Q4DD. The identifiers in project-tes
 
 The account holder must review required agreements and complete authentication/security confirmations. Register and verify permanent IDs/capabilities, create the App Store Connect app record, and configure secure distribution credentials. Never commit private keys or publish them in logs. Keep the verified feedback address in App Store Connect, not in public source.
 
+## Encrypted Upload Configuration
+
+The workflow's optional upload job is disabled on pushes. A manual run on the reviewed beta branch with `upload_to_testflight` enabled must first pass all three native validation jobs. It uses the `testflight` environment and serializes uploads without cancelling an in-progress upload.
+
+Configure environment secrets only after Apple has created the permanent identities and App Store Connect record:
+
+- `TENNIS_DISTRIBUTION_P12`: base64 Apple Distribution certificate and private key; `TENNIS_DISTRIBUTION_PASSWORD`: its password.
+- `TENNIS_PHONE_PROFILE`, `TENNIS_WATCH_PROFILE`, `TENNIS_WIDGET_PROFILE`: base64 App Store distribution profiles for the exact three permanent IDs. The Watch profile must grant HealthKit and the permanent App Group; the widget profile must grant that group.
+- `TENNIS_ASC_PRIVATE_KEY`: App Store Connect API private key text; `TENNIS_ASC_KEY_ID` and `TENNIS_ASC_ISSUER_ID`: the corresponding identifiers. Grant only the access needed for build upload, not account-wide administrative access merely for convenience.
+
+The upload script uses an ephemeral keychain, filters signing secrets from child-process environments, cleans up its profiles/keychain, and does not publish signed packages, private keys or raw signing logs as public CI artifacts. It preserves build 30, validates the exported phone/Watch/widget signatures, asks Apple to validate the IPA, then uploads. It does not invite testers or submit an App Store release. This pipeline still requires a real native run before it can be considered verified.
+
+References: [GitHub's macOS signing guidance](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications), [Apple build uploads](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/).
+
 Reference: [Apple file sharing](https://developer.apple.com/documentation/bundleresources/information-property-list/uifilesharingenabled), [creating an App Store Connect record](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app/), [beta distribution](https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases), [provisioning profile checks](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles).
