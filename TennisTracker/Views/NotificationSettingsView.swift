@@ -8,7 +8,7 @@ struct NotificationSettingsView: View {
     var body: some View {
         TennisForm {
             Section("Notification sounds") {
-                NavigationLink { TennisSoundChoices(selection: $settings.sounds.selected) } label: {
+                NavigationLink { TennisSoundChoices(selection: savedSoundSelection) } label: {
                     Label("Tennis Sounds", systemImage: "speaker.wave.2")
                 }
                 .accessibilityValue(settings.sounds.selected.title)
@@ -61,6 +61,14 @@ struct NotificationSettingsView: View {
         .tennisThemedList()
         .navigationTitle("Notifications & Sounds")
         .onChange(of: settings) { _, _ in store.updateSettings(settings) }
+    }
+
+    private var savedSoundSelection: Binding<TennisSound> {
+        Binding(get: { settings.sounds.selected }, set: { sound in
+            // The parent form's onChange is inactive while its sound screen is open.
+            settings.sounds.selected = sound
+            store.updateSettings(settings)
+        })
     }
 }
 
