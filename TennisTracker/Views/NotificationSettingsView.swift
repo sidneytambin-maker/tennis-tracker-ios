@@ -71,8 +71,7 @@ struct TennisSoundChoices: View {
         TennisList {
             ForEach(TennisSound.allCases) { sound in
                 Button {
-                    selection = sound
-                    previewFailed = !TennisSoundPlayer.shared.preview(sound)
+                    selectAndPreview(sound)
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "play.circle.fill").font(.title2).accessibilityHidden(true)
@@ -82,18 +81,28 @@ struct TennisSoundChoices: View {
                         }
                         Spacer(minLength: 4)
                         if selection == sound { Image(systemName: "checkmark").accessibilityHidden(true) }
-                    }.padding(.vertical, 6)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
                 }
                 .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(sound.title + (sound == .bounce ? ", default" : ""))
                 .accessibilityValue(selection == sound ? "Selected" : "Not selected")
                 .accessibilityHint("Selects and plays a preview. Respects silent mode and your volume. Double tap again to hear it again.")
                 .accessibilityIdentifier("tennisSound." + sound.rawValue)
+                .accessibilityAction(.default) { selectAndPreview(sound) }
             }
             if previewFailed { Text("Sound preview unavailable.").accessibilityIdentifier("soundPreviewFailed") }
         }
         .tennisThemedList()
         .navigationTitle("Tennis Sounds")
         .onDisappear { TennisSoundPlayer.shared.stop() }
+    }
+
+    private func selectAndPreview(_ sound: TennisSound) {
+        selection = sound
+        previewFailed = !TennisSoundPlayer.shared.preview(sound)
     }
 }
