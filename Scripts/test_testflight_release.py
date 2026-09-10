@@ -15,7 +15,8 @@ class ReleasePrivacyTests(unittest.TestCase):
         for path, bundle in ((self.app, PHONE_ID), (self.watch, PHONE_ID + ".watchkitapp"), (self.widget, PHONE_ID + ".watchkitapp.widgets")):
             path.mkdir(parents=True, exist_ok=True)
             info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "30", "TennisSharedAppGroup": GROUP_ID,
-                    "WKCompanionAppBundleIdentifier": PHONE_ID, "WKApplication": True, "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
+                    "WKCompanionAppBundleIdentifier": PHONE_ID, "WKApplication": True, "UIFileSharingEnabled": True, "LSSupportsOpeningDocumentsInPlace": True,
+                    "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
             (path / "Info.plist").write_bytes(plistlib.dumps(info))
             (path / "PrivacyInfo.xcprivacy").write_bytes(plistlib.dumps({"NSPrivacyTracking": False, "NSPrivacyCollectedDataTypes": []}))
             (path / "Main").write_bytes(b"compiled-test-placeholder")
@@ -45,6 +46,12 @@ class ReleasePrivacyTests(unittest.TestCase):
     def test_missing_complication_blocks_release(self):
         (self.widget / "Info.plist").unlink()
         with self.assertRaises(FileNotFoundError): verify(self.app)
+
+    def test_missing_private_restore_route_blocks_release(self):
+        path = self.app / "Info.plist"
+        info = plistlib.loads(path.read_bytes()); info["UIFileSharingEnabled"] = False
+        path.write_bytes(plistlib.dumps(info))
+        with self.assertRaises(ValueError): verify(self.app)
 
 
 if __name__ == "__main__": unittest.main()

@@ -21,6 +21,8 @@ targets:
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "30"
         TennisDistribution: TestFlight
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

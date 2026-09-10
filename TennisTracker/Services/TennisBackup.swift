@@ -17,6 +17,23 @@ enum TennisBackupError: LocalizedError {
 }
 
 enum TennisBackup {
+    static func decodeStoredLibrary(_ bytes: Data) throws -> AppData {
+        guard let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              let version = object["dataVersion"] as? Int, version > 0,
+              object["settings"] is [String: Any] else { throw TennisBackupError.invalidFile }
+        guard version <= 11 else { throw TennisBackupError.newerVersion }
+        for key in ["players", "matches", "trainingSessions", "tournaments"] { try requireIDs(object[key]) }
+        if version >= 9 {
+            guard let setup = object["setup"] as? [String: Any] else { throw TennisBackupError.invalidFile }
+            for key in ["coaches", "venues", "locations", "tournamentTemplates"] { try requireIDs(setup[key]) }
+        }
+        if version >= 11 {
+            guard let identifier = object["libraryID"] as? String, UUID(uuidString: identifier) != nil,
+                  object["onboardingCompleted"] is Bool else { throw TennisBackupError.invalidFile }
+        }
+        return try JSONDecoder.tennisTracker.decode(AppData.self, from: bytes)
+    }
+
     static func decode(_ bytes: Data) throws -> AppData {
         guard bytes.count <= 20_000_000,
               let object = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],

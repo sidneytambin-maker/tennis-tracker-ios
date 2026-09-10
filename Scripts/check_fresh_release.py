@@ -18,6 +18,19 @@ def check_empty(data):
     if any(data.get("setup", {}).get(key) != [] for key in ("coaches", "venues", "locations", "tournamentTemplates")):
         raise ValueError("Fresh setup contains prepopulated people or places")
     if data.get("selectedPlayerID") is not None: raise ValueError("Fresh installation has a selected player")
+    for key in ("knownVenues", "achievementHistory", "achievementRecords"):
+        if data.get(key, []) != []: raise ValueError("Fresh installation contains unexpected " + key)
+
+
+def check_watch_preferences(preferences):
+    for key in ("activeHealthTrainingID", "pendingHealthTrainingIDs", "activeTournamentID", "pendingIntentRoute"):
+        if preferences.get(key): raise ValueError("Fresh Watch contains previous activity state")
+    if preferences.get("queuedWatchCommands"):
+        queue = json.loads(preferences["queuedWatchCommands"])
+        commands = queue.get("commands")
+        # A new, unpaired Watch may queue a data-free request for its first phone snapshot.
+        if not isinstance(commands, list) or any(command != {"requestSnapshot": {}} for command in commands) or queue.get("libraryID") is not None:
+            raise ValueError("Fresh Watch contains another library's queued commands")
 
 
 def main(app, platform):
@@ -41,15 +54,21 @@ def main(app, platform):
             for _ in range(30):
                 try:
                     raw = path.read_bytes()
-                    data = json.loads(plistlib.loads(raw)["watchSnapshot"] if platform == "watchOS" else raw)
+                    if platform == "watchOS":
+                        preferences = plistlib.loads(raw)
+                        data = json.loads(preferences["watchSnapshot"])
+                    else:
+                        data = json.loads(raw)
                     break
                 except (FileNotFoundError, KeyError, ValueError): time.sleep(1)
             if data is None: raise ValueError("Fresh application did not persist its initial state")
             check_empty(data)
+            if platform == "watchOS": check_watch_preferences(preferences)
             if platform == "iOS" and data.get("onboardingCompleted") is not False:
                 raise ValueError("Fresh iPhone did not enter onboarding")
             if platform == "watchOS" and data.get("achievementHistory") != []:
                 raise ValueError("Fresh Watch contains achievement history")
+            if platform == "iOS": uuid.UUID(data["libraryID"])
             reports.append({"container": index + 1, "empty": True, "libraryID": data.get("libraryID")})
         finally:
             subprocess.run(["xcrun", "simctl", "shutdown", device], check=False, capture_output=True)

@@ -61,6 +61,42 @@ final class TennisBetaPrivacyTests: XCTestCase {
         XCTAssertTrue(watch.trainingSessions.isEmpty)
     }
 
+    func testOptionalOnboardingPeopleAndPlacesPreserveIDsWithoutCreatingActivities() {
+        let path = url()
+        let store = TennisStore(storeURL: path)
+        var player = PlayerProfile(); player.name = "New Tester"
+        var partner = PlayerProfile(); partner.name = "Training Partner"; partner.isRegularPartner = true
+        var setup = TennisSetup()
+        setup.coaches = [TennisCoach(name: "Local Coach")]
+        setup.venues = [TennisVenue(name: "Local Courts")]
+        setup.locations = [TennisLocation(name: "Court Two")]
+        setup.tournamentTemplates = [TennisTournamentTemplate(name: "Club Championship", venueID: setup.venues[0].id)]
+        XCTAssertTrue(store.completeOnboarding(player: player, settings: AppSettings(), setup: setup, additionalPlayers: [partner]))
+        let restored = TennisStore(storeURL: path)
+        XCTAssertEqual(restored.data.players.map(\.id), [player.id, partner.id])
+        XCTAssertEqual(restored.data.setup, setup)
+        XCTAssertTrue(restored.data.players[1].isRegularPartner)
+        XCTAssertTrue(restored.data.matches.isEmpty)
+        XCTAssertTrue(restored.data.trainingSessions.isEmpty)
+        XCTAssertTrue(restored.data.tournaments.isEmpty)
+        XCTAssertTrue(restored.data.achievementRecords.isEmpty)
+        XCTAssertEqual(TennisWatchSnapshot(data: restored.data).setup, setup)
+    }
+
+    func testWatchRestartCannotReopenRetiredCacheAfterInterruptedLibraryChange() throws {
+        let previous = UUID(), current = UUID(), unrelated = UUID()
+        var fence = TennisWatchLibraryFence()
+        XCTAssertTrue(fence.accept(previous, authoritative: true))
+        XCTAssertTrue(fence.accept(current, authoritative: true))
+        let persisted = try JSONEncoder.tennisTracker.encode(fence)
+        let restarted = try JSONDecoder.tennisTracker.decode(TennisWatchLibraryFence.self, from: persisted)
+        XCTAssertFalse(restarted.canRestoreCachedLibrary(previous))
+        XCTAssertFalse(restarted.canRestoreCachedLibrary(unrelated))
+        XCTAssertFalse(restarted.canRestoreCachedLibrary(nil))
+        XCTAssertTrue(restarted.canRestoreCachedLibrary(current))
+        XCTAssertTrue(TennisWatchLibraryFence().canRestoreCachedLibrary(current))
+    }
+
     func testVersionTenMigrationPreservesAllFieldsAndStableIDs() throws {
         var original = sampleLibrary(); original.dataVersion = 10
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder.tennisTracker.encode(original)) as? [String: Any])
@@ -120,6 +156,21 @@ final class TennisBetaPrivacyTests: XCTestCase {
         players[0].removeValue(forKey: "id")
         object["players"] = players
         XCTAssertThrowsError(try TennisBackup.decode(JSONSerialization.data(withJSONObject: object)))
+    }
+
+    func testValidJSONWithMissingLibraryFieldsCannotTriggerFreshSetup() throws {
+        let original = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder.tennisTracker.encode(sampleLibrary())) as? [String: Any])
+        for missing in ["players", "matches", "trainingSessions", "tournaments", "setup", "settings", "libraryID", "onboardingCompleted"] {
+            var object = original
+            object.removeValue(forKey: missing)
+            let path = url()
+            let bytes = try JSONSerialization.data(withJSONObject: object)
+            try bytes.write(to: path)
+            let store = TennisStore(storeURL: path)
+            XCTAssertNotNil(store.storageError, "Missing \(missing) must not be replaced with defaults")
+            XCTAssertFalse(store.needsOnboarding)
+            XCTAssertEqual(try Data(contentsOf: path), bytes)
+        }
     }
 
     func testBackupRejectsDuplicateIDsBrokenLinksAndActiveWorkouts() throws {

@@ -441,8 +441,7 @@ final class TennisStore: ObservableObject {
     private func load() {
         do {
             let savedData = try Data(contentsOf: storeURL)
-            let decoded = try JSONDecoder.tennisTracker.decode(AppData.self, from: savedData)
-            guard decoded.dataVersion <= 11 else { throw TennisBackupError.newerVersion }
+            let decoded = try TennisBackup.decodeStoredLibrary(savedData)
             data = decoded
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             do { try persist(data) } catch { storageError = "Your tennis library could not be created. No records have been changed. Try again when storage is available." }

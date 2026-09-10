@@ -63,6 +63,14 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["No activity in progress."].exists)
         XCTAssertFalse(app.staticTexts["Player One"].exists)
         XCTAssertFalse(app.staticTexts["Practice opponent"].exists)
+        for action in ["dashboardFirstMatch", "dashboardFirstTraining", "dashboardFirstTournament"] {
+            XCTAssertTrue(app.buttons[action].exists, "Missing first-activity action \(action)")
+        }
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["setupProfileButton"].exists, "A completed setup with no activities must not restart")
     }
 
     func testTournamentAndTrainingCreationAreReachable() throws {

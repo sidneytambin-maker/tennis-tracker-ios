@@ -13,7 +13,7 @@ struct OnboardingView: View {
     }()
     @State private var settings = AppSettings()
     @State private var setup = TennisSetup()
-    @State private var partners: [PlayerProfile] = []
+    @State private var people: [PlayerProfile] = []
     @State private var notificationMessage = ""
     @State private var requestingNotifications = false
     @State private var validationMessage = ""
@@ -173,20 +173,36 @@ struct OnboardingView: View {
                 ForEach($setup.coaches) { $coach in TextField("Coach name", text: $coach.name) }
                 Button("Add Coach", systemImage: "plus") { setup.coaches.append(TennisCoach()) }
             }
-            Section("Regular Doubles Partners") {
-                ForEach($partners) { $partner in TextField("Partner name", text: $partner.name) }
-                Button("Add Doubles Partner", systemImage: "plus") {
-                    var partner = PlayerProfile()
-                    partner.sightLevel = .notKnown; partner.bCategory = "Not known"
-                    partner.playerMode = .standardTennis; partner.isRegularPartner = true
-                    partners.append(partner)
+            Section("Players and Doubles Partners") {
+                ForEach($people) { $person in
+                    TextField("Player name", text: $person.name)
+                    Toggle("Regular doubles partner", isOn: $person.isRegularPartner)
+                        .accessibilityLabel("Regular doubles partner, \(person.name.isBlank ? "new player" : person.name)")
                 }
+                Button("Add Player", systemImage: "person.badge.plus") { addPerson(regularPartner: false) }
+                Button("Add Doubles Partner", systemImage: "person.2.fill") { addPerson(regularPartner: true) }
             }
             Section("Venues") {
                 ForEach($setup.venues) { $venue in TextField("Venue name", text: $venue.name) }
                 Button("Add Venue", systemImage: "plus") { setup.venues.append(TennisVenue()) }
             }
+            Section("Locations and Regular Tournaments") {
+                ForEach($setup.locations) { $location in TextField("Location name", text: $location.name) }
+                Button("Add Location", systemImage: "mappin.and.ellipse") { setup.locations.append(TennisLocation()) }
+                ForEach($setup.tournamentTemplates) { $tournament in TextField("Regular tournament name", text: $tournament.name) }
+                Button("Add Regular Tournament", systemImage: "trophy") { setup.tournamentTemplates.append(TennisTournamentTemplate()) }
+                    .accessibilityHint("Adds a reusable tournament name. It does not create a tournament event or count toward achievements.")
+            }
         }
+    }
+
+    private func addPerson(regularPartner: Bool) {
+        var person = PlayerProfile()
+        person.sightLevel = .notKnown
+        person.bCategory = "Not known"
+        person.playerMode = .standardTennis
+        person.isRegularPartner = regularPartner
+        people.append(person)
     }
 
     private var notificationStep: some View {
@@ -302,7 +318,9 @@ struct OnboardingView: View {
         settings.announceScores = settings.scoreAnnouncementMode != .off
         setup.coaches.removeAll { $0.name.isBlank }
         setup.venues.removeAll { $0.name.isBlank }
-        if !store.completeOnboarding(player: player, settings: settings, setup: setup, additionalPlayers: partners.filter { !$0.name.isBlank }) {
+        setup.locations.removeAll { $0.name.isBlank }
+        setup.tournamentTemplates.removeAll { $0.name.isBlank }
+        if !store.completeOnboarding(player: player, settings: settings, setup: setup, additionalPlayers: people.filter { !$0.name.isBlank }) {
             validationMessage = store.lastAnnouncement
             focusedValidation = true
         }

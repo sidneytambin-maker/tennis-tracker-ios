@@ -66,6 +66,8 @@ jobs:
           set -euo pipefail
           python3 Scripts/check_fresh_release.py --platform iOS --app ReleaseSim/Build/Products/Release-iphonesimulator/TennisTracker.app | tee evidence/fresh-iphone.json
           python3 Scripts/check_fresh_release.py --platform watchOS --app ReleaseSim/Build/Products/Release-watchsimulator/TennisTrackerWatchApp.app | tee evidence/fresh-watch.json
+      - name: Preserve archive file permissions
+        run: tar -czf testflight-unsigned-archive.tar.gz Beta.xcarchive
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -75,5 +77,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: testflight-unsigned-archive
-          path: Beta.xcarchive
+          path: testflight-unsigned-archive.tar.gz
           retention-days: 7

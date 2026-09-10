@@ -27,6 +27,8 @@ def verify(app):
             raise ValueError("Unexpected permanent bundle identifier")
         if (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("0.1.0", "30"):
             raise ValueError("All components must be version 0.1.0 build 30")
+        if bundle == app and (info.get("UIFileSharingEnabled") is not True or info.get("LSSupportsOpeningDocumentsInPlace") is not True):
+            raise ValueError("Private owner restore requires the user's Files document route")
         executable = bundle / info["CFBundleExecutable"]
         if not executable.is_file() or executable.stat().st_size == 0:
             raise ValueError("Missing compiled executable")

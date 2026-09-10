@@ -164,8 +164,11 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         haptic(.start)
         announce("\(type.rawValue) tracking started.")
         isPreparingWorkout = true
+        let libraryID = snapshot.libraryID
         Task {
+            guard snapshot.libraryID == libraryID else { return }
             await workoutCoordinator.start(useHealth: useHealth, activityID: session.id, at: session.actualStart ?? session.date)
+            guard snapshot.libraryID == libraryID else { return }
             isPreparingWorkout = false
             workoutMessage = workoutCoordinator.message
             if useHealth { announce(workoutMessage) }
@@ -269,8 +272,11 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         haptic(.start)
         announce("Training started.")
         isPreparingWorkout = true
+        let libraryID = snapshot.libraryID
         Task {
+            guard snapshot.libraryID == libraryID else { return }
             await workoutCoordinator.start(useHealth: useHealth, activityID: session.id, at: session.actualStart ?? session.date)
+            guard snapshot.libraryID == libraryID else { return }
             isPreparingWorkout = false
             workoutMessage = workoutCoordinator.message
             if useHealth { announce(workoutMessage) }
@@ -283,26 +289,32 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         sendHealthStatus()
         guard !isRestoringWorkout, !isPreparingWorkout, !isFinishingWorkout else { return }
         isRestoringWorkout = true
+        let libraryID = snapshot.libraryID
         Task {
-            defer { isRestoringWorkout = false }
+            guard snapshot.libraryID == libraryID else { return }
+            defer { if snapshot.libraryID == libraryID { isRestoringWorkout = false } }
             let tracked = healthClient.activeTrainingID.flatMap { id in snapshot.trainingSessions.first { $0.id == id } } ?? activeTraining
             if let tracked, workoutCoordinator.state == .idle || workoutCoordinator.state == .finished {
                 isPreparingWorkout = true
                 await workoutCoordinator.restore(activityID: tracked.id, startedAt: tracked.actualStart ?? tracked.date)
+                guard snapshot.libraryID == libraryID else { return }
                 isPreparingWorkout = false
                 workoutMessage = workoutCoordinator.message
             } else if let id = healthClient.activeTrainingID, snapshot.deletedRecordIDs.contains(id),
                       workoutCoordinator.state == .idle || workoutCoordinator.state == .finished {
                 await workoutCoordinator.restore(activityID: id, startedAt: Date())
+                guard snapshot.libraryID == libraryID else { return }
             }
             finishRemotelyCompletedWorkoutIfNeeded()
             for id in healthClient.pendingWorkoutIDs {
                 guard let training = snapshot.trainingSessions.first(where: { $0.id == id }), training.actualFinish != nil else { continue }
                 if training.workout?.workoutID != nil { healthClient.acknowledgeSavedWorkout(id); continue }
                 if let result = try? await healthClient.savedWorkout(activityID: id) {
+                    guard snapshot.libraryID == libraryID else { return }
                     attachWorkout(result, to: id)
                     healthClient.acknowledgeSavedWorkout(id)
                 }
+                guard snapshot.libraryID == libraryID else { return }
             }
         }
     }
@@ -325,12 +337,16 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func finishWorkout(for id: UUID, at date: Date) {
         guard !isFinishingWorkout else { return }
         isFinishingWorkout = true
+        let libraryID = snapshot.libraryID
         Task {
-            defer { isFinishingWorkout = false }
+            guard snapshot.libraryID == libraryID else { return }
+            defer { if snapshot.libraryID == libraryID { isFinishingWorkout = false } }
             if let result = await workoutCoordinator.finish(at: date) {
+                guard snapshot.libraryID == libraryID else { return }
                 attachWorkout(result, to: id)
                 if result.workoutID != nil { healthClient.acknowledgeSavedWorkout(id) }
             }
+            guard snapshot.libraryID == libraryID else { return }
             workoutMessage = workoutCoordinator.message
             if let training = snapshot.trainingSessions.first(where: { $0.id == id }) {
                 announce(trainingSummary(training, style: .detailed) + " " + workoutMessage)
@@ -808,12 +824,13 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     private func loadLocalState() {
         let defaults = UserDefaults.standard
         if let data = defaults.data(forKey: "watchLibraryFence"), let saved = try? JSONDecoder.tennisTracker.decode(TennisWatchLibraryFence.self, from: data) { libraryFence = saved }
-        if let data = defaults.data(forKey: "pointHistory"), let history = try? JSONDecoder.tennisTracker.decode([TennisScoreSnapshot].self, from: data) { pointHistory = history }
-        activeTournamentID = defaults.string(forKey: "activeTournamentID").flatMap(UUID.init(uuidString:))
         if let data = defaults.data(forKey: localSnapshotKey),
-           let saved = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data) {
+           let saved = try? JSONDecoder.tennisTracker.decode(TennisWatchSnapshot.self, from: data),
+           libraryFence.canRestoreCachedLibrary(saved.libraryID) {
             snapshot = saved
             libraryFence.current = saved.libraryID
+            if let data = defaults.data(forKey: "pointHistory"), let history = try? JSONDecoder.tennisTracker.decode([TennisScoreSnapshot].self, from: data) { pointHistory = history }
+            activeTournamentID = defaults.string(forKey: "activeTournamentID").flatMap(UUID.init(uuidString:))
             activeTraining = saved.trainingSessions.first(where: \.isActive)
             activeMatch = saved.matches.first { $0.status == .inProgress && $0.liveScore != nil }
             if let activeMatch { scoreState = TennisScoreState(snapshot: activeMatch.liveScore ?? TennisScoreState().snapshot) }
@@ -821,7 +838,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
         }
         if let data = defaults.data(forKey: queuedCommandsKey),
            let saved = try? JSONDecoder.tennisTracker.decode(TennisWatchCommandQueue.self, from: data),
-           saved.libraryID == snapshot.libraryID {
+           snapshot.libraryID != nil, saved.libraryID == snapshot.libraryID {
             queuedCommands = saved.commands
         }
         // Replay the persisted delete command if shutdown interrupted the snapshot write.

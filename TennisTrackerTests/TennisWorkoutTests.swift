@@ -8,8 +8,16 @@ private final class MockWorkoutClient: TennisWorkoutClient {
     var begins = 0
     var finishes = 0
     var permissionRequests = 0
+    var discarded = 0
+    var permissionResponse: (@MainActor () async -> Bool)?
+    var finishResponse: (@MainActor () async -> TennisWorkoutResult)?
     var result = TennisWorkoutResult(durationSeconds: 600)
-    func requestPermission() async throws -> Bool { permissionRequests += 1; return permission }
+    func requestPermission() async throws -> Bool {
+        permissionRequests += 1
+        if let permissionResponse { return await permissionResponse() }
+        return permission
+    }
+    func discardForLibraryChange() { discarded += 1 }
     var begunActivityID: UUID?
     var canRecover = false
     var failStart = false
@@ -21,12 +29,44 @@ private final class MockWorkoutClient: TennisWorkoutClient {
     func finish(at date: Date) async throws -> TennisWorkoutResult {
         finishes += 1
         if failFinish { throw NSError(domain: "TestWorkout", code: 2) }
+        if let finishResponse { return await finishResponse() }
         return result
     }
     func recover(activityID: UUID) async throws -> Bool { canRecover }
 }
 
 final class TennisWorkoutTests: XCTestCase {
+    @MainActor
+    func testLibraryChangeCancelsPendingHealthPermissionWithoutStartingWorkout() async {
+        let client = MockWorkoutClient()
+        let coordinator = TennisWorkoutCoordinator(client: client)
+        client.permissionResponse = {
+            coordinator.discardForLibraryChange()
+            return true
+        }
+        await coordinator.start(useHealth: true)
+        XCTAssertEqual(client.discarded, 1)
+        XCTAssertEqual(client.begins, 0)
+        XCTAssertEqual(coordinator.state, .idle)
+        XCTAssertNil(coordinator.activityID)
+    }
+
+    @MainActor
+    func testLibraryChangeCannotAttachLateHealthResultToNewLibrary() async {
+        let client = MockWorkoutClient()
+        let coordinator = TennisWorkoutCoordinator(client: client)
+        await coordinator.start(useHealth: true)
+        client.finishResponse = {
+            coordinator.discardForLibraryChange()
+            return TennisWorkoutResult(workoutID: UUID(), durationSeconds: 100, averageHeartRate: 120)
+        }
+        let result = await coordinator.finish()
+        XCTAssertNil(result)
+        XCTAssertEqual(coordinator.state, .idle)
+        XCTAssertNil(coordinator.activityID)
+        XCTAssertEqual(client.discarded, 1)
+    }
+
     @MainActor
     func testWorkoutUsesTrainingIDAndRecoveryDoesNotStartAnotherWorkout() async {
         let client = MockWorkoutClient()

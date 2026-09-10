@@ -41,6 +41,20 @@ struct DashboardView: View {
                     }
                 }
 
+                if store.selectedMatches.isEmpty && store.selectedTraining.isEmpty && store.selectedTournaments.isEmpty {
+                    Section {
+                        Button("Record Match", systemImage: "tennisball") { matchToEdit = store.makeDefaultMatch() }
+                            .accessibilityIdentifier("dashboardFirstMatch")
+                            .accessibilityHint("Opens a new match. No record is created until you save.")
+                        Button("Track Training Session", systemImage: "figure.tennis") { showingNewTraining = true }
+                            .accessibilityIdentifier("dashboardFirstTraining")
+                            .accessibilityHint("Choose your session details before saving or starting training.")
+                        Button("Add Tournament", systemImage: "trophy") { tournamentToEdit = store.makeDefaultTournament() }
+                            .accessibilityIdentifier("dashboardFirstTournament")
+                            .accessibilityHint("Opens a new tournament. No record is created until you save.")
+                    }
+                }
+
                 TennisSection("Match results, all time") {
                     TennisResultDashboardRow(title: "Singles matches", totals: progress.singles, symbol: "person.fill", trainingMatchCount: progress.singlesPractice.count)
                     TennisResultDashboardRow(title: "Doubles matches", totals: progress.doubles, symbol: "person.2.fill", trainingMatchCount: progress.doublesPractice.count)

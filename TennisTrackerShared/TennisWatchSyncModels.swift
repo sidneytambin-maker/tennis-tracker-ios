@@ -114,6 +114,11 @@ struct TennisWatchLibraryFence: Codable, Equatable {
     var current: UUID?
     var retired: Set<UUID> = []
 
+    func canRestoreCachedLibrary(_ libraryID: UUID?) -> Bool {
+        guard let libraryID, !retired.contains(libraryID) else { return false }
+        return current == nil || current == libraryID
+    }
+
     mutating func accept(_ libraryID: UUID?, authoritative: Bool) -> Bool {
         guard let libraryID, !retired.contains(libraryID) else { return false }
         if current == libraryID { return true }
