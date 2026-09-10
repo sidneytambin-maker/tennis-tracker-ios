@@ -10,6 +10,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
     private var ending: CheckedContinuation<TennisWorkoutResult, Error>?
     private var finishTimeout: Task<Void, Never>?
     private var finishing = false
+    private var generation = UUID()
     @Published private(set) var latestHeartRate: Double?
     @Published private(set) var activeEnergy: Double?
     @Published private(set) var distanceMeters: Double?
@@ -51,6 +52,12 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         statusMessage = ""
     }
 
+    func discardForLibraryChange() {
+        generation = UUID()
+        failWorkout(WorkoutError.notRunning)
+        clearMetrics()
+    }
+
     func requestPermission() async throws -> Bool {
         guard available else { return false }
         let workout = HKObjectType.workoutType()
@@ -86,6 +93,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         session.startActivity(with: date)
         do {
             try await builder.addMetadata([HKMetadataKeyExternalUUID: activityID.uuidString])
+            guard self.session === session else { throw WorkoutError.notRunning }
             try await builder.beginCollection(at: date)
             guard self.session === session else { throw WorkoutError.notRunning }
             statusMessage = "Tennis workout active."
@@ -93,6 +101,7 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
         catch {
             session.end()
             builder.discardWorkout()
+            guard self.session === session else { throw error }
             self.session = nil; self.builder = nil
             UserDefaults.standard.removeObject(forKey: "activeHealthTrainingID")
             acknowledgeSavedWorkout(activityID)
@@ -103,9 +112,15 @@ final class WatchHealthWorkout: NSObject, ObservableObject, TennisWorkoutClient,
 
     func recover(activityID: UUID) async throws -> Bool {
         guard available, activeTrainingID == activityID else { return false }
+        let token = generation
         if session != nil { return true }
         guard let recovered = try await healthStore.recoverActiveWorkoutSession(),
               recovered.state == .running || recovered.state == .paused else { return false }
+        guard generation == token, activeTrainingID == activityID else {
+            recovered.associatedWorkoutBuilder().discardWorkout()
+            recovered.end()
+            return false
+        }
         session = recovered
         builder = recovered.associatedWorkoutBuilder()
         recovered.delegate = self

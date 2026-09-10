@@ -1,6 +1,7 @@
 import Foundation
 
 struct TennisWatchSnapshot: Codable, Equatable {
+    var libraryID: UUID?
     var generatedAt = Date()
     var deletedRecordIDs: Set<UUID> = []
     var selectedPlayerID: UUID?
@@ -20,6 +21,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
     init() {}
 
     init(data: AppData, now: Date = Date(), including recordID: UUID? = nil) {
+        libraryID = data.libraryID
         generatedAt = now
         deletedRecordIDs = data.deletedRecordIDs
         selectedPlayerID = data.selectedPlayerID
@@ -68,6 +70,7 @@ struct TennisWatchSnapshot: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        libraryID = try c.decodeIfPresent(UUID.self, forKey: .libraryID)
         generatedAt = try c.decodeIfPresent(Date.self, forKey: .generatedAt) ?? .distantPast
         deletedRecordIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .deletedRecordIDs) ?? []
         selectedPlayerID = try c.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
@@ -84,10 +87,41 @@ struct TennisWatchSnapshot: Codable, Equatable {
     }
 
     mutating func retainOpenActivities(_ ids: Set<UUID>, from local: Self) {
+        guard libraryID == local.libraryID else { return }
         let retained = ids.subtracting(deletedRecordIDs).subtracting(local.deletedRecordIDs)
         matches += local.matches.filter { record in retained.contains(record.id) && !matches.contains { $0.id == record.id } }
         trainingSessions += local.trainingSessions.filter { record in retained.contains(record.id) && !trainingSessions.contains { $0.id == record.id } }
         tournaments += local.tournaments.filter { record in retained.contains(record.id) && !tournaments.contains { $0.id == record.id } }
+    }
+}
+
+struct TennisWatchCommandEnvelope: Codable, Equatable {
+    var libraryID: UUID?
+    var command: TennisWatchSyncCommand
+
+    func isAllowed(in libraryID: UUID) -> Bool {
+        if case .requestSnapshot = command { return true }
+        return self.libraryID == libraryID
+    }
+}
+
+struct TennisWatchCommandQueue: Codable {
+    var libraryID: UUID?
+    var commands: [TennisWatchSyncCommand]
+}
+
+struct TennisWatchLibraryFence: Codable, Equatable {
+    var current: UUID?
+    var retired: Set<UUID> = []
+
+    mutating func accept(_ libraryID: UUID?, authoritative: Bool) -> Bool {
+        guard let libraryID, !retired.contains(libraryID) else { return false }
+        if current == libraryID { return true }
+        // Only the phone's latest application context may replace a library, never a delayed live message.
+        guard authoritative else { return false }
+        if let current { retired.insert(current) }
+        current = libraryID
+        return true
     }
 }
 

@@ -1,0 +1,79 @@
+name: TestFlight beta validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/testflight-beta]
+permissions:
+  contents: read
+jobs:
+  iphone-tests:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Packaging regression tests
+        run: python3 -m unittest discover -s Scripts -p 'test_*.py' -v
+      - run: xcodegen generate --spec project-tests.yml
+      - name: Native iPhone unit and accessibility tests
+        run: |
+          set -euo pipefail
+          ID=$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.isAvailable and (.name | startswith("iPhone")))][0].udid')
+          xcrun simctl bootstatus "$ID" -b
+          xcodebuild test -project TennisTrackeriOS.xcodeproj -scheme TennisTracker -destination "id=$ID" -parallel-testing-enabled NO -configuration Debug -resultBundlePath iPhoneBetaTests.xcresult CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testflight-iphone-tests
+          path: iPhoneBetaTests.xcresult
+          retention-days: 7
+  watch-tests:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec project-watch-tests.yml
+      - name: Native Watch accessibility tests
+        run: |
+          set -euo pipefail
+          ID=$(xcrun simctl list devices available --json | jq -r '[.devices | to_entries[] | select(.key | contains("watchOS")) | .value[] | select(.isAvailable and (.name | contains("Ultra")))][0].udid')
+          xcrun simctl bootstatus "$ID" -b
+          xcodebuild test -project TennisTrackeriOS.xcodeproj -scheme TennisTrackerWatchTests -destination "id=$ID" -parallel-testing-enabled NO -configuration Debug -resultBundlePath WatchBetaTests.xcresult CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testflight-watch-tests
+          path: WatchBetaTests.xcresult
+          retention-days: 7
+  release-privacy:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec project-testflight.yml
+      - name: Archive all three permanent-identity components
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          xcodebuild archive -project TennisTrackeriOS.xcodeproj -scheme TennisTrackerTestFlight -destination 'generic/platform=iOS' -configuration Release -archivePath Beta.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+          python3 Scripts/verify_testflight_release.py --app Beta.xcarchive/Products/Applications/TennisTracker.app | tee evidence/release-privacy.json
+      - name: Build release simulator applications
+        run: xcodebuild build -project TennisTrackeriOS.xcodeproj -scheme TennisTrackerTestFlight -destination 'generic/platform=iOS Simulator' -configuration Release -derivedDataPath ReleaseSim CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: Verify two fresh iPhone and Watch containers
+        run: |
+          set -euo pipefail
+          python3 Scripts/check_fresh_release.py --platform iOS --app ReleaseSim/Build/Products/Release-iphonesimulator/TennisTracker.app | tee evidence/fresh-iphone.json
+          python3 Scripts/check_fresh_release.py --platform watchOS --app ReleaseSim/Build/Products/Release-watchsimulator/TennisTrackerWatchApp.app | tee evidence/fresh-watch.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testflight-release-evidence
+          path: evidence
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: testflight-unsigned-archive
+          path: Beta.xcarchive
+          retention-days: 7

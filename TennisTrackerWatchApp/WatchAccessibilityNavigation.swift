@@ -2,7 +2,7 @@ import SwiftUI
 
 enum WatchAccessibilityNavigation {
     static var testingEnabled: Bool {
-        #if targetEnvironment(simulator)
+        #if DEBUG && targetEnvironment(simulator)
         ProcessInfo.processInfo.arguments.contains("-watch-accessibility-navigation")
         #else
         false

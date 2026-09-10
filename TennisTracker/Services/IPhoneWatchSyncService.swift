@@ -46,6 +46,7 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
 
     func configure(store: TennisStore) {
         self.store = store
+        guard store.storageError == nil else { return }
         guard supported else {
             refreshConnectionState()
             return
@@ -56,6 +57,15 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
     }
 
     func sendSnapshot(_ data: AppData, including recordID: UUID? = nil) {
+        if let store, store.storageError != nil { return }
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: "watchSyncLibraryID") != data.libraryID.uuidString {
+            lastSuccessfulSync = nil
+            healthStatus = nil
+            defaults.removeObject(forKey: "lastWatchSyncReceipt")
+            defaults.removeObject(forKey: "lastWatchHealthStatus")
+            defaults.set(data.libraryID.uuidString, forKey: "watchSyncLibraryID")
+        }
         guard let encoded = try? JSONEncoder.tennisTracker.encode(TennisWatchSnapshot(data: data, including: recordID)) else { return }
         pendingSnapshot = encoded
         flushSnapshot()
@@ -158,23 +168,28 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
     }
 
     nonisolated private func handleCommandData(_ data: Data) {
-        guard let command = try? JSONDecoder.tennisTracker.decode(TennisWatchSyncCommand.self, from: data) else { return }
+        guard let envelope = try? JSONDecoder.tennisTracker.decode(TennisWatchCommandEnvelope.self, from: data) else { return }
         Task { @MainActor [weak self] in
-            self?.store?.applyWatchCommand(command)
+            guard let self, let store = self.store, store.storageError == nil,
+                  envelope.isAllowed(in: store.data.libraryID) else { return }
+            let command = envelope.command
+            store.applyWatchCommand(command)
             if case .snapshotReceived = command {
                 let now = Date()
-                self?.lastSuccessfulSync = now
+                self.lastSuccessfulSync = now
                 UserDefaults.standard.set(now, forKey: "lastWatchSyncReceipt")
-                self?.syncMessage = "Apple Watch confirmed receipt of tennis data."
+                self.syncMessage = "Apple Watch confirmed receipt of tennis data."
             }
         }
     }
 
     nonisolated private func receiveHealthStatus(_ context: [String: Any]) {
         guard let data = context["healthStatusData"] as? Data,
+              let libraryID = context["libraryID"] as? String,
               let status = try? JSONDecoder.tennisTracker.decode(TennisWatchHealthStatus.self, from: data) else { return }
         Task { @MainActor [weak self] in
-            guard let self, self.healthStatus == nil || status.reportedAt > self.healthStatus!.reportedAt else { return }
+            guard let self, let store = self.store, store.data.libraryID.uuidString == libraryID,
+                  self.healthStatus == nil || status.reportedAt > self.healthStatus!.reportedAt else { return }
             self.healthStatus = status
             UserDefaults.standard.set(data, forKey: "lastWatchHealthStatus")
         }

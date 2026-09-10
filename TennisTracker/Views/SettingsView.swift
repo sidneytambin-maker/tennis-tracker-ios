@@ -111,7 +111,11 @@ struct SettingsView: View {
                         UIAccessibility.post(notification: .announcement, argument: savedMessage)
                     }
                     .accessibilityHint("Sends the latest tennis data to the paired Apple Watch when the companion app is installed.")
-                    Text("This free development build requires a separate developer installation on Apple Watch. An app icon alone does not confirm installation. Background syncing remains available when the Watch app is closed.")
+                    if Bundle.main.object(forInfoDictionaryKey: "TennisDistribution") as? String == "TestFlight" {
+                        Text("Install the companion from the Watch app on your iPhone after installing this beta through TestFlight. Developer Mode and separate signing are not required. Background syncing remains available when the Watch app is closed.")
+                    } else {
+                        Text("This development build uses a separate developer installation on Apple Watch. Background syncing remains available when the Watch app is closed.")
+                    }
                 }
 
                 Section("Dashboard") {
@@ -124,6 +128,8 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
+                    NavigationLink("Private Backup") { PrivateBackupView() }
+                        .accessibilityHint("Export your own tennis library to a private file. It is never included in the app distributed to other testers.")
                     SummaryRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")
                     SummaryRow(title: "Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
                 }

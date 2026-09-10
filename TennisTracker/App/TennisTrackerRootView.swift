@@ -7,7 +7,14 @@ struct TennisTrackerRootView: View {
 
     var body: some View {
         Group {
-            if store.needsOnboarding {
+            if let error = store.storageError {
+                NavigationStack {
+                    TennisForm {
+                        Text(error).accessibilityIdentifier("libraryRecoveryMessage")
+                        Button("Try Again") { store.retryLoading() }
+                    }.navigationTitle("Library Unavailable")
+                }
+            } else if store.needsOnboarding {
                 OnboardingView()
             } else {
                 TabView(selection: $router.selectedTab) {
@@ -53,7 +60,7 @@ struct TennisTrackerRootView: View {
                 .onAppear {
                     router.openPendingIntentRoute()
                 }
-                #if targetEnvironment(simulator)
+                #if DEBUG && targetEnvironment(simulator)
                 .overlay(alignment: .bottomTrailing) {
                     if ProcessInfo.processInfo.arguments.contains("-test-notification-warm") {
                         Button("Open Test Reminder") {

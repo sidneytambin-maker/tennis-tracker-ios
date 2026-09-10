@@ -4,8 +4,18 @@ import UIKit
 struct OnboardingView: View {
     @EnvironmentObject private var store: TennisStore
     @State private var step = 0
-    @State private var player = PlayerProfile()
+    @State private var player: PlayerProfile = {
+        var value = PlayerProfile()
+        value.sightLevel = .notKnown
+        value.bCategory = "Not known"
+        value.playerMode = .standardTennis
+        return value
+    }()
     @State private var settings = AppSettings()
+    @State private var setup = TennisSetup()
+    @State private var partners: [PlayerProfile] = []
+    @State private var notificationMessage = ""
+    @State private var requestingNotifications = false
     @State private var validationMessage = ""
     @AccessibilityFocusState private var focusedHeading: Bool
     @AccessibilityFocusState private var focusedValidation: Bool
@@ -28,8 +38,27 @@ struct OnboardingView: View {
                     identityStep
                 case 2:
                     tennisStep
-                default:
+                case 3:
                     preferencesStep
+                case 4:
+                    peopleAndPlacesStep
+                case 5:
+                    Section {
+                        Text("Apple Watch is optional. Your paired Watch receives only your tennis library. You can track training, finish activities and score matches on your wrist.")
+                        Text("For this beta, install the companion from the Watch app on your iPhone after installing Tennis Tracker through TestFlight.")
+                    }
+                case 6:
+                    notificationStep
+                case 7:
+                    Section {
+                        Text("Health integration is optional. When you explicitly choose a Health workout on Apple Watch, Apple asks for permission to record the workout and read supported measurements such as heart rate and distance.")
+                        Text("No Health permission is requested during setup. You can use tennis tracking without Health access.")
+                    }
+                default:
+                    Section {
+                        Text("Welcome, \(player.displayName). Your library starts with no matches, training sessions or tournaments.")
+                        Text("Your profile and the people and places you chose are ready. You can add or change them later in Tennis Setup.")
+                    }
                 }
 
                 if !validationMessage.isBlank {
@@ -54,22 +83,18 @@ struct OnboardingView: View {
                             .accessibilityIdentifier("onboardingBackButton")
                         }
                         Spacer()
-                        Button(step == 3 ? "Finish setup" : "Continue") {
+                        Button(step == 8 ? "Finish setup" : (step == 4 ? "Continue or Skip" : step == 6 && notificationMessage.isEmpty ? "Not Now" : "Continue")) {
                             continueTapped()
                         }
                         .buttonStyle(.borderedProminent)
-                        .accessibilityIdentifier(step == 3 ? "onboardingFinishButton" : "onboardingContinueButton")
+                        .disabled(requestingNotifications)
+                        .accessibilityIdentifier(step == 8 ? "onboardingFinishButton" : "onboardingContinueButton")
                     }
                 }
             }
+            .id(step)
             .navigationTitle("Setup")
             .onAppear {
-                player.playerMode = .blindTennis
-                player.sightLevel = .b1
-                player.trackingMode = .basic
-                settings.theme = .tennis
-                settings.trackingMode = .basic
-                settings.defaultMatchType = .singles
                 focusHeading()
             }
         }
@@ -77,13 +102,16 @@ struct OnboardingView: View {
     }
 
     private var welcomeStep: some View {
-        Section("Welcome") {
+        Section {
             Text("Tennis Tracker records matches, tournaments, training, and progress. Setup creates your first real player profile. No demo records will be added.")
             Button("Set up my player profile") {
                 step = 1
                 focusHeading()
             }
             .accessibilityIdentifier("setupProfileButton")
+            NavigationLink("Restore My Private Backup") { PrivateBackupView() }
+                .accessibilityHint("Optional. Only for moving your own existing records. New testers should set up a new player profile.")
+                .accessibilityIdentifier("restorePrivateBackupLink")
         }
     }
 
@@ -109,16 +137,22 @@ struct OnboardingView: View {
             }
             .accessibilityIdentifier("playerModePicker")
 
-            if player.playerMode == .blindTennis {
-                Picker("Sight level", selection: $player.sightLevel) {
+                Picker("Sight classification", selection: $player.sightLevel) {
                     ForEach(SightLevel.allCases) { level in
                         Text(level.label).tag(level)
                     }
                 }
                 .accessibilityIdentifier("sightLevelPicker")
-                Text("Allowed bounces: \(player.sightLevel.allowedBounces)")
-                    .accessibilityLabel("Allowed bounces")
-                    .accessibilityValue("\(player.sightLevel.allowedBounces)")
+                .accessibilityHint("Optional. Choose Not known to leave this unspecified.")
+            Picker("Handedness", selection: $player.playingHand) {
+                Text("Not known").tag("")
+                Text("Right-handed").tag("Right-handed")
+                Text("Left-handed").tag("Left-handed")
+                Text("Both hands").tag("Both hands")
+            }
+            Picker("Usual bounce allowance", selection: $player.bounceAllowance) {
+                Text("Use match rules").tag(Optional<Int>.none)
+                ForEach(1...3, id: \.self) { value in Text("\(value)").tag(Optional(value)) }
             }
 
             Picker("Preferred match type", selection: $settings.defaultMatchType) {
@@ -127,6 +161,50 @@ struct OnboardingView: View {
                 }
             }
             .accessibilityIdentifier("defaultMatchTypePicker")
+            Picker("Default match format", selection: $player.defaultMatchFormat) {
+                ForEach(MatchFormat.allCases) { format in Text(format.label).tag(format) }
+            }.accessibilityIdentifier("onboardingMatchFormatPicker")
+        }
+    }
+
+    private var peopleAndPlacesStep: some View {
+        Group {
+            Section("Coaches") {
+                ForEach($setup.coaches) { $coach in TextField("Coach name", text: $coach.name) }
+                Button("Add Coach", systemImage: "plus") { setup.coaches.append(TennisCoach()) }
+            }
+            Section("Regular Doubles Partners") {
+                ForEach($partners) { $partner in TextField("Partner name", text: $partner.name) }
+                Button("Add Doubles Partner", systemImage: "plus") {
+                    var partner = PlayerProfile()
+                    partner.sightLevel = .notKnown; partner.bCategory = "Not known"
+                    partner.playerMode = .standardTennis; partner.isRegularPartner = true
+                    partners.append(partner)
+                }
+            }
+            Section("Venues") {
+                ForEach($setup.venues) { $venue in TextField("Venue name", text: $venue.name) }
+                Button("Add Venue", systemImage: "plus") { setup.venues.append(TennisVenue()) }
+            }
+        }
+    }
+
+    private var notificationStep: some View {
+        Section {
+            Text("Optional reminders can bring you back to a scheduled match, training session or tournament. Opening a reminder takes you to that activity. You can change reminders and sounds in Settings.")
+            Button("Allow Notifications") {
+                requestingNotifications = true
+                Task {
+                    let allowed = await TennisNotificationService.shared.requestAuthorization()
+                    settings.matchRemindersEnabled = allowed
+                    settings.trainingRemindersEnabled = allowed
+                    settings.tournamentRemindersEnabled = allowed
+                    notificationMessage = allowed ? "Scheduled activity reminders are enabled." : "Notifications are not enabled. You can continue without them."
+                    requestingNotifications = false
+                    store.announce(notificationMessage)
+                }
+            }.disabled(requestingNotifications)
+            if !notificationMessage.isEmpty { Text(notificationMessage) }
         }
     }
 
@@ -166,7 +244,12 @@ struct OnboardingView: View {
         case 0: return "Welcome to Tennis Tracker"
         case 1: return "Set Up Your Player"
         case 2: return "Choose Tennis Details"
-        default: return "Choose Preferences"
+        case 3: return "Choose Preferences"
+        case 4: return "People and Places"
+        case 5: return "Your Apple Watch"
+        case 6: return "Activity Reminders"
+        case 7: return "Optional Health Workouts"
+        default: return "Ready for Tennis"
         }
     }
 
@@ -175,7 +258,12 @@ struct OnboardingView: View {
         case 0: return "A fresh, private tracker for your iPhone."
         case 1: return "Only the player name is required."
         case 2: return "These choices set sensible defaults for matches and scoring."
-        default: return "You can change these later in Settings."
+        case 3: return "You can change these later in Settings."
+        case 4: return "Optional. Add your own people and venues, or skip this step."
+        case 5: return "Use iPhone alone or with your paired Watch."
+        case 6: return "Allow reminders now, or choose Not Now."
+        case 7: return "You decide whether to use Health."
+        default: return "Your own tennis, with no demo records."
         }
     }
 
@@ -192,7 +280,7 @@ struct OnboardingView: View {
             UIAccessibility.post(notification: .announcement, argument: validationMessage)
             return
         }
-        if step < 3 {
+        if step < 8 {
             step += 1
             focusHeading()
             return
@@ -209,19 +297,19 @@ struct OnboardingView: View {
         }
         player.trackingMode = settings.trackingMode
         player.preferredMatchType = settings.defaultMatchType.rawValue
-        if player.playerMode == .standardTennis {
-            player.sightLevel = .fullySighted
-            player.bCategory = "Sighted"
-        } else {
-            player.bCategory = player.sightLevel.label
-        }
+        player.bCategory = player.sightLevel.label
         settings.applyModeDefaults()
         settings.announceScores = settings.scoreAnnouncementMode != .off
-        store.completeOnboarding(player: player, settings: settings)
-        UIAccessibility.post(notification: .announcement, argument: "Setup complete. Welcome, \(player.displayName).")
+        setup.coaches.removeAll { $0.name.isBlank }
+        setup.venues.removeAll { $0.name.isBlank }
+        if !store.completeOnboarding(player: player, settings: settings, setup: setup, additionalPlayers: partners.filter { !$0.name.isBlank }) {
+            validationMessage = store.lastAnnouncement
+            focusedValidation = true
+        }
     }
 
     private func focusHeading() {
+        focusedHeading = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             focusedHeading = true
         }

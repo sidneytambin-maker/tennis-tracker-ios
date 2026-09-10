@@ -4,6 +4,7 @@ import UIKit
 @MainActor
 final class TennisStore: ObservableObject {
     @Published private(set) var data = AppData()
+    @Published private(set) var storageError: String?
     @Published var lastAnnouncement = "Tennis Tracker ready."
     var announcementDelivery: (String) -> Void = { message in
         guard UIAccessibility.isVoiceOverRunning else { return }
@@ -22,14 +23,17 @@ final class TennisStore: ObservableObject {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             self.storeURL = directory.appendingPathComponent("tennis-tracker-data.json")
         }
+        #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-reset-store") {
             try? FileManager.default.removeItem(at: self.storeURL)
         }
+        #endif
         load()
-        migrateIfNeeded()
-        #if targetEnvironment(simulator)
+        if storageError == nil { migrateIfNeeded() }
+        #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-venue-dashboard") {
             data = TennisRegressionFixtures.venueAndDashboard()
+            data.onboardingCompleted = true
             if ProcessInfo.processInfo.arguments.contains("-ui-testing-match-update") {
                 for name in ["Chris", "Sam", "Jo"] {
                     var person = PlayerProfile(); person.name = name; data.players.append(person)
@@ -51,7 +55,7 @@ final class TennisStore: ObservableObject {
     }
 
     var needsOnboarding: Bool {
-        data.players.isEmpty
+        storageError == nil && !data.onboardingCompleted
     }
 
     var selectedPlayer: PlayerProfile? {
@@ -237,6 +241,7 @@ final class TennisStore: ObservableObject {
     }
 
     func applyWatchCommand(_ command: TennisWatchSyncCommand) {
+        guard storageError == nil else { return }
         if case .deleteRecord = command {} else if let id = command.recordID, data.deletedRecordIDs.contains(id) { save(); return }
         switch command {
         case .deleteRecord(let deletion):
@@ -312,13 +317,53 @@ final class TennisStore: ObservableObject {
         return training
     }
 
-    func completeOnboarding(player: PlayerProfile, settings: AppSettings) {
-        data = AppData()
-        data.dataVersion = 10
-        data.players = [player]
-        data.selectedPlayerID = player.id
-        data.settings = settings
-        saveAndAnnounce("Set up \(player.displayName).")
+    @discardableResult
+    func completeOnboarding(player: PlayerProfile, settings: AppSettings, setup: TennisSetup = TennisSetup(), additionalPlayers: [PlayerProfile] = []) -> Bool {
+        guard needsOnboarding, data.players.isEmpty, !player.name.isBlank else { return false }
+        var completed = data
+        completed.players = [player] + additionalPlayers
+        completed.selectedPlayerID = player.id
+        completed.settings = settings
+        completed.setup = setup
+        completed.onboardingCompleted = true
+        do {
+            try persist(completed)
+            data = completed
+            publishSavedData()
+            announce("Setup complete. Welcome, \(player.displayName).")
+            return true
+        } catch {
+            announce("Setup could not be saved. Your choices are still here. Please try again.")
+            return false
+        }
+    }
+
+    func retryLoading() {
+        storageError = nil
+        load()
+        if storageError == nil { migrateIfNeeded() }
+    }
+
+    func backupData() throws -> Data {
+        guard storageError == nil else { throw TennisBackupError.unreadableStore }
+        return try JSONEncoder.tennisTracker.encode(data)
+    }
+
+    func restoreBackup(_ backup: AppData) throws {
+        guard storageError == nil, !data.onboardingCompleted, data.players.isEmpty,
+              data.matches.isEmpty, data.trainingSessions.isEmpty, data.tournaments.isEmpty else {
+            throw TennisBackupError.destinationNotEmpty
+        }
+        try TennisBackup.validate(backup)
+        var restored = backup
+        // Preserve every record ID, but never reuse a Watch transport identity from another installation.
+        restored.libraryID = UUID()
+        restored.dataVersion = 11
+        restored.onboardingCompleted = true
+        try persist(restored)
+        data = restored
+        publishSavedData()
+        announce("Private backup restored. \(restored.matches.count) matches, \(restored.trainingSessions.count) training sessions and \(restored.tournaments.count) tournaments.")
     }
 
     func announce(_ message: String) {
@@ -394,27 +439,42 @@ final class TennisStore: ObservableObject {
     }
 
     private func load() {
-        guard let savedData = try? Data(contentsOf: storeURL),
-              let decoded = try? JSONDecoder.tennisTracker.decode(AppData.self, from: savedData) else {
-            return
+        do {
+            let savedData = try Data(contentsOf: storeURL)
+            let decoded = try JSONDecoder.tennisTracker.decode(AppData.self, from: savedData)
+            guard decoded.dataVersion <= 11 else { throw TennisBackupError.newerVersion }
+            data = decoded
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            do { try persist(data) } catch { storageError = "Your tennis library could not be created. No records have been changed. Try again when storage is available." }
+        } catch {
+            storageError = "Your saved tennis library could not be read. It has not been replaced or erased. Unlock your iPhone and try again. Keep this installation if the problem continues."
         }
-        data = decoded
+    }
+
+    private func persist(_ value: AppData) throws {
+        let encoded = try JSONEncoder.tennisTracker.encode(value)
+        try encoded.write(to: storeURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     @discardableResult
     private func save() -> Bool {
+        guard storageError == nil else { return false }
         data.removeDeletedRecords()
         do {
-            let encoded = try JSONEncoder.tennisTracker.encode(data)
-            try encoded.write(to: storeURL, options: [.atomic])
+            try persist(data)
         } catch { return false }
+        publishSavedData()
+        return true
+    }
+
+    private func publishSavedData() {
+        let saved = data
         Task {
-            await TennisNotificationService.shared.rescheduleAll(for: data)
+            await TennisNotificationService.shared.rescheduleAll(for: saved)
         }
         #if os(iOS)
         IPhoneWatchSyncService.shared.sendSnapshot(data)
         #endif
-        return true
     }
 
     private func sightLevel(from category: String) -> SightLevel? {
@@ -448,6 +508,10 @@ final class TennisStore: ObservableObject {
             }
             data.dataVersion = 10
             save()
+        }
+        if data.dataVersion < 11 {
+            data.dataVersion = 11
+            if !save() { storageError = "Your library update could not be saved. Your original records remain on this iPhone. Please try again." }
         }
     }
 }

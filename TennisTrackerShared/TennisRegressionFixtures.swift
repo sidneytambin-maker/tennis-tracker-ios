@@ -1,4 +1,4 @@
-#if targetEnvironment(simulator)
+#if DEBUG && targetEnvironment(simulator)
 import Foundation
 
 enum TennisRegressionFixtures {

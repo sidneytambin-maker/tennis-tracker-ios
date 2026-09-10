@@ -708,7 +708,9 @@ struct AppSettings: Codable, Equatable {
 }
 
 struct AppData: Codable, Equatable {
-    var dataVersion = 10
+    var dataVersion = 11
+    var libraryID = UUID()
+    var onboardingCompleted = false
     var deletedRecordIDs: Set<UUID> = []
     var setup = TennisSetup()
     var selectedPlayerID: UUID?
@@ -723,6 +725,7 @@ struct AppData: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         dataVersion = try container.decodeIfPresent(Int.self, forKey: .dataVersion) ?? 1
+        libraryID = try container.decodeIfPresent(UUID.self, forKey: .libraryID) ?? UUID()
         deletedRecordIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .deletedRecordIDs) ?? []
         setup = try container.decodeIfPresent(TennisSetup.self, forKey: .setup) ?? TennisSetup()
         selectedPlayerID = try container.decodeIfPresent(UUID.self, forKey: .selectedPlayerID)
@@ -731,6 +734,7 @@ struct AppData: Codable, Equatable {
         trainingSessions = try container.decodeIfPresent([TrainingSession].self, forKey: .trainingSessions) ?? []
         tournaments = try container.decodeIfPresent([TournamentRecord].self, forKey: .tournaments) ?? []
         settings = try container.decodeIfPresent(AppSettings.self, forKey: .settings) ?? AppSettings()
+        onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? !players.isEmpty
     }
 }
 

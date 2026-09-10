@@ -480,6 +480,9 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
     }
 
     private func finishOnboarding() {
+        for heading in ["People and Places", "Your Apple Watch", "Activity Reminders", "Optional Health Workouts", "Ready for Tennis"] {
+            continueOnboarding(to: heading)
+        }
         tapPossiblyScrolledButton("onboardingFinishButton")
     }
 }
