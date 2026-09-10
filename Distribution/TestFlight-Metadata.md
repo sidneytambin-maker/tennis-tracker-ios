@@ -1,6 +1,8 @@
 # TestFlight Metadata Draft
 
-Not yet submitted to App Store Connect. Use only after native testing and archive validation pass. Internal owner testing comes first; no external invitations or App Store submission are authorised by this checklist.
+The App Store Connect record is registered as **Tennis Tracker by Inclusophy**, using `com.inclusophy.tennistracker`. The on-device name remains Tennis Tracker. The beta description and testing brief below have not yet been submitted.
+
+Use the beta metadata after native testing and archive validation pass. Internal owner testing and independent clean-install checks come first, followed by external TestFlight review and availability. This is not an App Store release submission.
 
 ## Beta Description
 

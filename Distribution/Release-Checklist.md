@@ -1,6 +1,6 @@
 # First TestFlight Release Gates
 
-Target: version 0.1.0, build 30; team HT5X86Q4DD. The identifiers in project-testflight.yml are the intended permanent identifiers, not evidence that Apple registration has completed.
+Target: version 0.1.0, build 30; team HT5X86Q4DD. App Store Connect listing: Tennis Tracker by Inclusophy. The permanent iPhone, Watch and widget identifiers and required capabilities are registered. Apple Distribution credentials and three App Store profiles are verified; this does not establish that a native archive or upload has passed.
 
 ## Build and Privacy
 
@@ -37,6 +37,18 @@ Target: version 0.1.0, build 30; team HT5X86Q4DD. The identifiers in project-tes
 ## Apple Account Gates
 
 The account holder must review required agreements and complete authentication/security confirmations. Register and verify permanent IDs/capabilities, create the App Store Connect app record, and configure secure distribution credentials. Never commit private keys or publish them in logs. Keep the verified feedback address in App Store Connect, not in public source.
+
+## External TestFlight Availability
+
+1. Complete the build/privacy, owner migration and independent clean-install checks above. Create an internal group before an external group.
+2. Upload for App Store Connect distribution, not the Internal Only route, so the same validated build remains eligible for external testing.
+3. Provide the beta description, What to Test and verified feedback/review contact details. Do not include owner records, backup attachments or invented contact information.
+4. Add the validated build to an external group and submit the first build for TestFlight App Review. Resolve any review or export-compliance issues accurately.
+5. Require Apple's external-testing approval before marking the beta available. Upload success or internal installation alone does not satisfy this step.
+6. Enable the approved external build and a TestFlight invitation link, then verify that the link identifies the correct app and accepts testers. Do not send unsolicited invitations or publish an App Store release.
+7. Verify the normal tester route includes the Watch companion without developer signing tools. Report any remaining physical-device acceptance checks explicitly.
+
+Reference: [Apple external TestFlight requirements](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers).
 
 ## Encrypted Upload Configuration
 
