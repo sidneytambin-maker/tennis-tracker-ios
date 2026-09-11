@@ -14,7 +14,7 @@ class RecoveryEvidenceTests(unittest.TestCase):
 
     def test_any_application_resource_or_project_change_requires_full_tests(self):
         for name in ("Shared/TennisStore.swift", "project-testflight.yml", "TennisTracker/Assets.xcassets/icon.png",
-                     ".github/workflows/testflight-beta.yml", "Scripts/check_fresh_release.py", "Scripts/verify_testflight_signing.py"):
+                     ".github/workflows/testflight-beta.yml", "Scripts/check_fresh_release.py", "Scripts/verify_testflight_release.py"):
             with self.subTest(path=name), self.assertRaises(ValueError):
                 verify_evidence(self.evidence, [name])
 

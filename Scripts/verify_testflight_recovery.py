@@ -8,6 +8,7 @@ REPO = "sidneytambin-maker/tennis-tracker-ios"
 BRANCH = "codex/testflight-beta"
 ALLOWED_REPAIR_FILES = {
     "Scripts/upload_testflight.py", "Scripts/test_testflight_upload.py",
+    "Scripts/verify_testflight_signing.py", "Scripts/test_testflight_signing.py",
     "Scripts/verify_testflight_recovery.py", "Scripts/test_testflight_recovery.py",
     ".github/workflows/testflight-signing-recovery.yml",
 }

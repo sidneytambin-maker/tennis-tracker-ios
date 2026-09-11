@@ -51,29 +51,35 @@ def check_profile(profile, entitlements, identifier, certificate, now=None):
     return {"bundle": identifier, "team": TEAM_ID, "profile_type": "app-store", "entitlements": "authorized", "signing_certificate": "matches_profile"}
 
 
-def command(*args):
+def command(stage, *args):
+    print(stage, flush=True)
     result = subprocess.run(args, capture_output=True, check=False)
     if result.returncode:
         # Keep account names, profile details and certificate subjects out of public CI logs.
-        raise ValueError(Path(args[0]).name + " rejected the signed component")
+        raise ValueError(stage + " failed; private native output withheld")
     return result.stdout
+
+
+def extract_signing_certificate(bundle):
+    with tempfile.TemporaryDirectory(prefix="tennis-signature-") as directory:
+        prefix = str(Path(directory) / "certificate")
+        # codesign's optional long-option value must be attached, not another bundle operand.
+        command("Extract actual signing certificate", "codesign", "-d", "--extract-certificates=" + prefix, str(bundle))
+        return Path(prefix + "0").read_bytes()
 
 
 def verify_signing(app):
     app = Path(app).resolve()
     structure = verify(app)
-    command("codesign", "--verify", "--deep", "--strict", str(app))
+    command("Verify complete exported signature tree", "codesign", "--verify", "--deep", "--strict", str(app))
     bundles = [app, *sorted((app / "Watch").glob("*.app")), *sorted((app / "Watch").glob("*.app/PlugIns/*.appex"))]
     report = []
     for bundle in bundles:
-        command("codesign", "--verify", "--strict", str(bundle))
+        command("Verify component signature", "codesign", "--verify", "--strict", str(bundle))
         info = plistlib.loads((bundle / "Info.plist").read_bytes())
-        entitlements = plistlib.loads(command("codesign", "-d", "--entitlements", ":-", str(bundle)))
-        profile = plistlib.loads(command("security", "cms", "-D", "-i", str(bundle / "embedded.mobileprovision")))
-        with tempfile.TemporaryDirectory(prefix="tennis-signature-") as directory:
-            prefix = str(Path(directory) / "certificate")
-            command("codesign", "-d", "--extract-certificates", prefix, str(bundle))
-            certificate = Path(prefix + "0").read_bytes()
+        entitlements = plistlib.loads(command("Read signed component entitlements", "codesign", "-d", "--entitlements", ":-", str(bundle)))
+        profile = plistlib.loads(command("Read embedded distribution profile", "security", "cms", "-D", "-i", str(bundle / "embedded.mobileprovision")))
+        certificate = extract_signing_certificate(bundle)
         report.append(check_profile(profile, entitlements, info["CFBundleIdentifier"], certificate))
     return {"structure": structure["components"], "signed_components": report, "apple_processing": "not_yet_verified"}
 
