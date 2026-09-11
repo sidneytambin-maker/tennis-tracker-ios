@@ -33,16 +33,28 @@ def check_watch_preferences(preferences):
             raise ValueError("Fresh Watch contains another library's queued commands")
 
 
+def compatible_simulator(inventory, platform):
+    runtimes = [r for r in inventory["runtimes"] if r.get("isAvailable") and platform in r["identifier"]]
+    types = [t for t in inventory["devicetypes"] if (t["name"].startswith("iPhone") if platform == "iOS" else "Apple Watch Ultra" in t["name"])]
+    for runtime in sorted(runtimes, key=lambda r: tuple(int(x) for x in r["version"].split(".")), reverse=True):
+        for device in inventory.get("devices", {}).get(runtime["identifier"], []):
+            if not device.get("isAvailable"):
+                continue
+            for device_type in types:
+                if device.get("deviceTypeIdentifier", device.get("name")) == device_type["identifier"] or (
+                    not device.get("deviceTypeIdentifier") and device.get("name") == device_type["name"]
+                ):
+                    return device_type["identifier"], runtime["identifier"]
+    raise ValueError("No available compatible " + platform + " simulator model/runtime pair")
+
+
 def main(app, platform):
     inventory = json.loads(run("list", "--json"))
-    runtimes = [r for r in inventory["runtimes"] if r.get("isAvailable") and platform in r["identifier"]]
-    runtime = sorted(runtimes, key=lambda r: tuple(int(x) for x in r["version"].split(".")))[-1]
-    types = [t for t in inventory["devicetypes"] if (t["name"].startswith("iPhone") if platform == "iOS" else "Apple Watch Ultra" in t["name"])]
-    device_type = types[-1]["identifier"]
+    device_type, runtime = compatible_simulator(inventory, platform)
     identifier = "com.inclusophy.tennistracker" + (".watchkitapp" if platform == "watchOS" else "")
     reports = []
     for index in range(2):
-        device = run("create", "TennisPrivacy-" + str(uuid.uuid4()), device_type, runtime["identifier"])
+        device = run("create", "TennisPrivacy-" + str(uuid.uuid4()), device_type, runtime)
         try:
             run("bootstatus", device, "-b")
             run("install", device, app)
