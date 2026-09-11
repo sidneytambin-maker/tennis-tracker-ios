@@ -12,7 +12,7 @@ final class WatchTennisStore: NSObject, ObservableObject, WCSessionDelegate {
     @Published var activeTraining: TrainingSession?
     @Published var activeMatch: MatchRecord?
     @Published var scoreState = TennisScoreState()
-    @Published var lastAnnouncement = "Tennis Tracker ready."
+    @Published var lastAnnouncement = "Court Story ready."
     @Published var lastSyncStatus = "Waiting for iPhone data."
     @Published var page: TennisWatchPage = .today
     @Published var completedTraining: TrainingSession?

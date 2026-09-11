@@ -1,12 +1,12 @@
 # TestFlight Metadata Draft
 
-The App Store Connect record is registered as **Tennis Tracker by Inclusophy**, using `com.inclusophy.tennistracker`. The on-device name remains Tennis Tracker. The beta description and testing brief below have not yet been submitted.
+The App Store Connect record is registered as **Court Story**, using `com.inclusophy.tennistracker`. Build 32 updates both on-device names, the CS icon, permission prompts, Siri responses and privacy wording. Bundle identifiers and library storage remain unchanged.
 
 Use the beta metadata after native testing and archive validation pass. Internal owner testing and independent clean-install checks come first, followed by external TestFlight review and availability. This is not an App Store release submission.
 
 ## Beta Description
 
-Tennis Tracker is a tennis activity, match and training companion for iPhone and Apple Watch, designed around accessible, independent use.
+Court Story is a tennis activity, match and training companion for iPhone and Apple Watch, designed around accessible, independent use.
 
 Record singles and doubles matches, training sessions and tournaments. Save player profiles, regular doubles partners, multiple coaches, venues and reusable tennis details. Log completed match results or score a match live, including one-set and multi-set formats and tie-break results. Link matches to training and tournaments without entering the same details twice.
 
@@ -14,13 +14,13 @@ The personalised dashboard brings together results, training focus, upcoming ten
 
 The Apple Watch companion supports quick access to upcoming activity, training tracking, recent records and live scoring. Edit, complete and delete supported records using visible controls and VoiceOver actions. Watch-face complications provide several tennis summaries and shortcuts. Your iPhone and its paired Watch exchange your tennis library; there is no shared community database.
 
-Health integration is optional. When you explicitly enable a Health workout on Apple Watch and grant Apple's permissions, supported workout measurements can accompany your training record. You can use Tennis Tracker without Health access.
+Health integration is optional. When you explicitly enable a Health workout on Apple Watch and grant Apple's permissions, supported workout measurements can accompany your training record. You can use Court Story without Health access.
 
 New testers start with an empty personal library and an accessible setup flow. This beta is intended to test accessibility, scoring, reliability, synchronisation, notifications, Health integration and general usability before a wider release.
 
 ## What to Test
 
-Please use Tennis Tracker naturally on iPhone and Apple Watch. Test with VoiceOver, without VoiceOver, or both, according to your normal preferences.
+Please use Court Story naturally on iPhone and Apple Watch. Test with VoiceOver, without VoiceOver, or both, according to your normal preferences.
 
 - First-time setup: your own profile, optional classification and handedness, match defaults, optional people and places, and skipping permissions.
 - Empty first installation: no other person's records, coaches, venues, goals or workout information should appear.

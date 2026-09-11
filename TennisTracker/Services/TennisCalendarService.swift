@@ -32,7 +32,7 @@ enum TennisCalendarMapper {
             : Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
         return CalendarEventDraft(
             title: "Tennis: \(match.playerTeam) versus \(match.opponentSummary.fallback("opponent not recorded"))",
-            notes: "Tennis Tracker match. \(TennisSummaryFormatter.match(match, style: .long)) \(match.notes)",
+            notes: "Court Story match. \(TennisSummaryFormatter.match(match, style: .long)) \(match.notes)",
             startDate: start,
             endDate: end,
             location: [match.venue, match.location].filter { !$0.isBlank }.joined(separator: ", "),

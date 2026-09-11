@@ -176,7 +176,7 @@ private struct WatchStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SummaryRow(title: "Apple Watch paired", value: sync.pairedDescription)
-            SummaryRow(title: "Tennis Tracker installed", value: sync.installedDescription)
+            SummaryRow(title: "Court Story installed", value: sync.installedDescription)
             SummaryRow(title: "Live connection", value: sync.liveDescription)
             SummaryRow(title: "Background sync", value: sync.backgroundDescription)
             Text(sync.syncMessage)

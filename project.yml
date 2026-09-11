@@ -19,7 +19,8 @@ targets:
     info:
       path: TennisTracker/Info.plist
       properties:
-        CFBundleDisplayName: Tennis Tracker
+        CFBundleDisplayName: Court Story
+        CFBundleName: Court Story
         CFBundleShortVersionString: "0.9.0"
         CFBundleVersion: "21"
         UISupportedInterfaceOrientations:
@@ -35,9 +36,9 @@ targets:
           - CFBundleURLName: com.inclusophy.tennistracker.dev
             CFBundleURLSchemes:
               - tennistracker
-        NSCalendarsFullAccessUsageDescription: Tennis Tracker can add your matches, training sessions, and tournaments to Apple Calendar when you ask it to.
-        NSCalendarsWriteOnlyAccessUsageDescription: Tennis Tracker can add your tennis plans to Apple Calendar when you ask it to.
-        NSCalendarsUsageDescription: Tennis Tracker can add your tennis plans to Apple Calendar when you ask it to.
+        NSCalendarsFullAccessUsageDescription: Court Story can add your matches, training sessions, and tournaments to Apple Calendar when you ask it to.
+        NSCalendarsWriteOnlyAccessUsageDescription: Court Story can add your tennis plans to Apple Calendar when you ask it to.
+        NSCalendarsUsageDescription: Court Story can add your tennis plans to Apple Calendar when you ask it to.
         UILaunchScreen:
           UIColorName: ""
           UIImageName: ""
@@ -84,7 +85,8 @@ targets:
     info:
       path: TennisTrackerWatchApp/Info.plist
       properties:
-        CFBundleDisplayName: Tennis Tracker
+        CFBundleDisplayName: Court Story
+        CFBundleName: Court Story
         CFBundleShortVersionString: "0.9.0"
         CFBundleVersion: "21"
         WKApplication: true

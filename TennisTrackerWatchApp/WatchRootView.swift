@@ -98,7 +98,7 @@ private struct WatchTodayView: View {
             }
             Button("Cancel", role: .cancel) { trainingToStart = nil }
         } message: {
-            Text("With permission, Tennis Tracker records workout duration, heart rate, active energy and available steps and distance. Training still works without Health access.")
+            Text("With permission, Court Story records workout duration, heart rate, active energy and available steps and distance. Training still works without Health access.")
         }
     }
 }
@@ -148,7 +148,7 @@ struct WatchTrainingSetupView: View {
                 Section("Apple Health") {
                     Toggle("Track Training as Workout", isOn: $useHealth)
                     WatchHealthAccessView(client: store.healthClient)
-                    Text("Tennis Tracker can record workout duration, heart rate, active energy and available steps and distance in Apple Health. Tennis tracking still works if you decline.")
+                    Text("Court Story can record workout duration, heart rate, active energy and available steps and distance in Apple Health. Tennis tracking still works if you decline.")
                 }
             }
             Button("Begin Training Session") {

@@ -45,7 +45,8 @@ targets:
     info:
       path: TennisTrackerWatchWidgets/Info.plist
       properties:
-        CFBundleDisplayName: Tennis Tracker
+        CFBundleDisplayName: Court Story
+        CFBundleName: Court Story
         CFBundleShortVersionString: "0.9.0"
         CFBundleVersion: "29"
         TennisSharedAppGroup: $(TENNIS_APP_GROUP)

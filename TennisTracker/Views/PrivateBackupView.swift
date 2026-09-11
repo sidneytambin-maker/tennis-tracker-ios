@@ -63,9 +63,9 @@ struct PrivateBackupView: View {
                 report("Backup checked. Review the contents, then choose Restore My Backup or Cancel.")
             } catch { preview = nil; report(error.localizedDescription) }
         }
-        .fileExporter(isPresented: $exporting, document: document, contentType: .json, defaultFilename: "Tennis-Tracker-Private-Backup") { result in
+        .fileExporter(isPresented: $exporting, document: document, contentType: .json, defaultFilename: "Court-Story-Private-Backup") { result in
             switch result {
-            case .success: report("Your private Tennis Tracker backup has been exported.")
+            case .success: report("Your private Court Story backup has been exported.")
             case .failure(let error): report(error.localizedDescription)
             }
         }

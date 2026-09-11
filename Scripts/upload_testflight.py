@@ -11,10 +11,12 @@ import subprocess
 import sys
 import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 
 from verify_testflight_release import GROUP_ID, PHONE_ID, verify
 from verify_testflight_signing import TEAM_ID, verify_signing
+from verify_app_icons import compiled_icons, native_catalogues, source_icons
 
 TARGETS = {
     "TennisTracker": (PHONE_ID, "TENNIS_PHONE_PROFILE"),
@@ -177,6 +179,9 @@ def main():
             run("Export App Store package", "xcodebuild", "-exportArchive", "-archivePath", str(archive), "-exportOptionsPlist", str(options), "-exportPath", str(exported), environment=child_environment)
             ipas = list(exported.glob("*.ipa"))
             if len(ipas) != 1: raise ValueError("Export did not produce exactly one IPA")
+            source_icons(root)
+            with zipfile.ZipFile(ipas[0]) as package:
+                print(json.dumps(compiled_icons(package, native_catalogues(package))), flush=True)
             inspection = temporary / "Inspection"
             run("Extract a read-only inspection copy", "ditto", "-x", "-k", str(ipas[0]), str(inspection), environment=child_environment)
             apps = list((inspection / "Payload").glob("*.app"))

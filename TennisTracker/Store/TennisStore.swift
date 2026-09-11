@@ -5,7 +5,7 @@ import UIKit
 final class TennisStore: ObservableObject {
     @Published private(set) var data = AppData()
     @Published private(set) var storageError: String?
-    @Published var lastAnnouncement = "Tennis Tracker ready."
+    @Published var lastAnnouncement = "Court Story ready."
     var announcementDelivery: (String) -> Void = { message in
         guard UIAccessibility.isVoiceOverRunning else { return }
         let speech = NSAttributedString(string: message, attributes: [.accessibilitySpeechQueueAnnouncement: true])

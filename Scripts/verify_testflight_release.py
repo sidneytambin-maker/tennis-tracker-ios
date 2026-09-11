@@ -7,6 +7,8 @@ from pathlib import Path
 
 PHONE_ID = "com.inclusophy.tennistracker"
 GROUP_ID = "group.com.inclusophy.tennistracker"
+APP_NAME = "Court Story"
+BUILD = "32"
 FORBIDDEN_SUFFIXES = {".json", ".db", ".sqlite", ".sqlite3", ".p8", ".p12", ".pem", ".swift", ".csv", ".log"}
 TEST_MARKERS = (b"-ui-testing-", b"-watch-manual-match", b"-test-notification-", b"TennisRegressionFixtures", b"TennisNotificationTestSupport")
 
@@ -26,8 +28,12 @@ def verify(app):
         info = plistlib.loads((bundle / "Info.plist").read_bytes())
         if info.get("CFBundleIdentifier") != identifier:
             raise ValueError("Unexpected permanent bundle identifier")
-        if (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("0.1.0", "31"):
-            raise ValueError("All components must be version 0.1.0 build 31")
+        if (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("0.1.0", BUILD):
+            raise ValueError("All components must be version 0.1.0 build " + BUILD)
+        if info.get("CFBundleDisplayName") != APP_NAME or info.get("CFBundleName") != APP_NAME:
+            raise ValueError("Every component must expose the full Court Story app name")
+        if b"Tennis Tracker" in plistlib.dumps(info):
+            raise ValueError("Old branding remains in app metadata or permission descriptions")
         if bundle == app and (info.get("UIFileSharingEnabled") is not True or info.get("LSSupportsOpeningDocumentsInPlace") is not True):
             raise ValueError("Private owner restore requires the user's Files document route")
         if bundle == app:
@@ -44,6 +50,8 @@ def verify(app):
         if not executable.is_file() or executable.stat().st_size == 0:
             raise ValueError("Missing compiled executable")
         binary = executable.read_bytes()
+        if any(marker in binary for marker in (b"Tennis Tracker", b"Inclusophy")):
+            raise ValueError("Old public branding remains in a release executable")
         if any(marker in binary for marker in TEST_MARKERS):
             raise ValueError("A simulator fixture or destructive test hook is present in a release executable")
         manifest = plistlib.loads((bundle / "PrivacyInfo.xcprivacy").read_bytes())
@@ -51,7 +59,7 @@ def verify(app):
             raise ValueError("Privacy manifest does not match the local-only application")
         if bundle != app and info.get("TennisSharedAppGroup") != GROUP_ID:
             raise ValueError("A temporary or incorrect App Group is configured")
-        report.append({"bundle": identifier, "version": "0.1.0", "build": "31"})
+        report.append({"bundle": identifier, "version": "0.1.0", "build": BUILD, "displayName": APP_NAME})
     watch_info = plistlib.loads((watch / "Info.plist").read_bytes())
     if watch_info.get("WKCompanionAppBundleIdentifier") != PHONE_ID or watch_info.get("WKApplication") is not True:
         raise ValueError("Watch companion association is incorrect")

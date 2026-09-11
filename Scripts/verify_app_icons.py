@@ -14,6 +14,9 @@ COMPONENTS = (("iPhone", "Payload/TennisTracker.app/", "phone"),
 
 
 def source_icons(root):
+    identity = json.loads((root / "Branding/AppIcon-identity.json").read_bytes())
+    if identity.get("appName") != "Court Story" or identity.get("spokenName") != "Court Story" or identity.get("visualMonogram") != "CS":
+        raise ValueError("The icon identity must retain the full spoken Court Story name")
     images = []
     for target, platform in (("TennisTracker", "ios"), ("TennisTrackerWatchApp", "watchos")):
         folder = root / target / "Assets.xcassets/AppIcon.appiconset"
@@ -22,6 +25,8 @@ def source_icons(root):
         if (entry["idiom"], entry["platform"], entry["size"]) != ("universal", platform, "1024x1024"):
             raise ValueError("Incorrect single-size app icon catalogue")
         raw = (folder / entry["filename"]).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != identity.get("sha256"):
+            raise ValueError("App icon is not the reviewed Court Story CS artwork")
         if raw[:8] != b"\x89PNG\r\n\x1a\n" or raw[12:16] != b"IHDR":
             raise ValueError("App icon must be PNG")
         width, height, depth, colour = struct.unpack(">IIBB", raw[16:26])

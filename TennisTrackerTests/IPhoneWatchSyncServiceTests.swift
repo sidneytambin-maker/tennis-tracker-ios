@@ -26,7 +26,7 @@ final class IPhoneWatchSyncServiceTests: XCTestCase {
         XCTAssertEqual(transport.contexts.count, 1)
         XCTAssertEqual(transport.liveMessages.count, 0)
         XCTAssertTrue(service.connectionDescription.contains("Live connection not currently reachable"))
-        XCTAssertTrue(service.connectionDescription.contains("Tennis Tracker installed"))
+        XCTAssertTrue(service.connectionDescription.contains("Court Story installed"))
         XCTAssertTrue(service.syncMessage.contains("queued"))
     }
 

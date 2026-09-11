@@ -3,7 +3,7 @@ import plistlib
 import tempfile
 import unittest
 from pathlib import Path
-from verify_testflight_release import verify, PHONE_ID, GROUP_ID
+from verify_testflight_release import verify, PHONE_ID, GROUP_ID, APP_NAME, BUILD
 
 
 class ReleasePrivacyTests(unittest.TestCase):
@@ -15,7 +15,7 @@ class ReleasePrivacyTests(unittest.TestCase):
         self.widget = self.watch / "PlugIns" / "Widget.appex"
         for path, bundle in ((self.app, PHONE_ID), (self.watch, PHONE_ID + ".watchkitapp"), (self.widget, PHONE_ID + ".watchkitapp.widgets")):
             path.mkdir(parents=True, exist_ok=True)
-            info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "31", "TennisSharedAppGroup": GROUP_ID,
+            info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": BUILD, "CFBundleDisplayName": APP_NAME, "CFBundleName": APP_NAME, "TennisSharedAppGroup": GROUP_ID,
                     "WKCompanionAppBundleIdentifier": PHONE_ID, "WKApplication": True, "UIFileSharingEnabled": True, "LSSupportsOpeningDocumentsInPlace": True,
                     "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
             if path == self.app:
@@ -28,6 +28,32 @@ class ReleasePrivacyTests(unittest.TestCase):
 
     def test_clean_structure_passes(self):
         self.assertEqual(len(verify(self.app)["components"]), 3)
+
+    def test_full_spoken_name_is_required_on_every_component(self):
+        for bundle in (self.app, self.watch, self.widget):
+            path = bundle / "Info.plist"
+            original = plistlib.loads(path.read_bytes())
+            for key in ("CFBundleDisplayName", "CFBundleName"):
+                for old_name in ("CS", "Tennis Tracker", ""):
+                    info = dict(original, **{key: old_name})
+                    path.write_bytes(plistlib.dumps(info))
+                    with self.subTest(bundle=bundle.name, key=key, name=old_name), self.assertRaisesRegex(ValueError, "full Court Story"):
+                        verify(self.app)
+            path.write_bytes(plistlib.dumps(original))
+
+    def test_old_spoken_strings_and_company_branding_block_release(self):
+        for name in (b"Tennis Tracker", b"Inclusophy"):
+            (self.watch / "Main").write_bytes(b"compiled " + name + b" ready")
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Old public branding"):
+                verify(self.app)
+
+    def test_old_permission_wording_blocks_release(self):
+        path = self.app / "Info.plist"
+        info = plistlib.loads(path.read_bytes())
+        info["NSCalendarsFullAccessUsageDescription"] = "Tennis Tracker adds your events."
+        path.write_bytes(plistlib.dumps(info))
+        with self.assertRaisesRegex(ValueError, "permission descriptions"):
+            verify(self.app)
 
     def test_private_database_blocks_release(self):
         (self.watch / "tennis-tracker-data.json").write_text("{}")

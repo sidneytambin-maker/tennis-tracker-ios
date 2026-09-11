@@ -14,62 +14,62 @@ struct StartLiveScoringIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("matches")
-        return .result(dialog: "Opening Tennis Tracker for live scoring.")
+        return .result(dialog: "Opening Court Story for live scoring.")
     }
 }
 
 struct AddMatchIntent: AppIntent {
     static var title: LocalizedStringResource = "Record Match"
-    static var description = IntentDescription("Open Tennis Tracker to add a match.")
+    static var description = IntentDescription("Open Court Story to add a match.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("matches")
-        return .result(dialog: "Opening Tennis Tracker to add a match.")
+        return .result(dialog: "Opening Court Story to add a match.")
     }
 }
 
 struct AddTrainingSessionIntent: AppIntent {
     static var title: LocalizedStringResource = "Track Training Session"
-    static var description = IntentDescription("Open Tennis Tracker to add a training session.")
+    static var description = IntentDescription("Open Court Story to add a training session.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("training")
-        return .result(dialog: "Opening Tennis Tracker to add training.")
+        return .result(dialog: "Opening Court Story to add training.")
     }
 }
 
 struct AddTournamentIntent: AppIntent {
     static var title: LocalizedStringResource = "Track Tournament"
-    static var description = IntentDescription("Open Tennis Tracker to add a tournament.")
+    static var description = IntentDescription("Open Court Story to add a tournament.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("tournaments")
-        return .result(dialog: "Opening Tennis Tracker to add a tournament.")
+        return .result(dialog: "Opening Court Story to add a tournament.")
     }
 }
 
 struct ShowNextTournamentIntent: AppIntent {
     static var title: LocalizedStringResource = "Show Next Tournament"
-    static var description = IntentDescription("Open Tennis Tracker to the tournament area.")
+    static var description = IntentDescription("Open Court Story to the tournament area.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("tournaments")
-        return .result(dialog: "Opening Tennis Tracker tournaments.")
+        return .result(dialog: "Opening Court Story tournaments.")
     }
 }
 
 struct ShowRecentRecordIntent: AppIntent {
     static var title: LocalizedStringResource = "Show Recent Result"
-    static var description = IntentDescription("Open Tennis Tracker to recent tennis activity.")
+    static var description = IntentDescription("Open Court Story to recent tennis activity.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         TennisIntentRoute.set("dashboard")
-        return .result(dialog: "Opening Tennis Tracker recent activity.")
+        return .result(dialog: "Opening Court Story recent activity.")
     }
 }
 

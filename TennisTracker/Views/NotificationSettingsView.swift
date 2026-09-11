@@ -50,7 +50,7 @@ struct NotificationSettingsView: View {
             }
             if !status.isEmpty { Text(status) }
             Section("Sound credits") {
-                Text("Five independent CC0 recordings, edited for Tennis Tracker.")
+                Text("Five independent CC0 recordings, edited for Court Story.")
                 Link("Bounce: Joseph SARDIN / LaSonotheque", destination: URL(string: "https://lasonotheque.org/balle-de-tennis-rebonds-s0584.html")!)
                 Link("Racket strike: jacklilley", destination: URL(string: "https://freesound.org/people/jacklilley/sounds/338122/")!)
                 Link("Racket swoosh: MIKEJONESBONES", destination: URL(string: "https://freesound.org/people/MIKEJONESBONES/sounds/511825/")!)

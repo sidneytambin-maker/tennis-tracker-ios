@@ -5,8 +5,8 @@ enum TennisBackupError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidFile: return "This is not a complete Tennis Tracker backup. Nothing was imported."
-        case .newerVersion: return "This library needs a newer version of Tennis Tracker. Nothing was changed."
+        case .invalidFile: return "This is not a complete Court Story backup. Nothing was imported."
+        case .newerVersion: return "This library needs a newer version of Court Story. Nothing was changed."
         case .brokenRelationships: return "Some records in this backup refer to missing players, places or activities. Keep the original file for recovery. Nothing was imported."
         case .duplicateIDs: return "This backup contains duplicate record identifiers. Nothing was imported."
         case .activeActivity: return "Finish any tracked activity before creating a migration backup. Nothing was imported."

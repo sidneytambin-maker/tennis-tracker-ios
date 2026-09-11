@@ -45,7 +45,7 @@ struct OnboardingView: View {
                 case 5:
                     Section {
                         Text("Apple Watch is optional. Your paired Watch receives only your tennis library. You can track training, finish activities and score matches on your wrist.")
-                        Text("For this beta, install the companion from the Watch app on your iPhone after installing Tennis Tracker through TestFlight.")
+                        Text("For this beta, install the companion from the Watch app on your iPhone after installing Court Story through TestFlight.")
                     }
                 case 6:
                     notificationStep
@@ -103,7 +103,7 @@ struct OnboardingView: View {
 
     private var welcomeStep: some View {
         Section {
-            Text("Tennis Tracker records matches, tournaments, training, and progress. Setup creates your first real player profile. No demo records will be added.")
+            Text("Court Story records matches, tournaments, training, and progress. Setup creates your first real player profile. No demo records will be added.")
             Button("Set up my player profile") {
                 step = 1
                 focusHeading()
@@ -259,7 +259,7 @@ struct OnboardingView: View {
 
     private var title: String {
         switch step {
-        case 0: return "Welcome to Tennis Tracker"
+        case 0: return "Welcome to Court Story"
         case 1: return "Set Up Your Player"
         case 2: return "Choose Tennis Details"
         case 3: return "Choose Preferences"

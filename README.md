@@ -1,6 +1,6 @@
-# Tennis Tracker iOS and watchOS
+# Court Story for iPhone and Apple Watch
 
-Native SwiftUI Tennis Tracker, developed on Windows and built with the existing
+Native SwiftUI Court Story, developed on Windows and built with the existing
 free GitHub Actions macOS workflow. The Windows TennisTracker application is a
 read-only functional reference. Never modify it as part of this project.
 

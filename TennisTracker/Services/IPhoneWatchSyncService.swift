@@ -85,12 +85,12 @@ final class IPhoneWatchSyncService: NSObject, ObservableObject, WCSessionDelegat
             return
         }
         guard session.isWatchAppInstalled else {
-            connectionDescription = "Apple Watch paired. Tennis Tracker is not installed on the Watch."
+            connectionDescription = "Apple Watch paired. Court Story is not installed on the Watch."
             return
         }
         connectionDescription = session.isReachable
-            ? "Apple Watch paired. Tennis Tracker installed. Live connection available."
-            : "Apple Watch paired. Tennis Tracker installed. Live connection not currently reachable. Updates can still be queued for background delivery."
+            ? "Apple Watch paired. Court Story installed. Live connection available."
+            : "Apple Watch paired. Court Story installed. Live connection not currently reachable. Updates can still be queued for background delivery."
     }
 
     private func flushSnapshot() {
