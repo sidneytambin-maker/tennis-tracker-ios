@@ -114,4 +114,12 @@ jobs:
           TENNIS_ASC_PRIVATE_KEY: ${{ secrets.TENNIS_ASC_PRIVATE_KEY }}
           TENNIS_ASC_KEY_ID: ${{ secrets.TENNIS_ASC_KEY_ID }}
           TENNIS_ASC_ISSUER_ID: ${{ secrets.TENNIS_ASC_ISSUER_ID }}
+          TENNIS_DIAGNOSTIC_RECIPIENT: ${{ secrets.TENNIS_DIAGNOSTIC_RECIPIENT }}
         run: python3 Scripts/upload_testflight.py
+      - name: Preserve encrypted failure diagnostics only
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-signing-diagnostic
+          path: ${{ runner.temp }}/tennis-private-diagnostics/*.cms
+          retention-days: 1

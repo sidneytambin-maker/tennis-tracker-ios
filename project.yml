@@ -22,6 +22,15 @@ targets:
         CFBundleDisplayName: Tennis Tracker
         CFBundleShortVersionString: "0.9.0"
         CFBundleVersion: "21"
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         CFBundleURLTypes:
           - CFBundleURLName: com.inclusophy.tennistracker.dev
             CFBundleURLSchemes:

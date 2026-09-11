@@ -18,6 +18,10 @@ class ReleasePrivacyTests(unittest.TestCase):
             info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "30", "TennisSharedAppGroup": GROUP_ID,
                     "WKCompanionAppBundleIdentifier": PHONE_ID, "WKApplication": True, "UIFileSharingEnabled": True, "LSSupportsOpeningDocumentsInPlace": True,
                     "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
+            if path == self.app:
+                info["UIDeviceFamily"] = [1, 2]
+                info["UISupportedInterfaceOrientations"] = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+                info["UISupportedInterfaceOrientations~ipad"] = info["UISupportedInterfaceOrientations"] + ["UIInterfaceOrientationPortraitUpsideDown"]
             (path / "Info.plist").write_bytes(plistlib.dumps(info))
             (path / "PrivacyInfo.xcprivacy").write_bytes(plistlib.dumps({"NSPrivacyTracking": False, "NSPrivacyCollectedDataTypes": []}))
             (path / "Main").write_bytes(b"compiled-test-placeholder")
@@ -28,6 +32,22 @@ class ReleasePrivacyTests(unittest.TestCase):
     def test_private_database_blocks_release(self):
         (self.watch / "tennis-tracker-data.json").write_text("{}")
         with self.assertRaises(ValueError): verify(self.app)
+
+    def test_missing_orientations_are_rejected_before_apple_upload(self):
+        path = self.app / "Info.plist"
+        info = plistlib.loads(path.read_bytes())
+        del info["UISupportedInterfaceOrientations"]
+        path.write_bytes(plistlib.dumps(info))
+        with self.assertRaisesRegex(ValueError, "orientations"):
+            verify(self.app)
+
+    def test_partial_ipad_orientations_are_rejected_before_apple_upload(self):
+        path = self.app / "Info.plist"
+        info = plistlib.loads(path.read_bytes())
+        info["UISupportedInterfaceOrientations~ipad"].remove("UIInterfaceOrientationPortraitUpsideDown")
+        path.write_bytes(plistlib.dumps(info))
+        with self.assertRaisesRegex(ValueError, "all four"):
+            verify(self.app)
 
     def test_xcode_app_intents_version_metadata_is_allowed(self):
         for bundle in (self.app, self.watch, self.widget):

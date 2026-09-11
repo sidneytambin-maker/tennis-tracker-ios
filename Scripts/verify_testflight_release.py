@@ -30,6 +30,16 @@ def verify(app):
             raise ValueError("All components must be version 0.1.0 build 30")
         if bundle == app and (info.get("UIFileSharingEnabled") is not True or info.get("LSSupportsOpeningDocumentsInPlace") is not True):
             raise ValueError("Private owner restore requires the user's Files document route")
+        if bundle == app:
+            orientations = info.get("UISupportedInterfaceOrientations", [])
+            if not isinstance(orientations, list) or "UIInterfaceOrientationPortrait" not in orientations:
+                raise ValueError("Phone interface orientations must be explicitly configured")
+            if 2 in info.get("UIDeviceFamily", []):
+                ipad = info.get("UISupportedInterfaceOrientations~ipad", orientations)
+                required = {"UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                            "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"}
+                if not isinstance(ipad, list) or set(ipad) != required:
+                    raise ValueError("Declared iPad support requires all four interface orientations")
         executable = bundle / info["CFBundleExecutable"]
         if not executable.is_file() or executable.stat().st_size == 0:
             raise ValueError("Missing compiled executable")
