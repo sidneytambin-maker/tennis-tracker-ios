@@ -2,12 +2,14 @@ import contextlib
 import datetime as dt
 import io
 import plistlib
+from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
 
-from upload_testflight import REQUIRED, TARGETS, export_options, failure_categories, profile_identifier, require_credentials, run
+from upload_testflight import REQUIRED, TARGETS, encrypt_failure_diagnostic, export_options, failure_categories, profile_identifier, require_credentials, run
 import test_testflight_signing as signing_fixtures
 
 
@@ -81,6 +83,26 @@ class TestFlightUploadTests(unittest.TestCase):
 
     def test_native_singular_profile_lookup_failure_is_classified(self):
         self.assertEqual(failure_categories(b"error: No profile for team 'private' matching 'private' found", b""), ["profile_not_found"])
+
+    def test_diagnostic_writes_only_encrypted_output_and_excludes_signing_secrets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            environment = {**self.credentials(), "RUNNER_TEMP": directory, "TENNIS_DIAGNOSTIC_RECIPIENT": "public recipient"}
+            result = subprocess.CompletedProcess([], 0, stdout=b"encrypted-cms", stderr=b"")
+            with patch.dict("os.environ", environment), patch("upload_testflight.subprocess.run", return_value=result) as call, contextlib.redirect_stdout(io.StringIO()):
+                encrypt_failure_diagnostic("Apple check", b"private diagnostic", b"private error")
+            self.assertEqual((Path(directory) / "tennis-private-diagnostics/Apple-check.cms").read_bytes(), b"encrypted-cms")
+            self.assertTrue(all(key not in call.call_args.kwargs["env"] for key in REQUIRED))
+            self.assertEqual(len(list(Path(directory).rglob("*.*"))), 1)
+
+    def test_diagnostic_encryption_failure_never_exposes_raw_output(self):
+        captured = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {"RUNNER_TEMP": directory, "TENNIS_DIAGNOSTIC_RECIPIENT": "public"}):
+            result = subprocess.CompletedProcess([], 1, stdout=b"", stderr=b"private failure")
+            with patch("upload_testflight.subprocess.run", return_value=result), contextlib.redirect_stdout(captured):
+                encrypt_failure_diagnostic("Apple check", b"private diagnostic", b"private error")
+            self.assertEqual(list(Path(directory).iterdir()), [])
+        self.assertNotIn("private diagnostic", captured.getvalue())
+        self.assertNotIn("private error", captured.getvalue())
 
 
 if __name__ == "__main__": unittest.main()

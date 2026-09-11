@@ -70,9 +70,32 @@ def run(stage, *command, environment=None):
         diagnostics = failure_categories(result.stdout, result.stderr)
         if diagnostics:
             print("Native failure categories: " + ", ".join(diagnostics), flush=True)
+        encrypt_failure_diagnostic(stage, result.stdout, result.stderr)
         # Native signing output can contain account names/profile details. Never publish it to a public build log.
         raise RuntimeError(stage + " failed (exit " + str(result.returncode) + "). Raw signing output withheld; no subsequent step ran.")
     return result.stdout
+
+
+def encrypt_failure_diagnostic(stage, stdout, stderr):
+    recipient = os.environ.get("TENNIS_DIAGNOSTIC_RECIPIENT")
+    runner_temp = os.environ.get("RUNNER_TEMP")
+    if not recipient or not runner_temp:
+        return
+    try:
+        with tempfile.TemporaryDirectory(prefix="tennis-diagnostic-recipient-", dir=runner_temp) as directory:
+            certificate = Path(directory) / "recipient.pem"
+            certificate.write_text(recipient, encoding="ascii")
+            output = ((stdout or b"") + b"\n" + (stderr or b""))[-2 * 1024 * 1024:]
+            environment = {key: value for key, value in os.environ.items() if key not in REQUIRED}
+            encrypted = subprocess.run(["openssl", "cms", "-encrypt", "-binary", "-aes256", "-outform", "DER", "-recip", str(certificate)],
+                                       input=output, capture_output=True, check=False, env=environment)
+            if encrypted.returncode or not encrypted.stdout:
+                raise ValueError("Diagnostic encryption failed")
+            target = Path(runner_temp) / "tennis-private-diagnostics" / (re.sub(r"[^a-zA-Z0-9-]", "-", stage)[:80] + ".cms")
+            write_secret(target, encrypted.stdout)
+            print("Encrypted failure diagnostic prepared; decryption key is not on this runner.", flush=True)
+    except Exception:
+        print("Encrypted diagnostics unavailable; raw native output remains withheld.", flush=True)
 
 
 def failure_categories(stdout, stderr):
