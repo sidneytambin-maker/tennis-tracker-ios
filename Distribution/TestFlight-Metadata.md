@@ -1,8 +1,8 @@
-# TestFlight Metadata Draft
+# TestFlight Metadata
 
 The App Store Connect record is registered as **Court Story**, using `com.inclusophy.tennistracker`. Build 32 updates both on-device names, the CS icon, permission prompts, Siri responses and privacy wording. Bundle identifiers and library storage remain unchanged.
 
-Use the beta metadata after native testing and archive validation pass. Internal owner testing and independent clean-install checks come first, followed by external TestFlight review and availability. This is not an App Store release submission.
+Build 32 passed native tests, archive and signed-IPA checks, and independent clean-install privacy checks. Its metadata is published and the update is available to the Owner Verification internal group. External TestFlight review and availability are separate; see Court-Story-Rebrand.md for the verified release status. This is not an App Store release submission.
 
 ## Beta Description
 
@@ -22,6 +22,8 @@ New testers start with an empty personal library and an accessible setup flow. T
 
 Please use Court Story naturally on iPhone and Apple Watch. Test with VoiceOver, without VoiceOver, or both, according to your normal preferences.
 
+- Build 32 branding: both devices show the new CS tennis-ball icon, while VoiceOver announces the full name Court Story, never just CS.
+- Updating an existing installation: your records, saved people and venues, preferences and Watch connection remain available. Do not delete the app to change its name.
 - First-time setup: your own profile, optional classification and handedness, match defaults, optional people and places, and skipping permissions.
 - Empty first installation: no other person's records, coaches, venues, goals or workout information should appear.
 - Saved players, regular doubles partners, coaches, venues and locations throughout every relevant picker.
@@ -40,4 +42,4 @@ For a bug report, include what you were trying to do, what happened, what you ex
 
 ## Contact and Access
 
-Use the verified Apple Developer account email for TestFlight feedback/contact fields only. It is intentionally not copied into this public source document. Keep external tester invitations disabled until owner installation, private restore, Watch launch and sync have been verified.
+Use the verified Apple Developer account email for TestFlight feedback/contact fields only. It is intentionally not copied into this public source document. External availability requires Apple's beta review approval. Internal owner access does not imply that a build is approved for external testers.
