@@ -31,7 +31,10 @@ final class TennisTrackerWatchUITests: XCTestCase {
 
     func testMenuPrivacyPolicyReadsOfflineAndReturns() {
         let app = launch(page: "Overview", accessibleNavigation: true)
-        app.buttons["watchScreenMenu"].tap()
+        let menu = app.buttons.matching(identifier: "watchScreenMenu")
+            .matching(NSPredicate(format: "value BEGINSWITH %@", "Current screen:")).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
         let policy = app.buttons["watchPrivacyPolicyLink"]
         reveal(policy, in: app)
         policy.tap()
