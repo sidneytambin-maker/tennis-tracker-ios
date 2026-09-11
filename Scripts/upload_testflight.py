@@ -66,9 +66,30 @@ def run(stage, *command, environment=None):
         environment = {key: value for key, value in os.environ.items() if key not in REQUIRED}
     result = subprocess.run(command, capture_output=True, env=environment, check=False)
     if result.returncode:
+        diagnostics = failure_categories(result.stdout, result.stderr)
+        if diagnostics:
+            print("Native failure categories: " + ", ".join(diagnostics), flush=True)
         # Native signing output can contain account names/profile details. Never publish it to a public build log.
         raise RuntimeError(stage + " failed (exit " + str(result.returncode) + "). Raw signing output withheld; no subsequent step ran.")
     return result.stdout
+
+
+def failure_categories(stdout, stderr):
+    output = ((stdout or b"") + b"\n" + (stderr or b"")).decode("utf-8", errors="replace").lower()
+    patterns = {
+        "profile_not_found": r"no profiles for|doesn't have .*provisioning profile|could not find.*provisioning profile|requires a provisioning profile",
+        "profile_certificate_mismatch": r"(?:doesn't|does not) include signing certificate",
+        "profile_entitlement_mismatch": r"provisioning profile.*(?:doesn't support|does not support|doesn't include the|doesn't match)",
+        "profile_expired": r"provisioning profile.*(?:has expired|is expired)",
+        "signing_certificate_missing": r"no signing certificate|no valid.*signing identities",
+        "certificate_chain_untrusted": r"unable to build chain|certificate.*not trusted",
+        "keychain_interaction_required": r"user interaction is not allowed|errsecinternalcomponent",
+        "pkcs12_import_failure": r"mac verification failed during pkcs12 import",
+        "code_sign_command_failed": r"command codesign failed",
+        "duplicate_build_output": r"multiple commands produce",
+        "apple_validation_rejected": r"validation failed|asset validation failed",
+    }
+    return [category for category, pattern in patterns.items() if re.search(pattern, output)]
 
 
 def write_secret(path, data):

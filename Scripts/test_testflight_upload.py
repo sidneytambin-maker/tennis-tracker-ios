@@ -7,7 +7,7 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-from upload_testflight import REQUIRED, TARGETS, export_options, profile_identifier, require_credentials, run
+from upload_testflight import REQUIRED, TARGETS, export_options, failure_categories, profile_identifier, require_credentials, run
 import test_testflight_signing as signing_fixtures
 
 
@@ -69,6 +69,15 @@ class TestFlightUploadTests(unittest.TestCase):
             self.assertEqual(run("Native check", "native-tool"), b"ok")
         environment = call.call_args.kwargs["env"]
         self.assertTrue(all(key not in environment for key in REQUIRED))
+
+    def test_failure_categories_expose_no_native_profile_or_account_values(self):
+        message = b'error: Team "private team" doesn\'t have a provisioning profile matching "private profile".'
+        self.assertEqual(failure_categories(message, b""), ["profile_not_found"])
+        self.assertEqual(failure_categories(b"private secret", b"unknown private message"), [])
+
+    def test_certificate_and_entitlement_failures_are_distinguished(self):
+        self.assertEqual(failure_categories(b'Provisioning profile "secret" doesn\'t include signing certificate "secret"', b""), ["profile_certificate_mismatch"])
+        self.assertEqual(failure_categories(b'Provisioning profile "secret" doesn\'t support HealthKit', b""), ["profile_entitlement_mismatch"])
 
 
 if __name__ == "__main__": unittest.main()
