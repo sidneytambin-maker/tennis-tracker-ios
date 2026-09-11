@@ -2,6 +2,7 @@
 import argparse
 import json
 import plistlib
+import re
 from pathlib import Path
 
 PHONE_ID = "com.inclusophy.tennistracker"
@@ -54,6 +55,15 @@ def verify(app):
         count += 1
         name = path.name.lower()
         relative = path.relative_to(app).as_posix().lower()
+        if path.name == "version.json" and path.parent.name == "Metadata.appintents" and path.parent.parent in {bundle for bundle, _ in expected}:
+            metadata = json.loads(path.read_bytes())
+            if not isinstance(metadata, dict) or set(metadata) != {"toolsVersion", "version"}:
+                raise ValueError("Unexpected App Intents version metadata fields")
+            if not isinstance(metadata["toolsVersion"], str) or not re.fullmatch(r"[A-Za-z0-9.]{1,30}", metadata["toolsVersion"]):
+                raise ValueError("Unexpected App Intents tools version")
+            if not isinstance(metadata["version"], str) or not re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{1,3}){0,2}", metadata["version"]):
+                raise ValueError("Unexpected App Intents metadata version")
+            continue
         if path.suffix.lower() in FORBIDDEN_SUFFIXES or any(part in relative for part in ("backup", "fixture", "watchsnapshot", "watch-preferences", "tennis-tracker-data", "sqlite-wal", "sqlite-shm")):
             raise ValueError("Unexpected data/source resource in release: " + relative)
         if name.endswith(".plist") and name != "info.plist":

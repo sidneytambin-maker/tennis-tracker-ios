@@ -1,3 +1,4 @@
+import json
 import plistlib
 import tempfile
 import unittest
@@ -26,6 +27,29 @@ class ReleasePrivacyTests(unittest.TestCase):
 
     def test_private_database_blocks_release(self):
         (self.watch / "tennis-tracker-data.json").write_text("{}")
+        with self.assertRaises(ValueError): verify(self.app)
+
+    def test_xcode_app_intents_version_metadata_is_allowed(self):
+        for bundle in (self.app, self.watch, self.widget):
+            folder = bundle / "Metadata.appintents"
+            folder.mkdir()
+            (folder / "version.json").write_text(json.dumps({"toolsVersion": "17F113", "version": "3.0"}))
+        self.assertEqual(len(verify(self.app)["components"]), 3)
+
+    def test_app_intents_exception_does_not_allow_personal_fields(self):
+        folder = self.app / "Metadata.appintents"
+        folder.mkdir()
+        for metadata in ({"toolsVersion": "17F113", "version": "3.0", "players": []},
+                         {"toolsVersion": "Player Name", "version": "3.0"},
+                         {"toolsVersion": "17F113", "version": "private notes"},
+                         {"toolsVersion": 17, "version": "3.0"}):
+            (folder / "version.json").write_text(json.dumps(metadata))
+            with self.subTest(metadata=metadata), self.assertRaises(ValueError): verify(self.app)
+
+    def test_version_json_outside_the_known_metadata_location_is_rejected(self):
+        folder = self.app / "Unreviewed" / "Metadata.appintents"
+        folder.mkdir(parents=True)
+        (folder / "version.json").write_text(json.dumps({"toolsVersion": "17F113", "version": "3.0"}))
         with self.assertRaises(ValueError): verify(self.app)
 
     def test_test_hooks_block_release(self):
