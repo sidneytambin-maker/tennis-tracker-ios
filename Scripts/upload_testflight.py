@@ -48,7 +48,8 @@ def profile_identifier(profile, identifier, now=None):
         raise ValueError("Watch and complication profiles must authorize the permanent App Group")
     if identifier == PHONE_ID + ".watchkitapp" and entitlement.get("com.apple.developer.healthkit") is not True:
         raise ValueError("The Watch distribution profile must authorize HealthKit")
-    return str(uuid.UUID(profile["UUID"])).upper()
+    uuid.UUID(profile["UUID"])
+    return profile["UUID"]
 
 
 def export_options(profiles):
@@ -77,7 +78,7 @@ def run(stage, *command, environment=None):
 def failure_categories(stdout, stderr):
     output = ((stdout or b"") + b"\n" + (stderr or b"")).decode("utf-8", errors="replace").lower()
     patterns = {
-        "profile_not_found": r"no profiles for|doesn't have .*provisioning profile|could not find.*provisioning profile|requires a provisioning profile",
+        "profile_not_found": r"no profiles? for|doesn't have .*provisioning profile|could not find.*provisioning profile|requires a provisioning profile",
         "profile_certificate_mismatch": r"(?:doesn't|does not) include signing certificate",
         "profile_entitlement_mismatch": r"provisioning profile.*(?:doesn't support|does not support|doesn't include the|doesn't match)",
         "profile_expired": r"provisioning profile.*(?:has expired|is expired)",

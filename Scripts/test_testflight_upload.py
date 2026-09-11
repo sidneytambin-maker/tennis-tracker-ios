@@ -51,7 +51,7 @@ class TestFlightUploadTests(unittest.TestCase):
         fixture.setUp()
         fixture.profile["UUID"] = str(uuid.uuid4())
         now = dt.datetime(2026, 9, 10, tzinfo=dt.timezone.utc)
-        self.assertEqual(profile_identifier(fixture.profile, fixture.identifier, now), fixture.profile["UUID"].upper())
+        self.assertEqual(profile_identifier(fixture.profile, fixture.identifier, now), fixture.profile["UUID"])
         fixture.profile["ProvisionedDevices"] = ["test-device"]
         with self.assertRaises(ValueError): profile_identifier(fixture.profile, fixture.identifier, now)
 
@@ -78,6 +78,9 @@ class TestFlightUploadTests(unittest.TestCase):
     def test_certificate_and_entitlement_failures_are_distinguished(self):
         self.assertEqual(failure_categories(b'Provisioning profile "secret" doesn\'t include signing certificate "secret"', b""), ["profile_certificate_mismatch"])
         self.assertEqual(failure_categories(b'Provisioning profile "secret" doesn\'t support HealthKit', b""), ["profile_entitlement_mismatch"])
+
+    def test_native_singular_profile_lookup_failure_is_classified(self):
+        self.assertEqual(failure_categories(b"error: No profile for team 'private' matching 'private' found", b""), ["profile_not_found"])
 
 
 if __name__ == "__main__": unittest.main()
