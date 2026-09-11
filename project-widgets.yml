@@ -37,7 +37,8 @@ targets:
     type: app-extension
     platform: watchOS
     sources:
-      - TennisTrackerWatchWidgets
+      - path: TennisTrackerWatchWidgets
+        excludes: [Info.plist, '*.entitlements']
       - TennisTrackerShared
       - TennisTracker/Models/TennisModels.swift
       - TennisTracker/Scoring/TennisScoring.swift

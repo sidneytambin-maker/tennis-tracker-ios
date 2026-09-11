@@ -13,7 +13,8 @@ targets:
     type: application
     platform: iOS
     sources:
-      - TennisTracker
+      - path: TennisTracker
+        excludes: [Info.plist, '*.entitlements']
       - TennisTrackerShared
     info:
       path: TennisTracker/Info.plist
@@ -66,7 +67,8 @@ targets:
     type: application
     platform: watchOS
     sources:
-      - TennisTrackerWatchApp
+      - path: TennisTrackerWatchApp
+        excludes: [Info.plist, '*.entitlements']
       - TennisTrackerShared
       - TennisTracker/Models/TennisModels.swift
       - TennisTracker/Scoring/TennisScoring.swift
