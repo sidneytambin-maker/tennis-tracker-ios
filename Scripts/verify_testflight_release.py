@@ -26,8 +26,8 @@ def verify(app):
         info = plistlib.loads((bundle / "Info.plist").read_bytes())
         if info.get("CFBundleIdentifier") != identifier:
             raise ValueError("Unexpected permanent bundle identifier")
-        if (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("0.1.0", "30"):
-            raise ValueError("All components must be version 0.1.0 build 30")
+        if (info.get("CFBundleShortVersionString"), info.get("CFBundleVersion")) != ("0.1.0", "31"):
+            raise ValueError("All components must be version 0.1.0 build 31")
         if bundle == app and (info.get("UIFileSharingEnabled") is not True or info.get("LSSupportsOpeningDocumentsInPlace") is not True):
             raise ValueError("Private owner restore requires the user's Files document route")
         if bundle == app:
@@ -51,7 +51,7 @@ def verify(app):
             raise ValueError("Privacy manifest does not match the local-only application")
         if bundle != app and info.get("TennisSharedAppGroup") != GROUP_ID:
             raise ValueError("A temporary or incorrect App Group is configured")
-        report.append({"bundle": identifier, "version": "0.1.0", "build": "30"})
+        report.append({"bundle": identifier, "version": "0.1.0", "build": "31"})
     watch_info = plistlib.loads((watch / "Info.plist").read_bytes())
     if watch_info.get("WKCompanionAppBundleIdentifier") != PHONE_ID or watch_info.get("WKApplication") is not True:
         raise ValueError("Watch companion association is incorrect")

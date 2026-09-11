@@ -15,7 +15,7 @@ class ReleasePrivacyTests(unittest.TestCase):
         self.widget = self.watch / "PlugIns" / "Widget.appex"
         for path, bundle in ((self.app, PHONE_ID), (self.watch, PHONE_ID + ".watchkitapp"), (self.widget, PHONE_ID + ".watchkitapp.widgets")):
             path.mkdir(parents=True, exist_ok=True)
-            info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "30", "TennisSharedAppGroup": GROUP_ID,
+            info = {"CFBundleIdentifier": bundle, "CFBundleExecutable": "Main", "CFBundleShortVersionString": "0.1.0", "CFBundleVersion": "31", "TennisSharedAppGroup": GROUP_ID,
                     "WKCompanionAppBundleIdentifier": PHONE_ID, "WKApplication": True, "UIFileSharingEnabled": True, "LSSupportsOpeningDocumentsInPlace": True,
                     "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
             if path == self.app:

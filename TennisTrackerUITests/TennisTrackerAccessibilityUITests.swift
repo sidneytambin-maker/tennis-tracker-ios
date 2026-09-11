@@ -39,6 +39,22 @@ final class TennisTrackerAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Settings saved."].waitForExistence(timeout: 5))
     }
 
+    func testPrivacyPolicyIsReadableBeforeSetupAndInSettings() {
+        let policy = app.buttons["onboardingPrivacyPolicyLink"]
+        XCTAssertTrue(policy.waitForExistence(timeout: 5))
+        policy.tap()
+        XCTAssertTrue(app.staticTexts["privacyPolicySummary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Privacy Policy"].exists)
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["setupProfileButton"].waitForExistence(timeout: 5))
+        completeOnboarding()
+        openDestination("Settings")
+        tapPossiblyScrolledButton("privacyPolicyLink")
+        XCTAssertTrue(app.staticTexts["privacyPolicySummary"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    }
+
     func testImportantLiveScoringControlsActivate() throws {
         completeOnboarding()
         openDestination("Matches")

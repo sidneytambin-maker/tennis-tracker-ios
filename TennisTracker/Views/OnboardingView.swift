@@ -112,6 +112,8 @@ struct OnboardingView: View {
             NavigationLink("Restore My Private Backup") { PrivateBackupView() }
                 .accessibilityHint("Optional. Only for moving your own existing records. New testers should set up a new player profile.")
                 .accessibilityIdentifier("restorePrivateBackupLink")
+            NavigationLink("Privacy Policy") { TennisPrivacyPolicyView() }
+                .accessibilityIdentifier("onboardingPrivacyPolicyLink")
         }
     }
 

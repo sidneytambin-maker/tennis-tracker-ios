@@ -22,7 +22,7 @@ struct WatchPageSelector: View {
         }
         .accessibilityLabel("Menu")
         .accessibilityIdentifier("watchScreenMenu")
-        .accessibilityHint("Opens the five app screens. You can also choose a screen using Actions.")
+        .accessibilityHint("Opens app screens, achievements, sound preview and privacy policy. You can also choose a screen using Actions.")
         .sheet(isPresented: $showingPages) {
             NavigationStack {
                 List {
@@ -36,6 +36,8 @@ struct WatchPageSelector: View {
                         .accessibilityHint("Previews the sound chosen in iPhone Settings, Notifications and Sounds. Respects silent mode and volume.")
                         .accessibilityIdentifier("watchPreviewTennisSound")
                     if previewFailed { Text("Sound preview unavailable.").accessibilityIdentifier("watchSoundPreviewFailed") }
+                    NavigationLink("Privacy Policy") { TennisPrivacyPolicyView() }
+                        .accessibilityIdentifier("watchPrivacyPolicyLink")
                 }.navigationTitle("Menu")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showingPages = false } } }
             }

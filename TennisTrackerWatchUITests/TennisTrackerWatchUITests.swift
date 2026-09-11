@@ -29,6 +29,18 @@ final class TennisTrackerWatchUITests: XCTestCase {
         }
     }
 
+    func testMenuPrivacyPolicyReadsOfflineAndReturns() {
+        let app = launch(page: "Overview", accessibleNavigation: true)
+        app.buttons["watchScreenMenu"].tap()
+        let policy = app.buttons["watchPrivacyPolicyLink"]
+        reveal(policy, in: app)
+        policy.tap()
+        XCTAssertTrue(app.staticTexts["privacyPolicySummary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Privacy Policy"].exists)
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Menu"].waitForExistence(timeout: 5))
+    }
+
     func testTrainingDrillDownSupportsMultiSelectionWithoutExtraCancel() {
         let app = launch(page: "Track")
         app.buttons["Track Training Session"].tap()

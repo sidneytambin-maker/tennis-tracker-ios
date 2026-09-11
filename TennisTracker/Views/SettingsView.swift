@@ -128,6 +128,9 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
+                    NavigationLink("Privacy Policy") { TennisPrivacyPolicyView() }
+                        .accessibilityIdentifier("privacyPolicyLink")
+                        .accessibilityHint("Read how your tennis records, optional Health access and private backups are handled.")
                     NavigationLink("Private Backup") { PrivateBackupView() }
                         .accessibilityHint("Export your own tennis library to a private file. It is never included in the app distributed to other testers.")
                     SummaryRow(title: "Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")

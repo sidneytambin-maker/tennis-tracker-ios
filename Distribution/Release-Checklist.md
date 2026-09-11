@@ -1,6 +1,6 @@
 # First TestFlight Release Gates
 
-Target: version 0.1.0, build 30; team HT5X86Q4DD. App Store Connect listing: Tennis Tracker by Inclusophy. The permanent iPhone, Watch and widget identifiers and required capabilities are registered. Apple Distribution credentials and three App Store profiles are verified; this does not establish that a native archive or upload has passed.
+Target: version 0.1.0, build 31; team HT5X86Q4DD. App Store Connect listing: Tennis Tracker by Inclusophy. Build 31 adds the offline privacy policy to setup, Settings and the Watch menu. The permanent iPhone, Watch and widget identifiers and required capabilities are registered. Apple Distribution credentials and three App Store profiles are verified; this does not establish that this build has passed native validation or upload.
 
 ## Build and Privacy
 
@@ -60,7 +60,14 @@ Configure environment secrets only after Apple has created the permanent identit
 - `TENNIS_PHONE_PROFILE`, `TENNIS_WATCH_PROFILE`, `TENNIS_WIDGET_PROFILE`: base64 App Store distribution profiles for the exact three permanent IDs. The Watch profile must grant HealthKit and the permanent App Group; the widget profile must grant that group.
 - `TENNIS_ASC_PRIVATE_KEY`: App Store Connect API private key text; `TENNIS_ASC_KEY_ID` and `TENNIS_ASC_ISSUER_ID`: the corresponding identifiers. Grant only the access needed for build upload, not account-wide administrative access merely for convenience.
 
-The upload script uses an ephemeral keychain, filters signing secrets from child-process environments, cleans up its profiles/keychain, and does not publish signed packages, private keys or raw signing logs as public CI artifacts. It preserves build 30, validates the exported phone/Watch/widget signatures, asks Apple to validate the IPA, then uploads. It does not invite testers or submit an App Store release. This pipeline still requires a real native run before it can be considered verified.
+The upload script uses an ephemeral keychain, filters signing secrets from child-process environments, cleans up its profiles/keychain, and does not publish signed packages, private keys or raw signing logs as public CI artifacts. It preserves build 31, validates the exported phone/Watch/widget signatures, asks Apple to validate the IPA, then uploads. It does not invite testers or submit an App Store release. This pipeline still requires a real native run before it can be considered verified.
+
+## Privacy Policy
+
+- The offline policy is available before setup and in iPhone Settings, About, Privacy Policy; on Watch it is in Menu, Privacy Policy.
+- Publish only `docs/` to GitHub Pages and verify `https://sidneytambin-maker.github.io/tennis-tracker-ios/privacy.html` returns the current policy before saving that URL in App Store Connect's beta metadata.
+- Keep the public policy and `TennisTrackerShared/TennisPrivacyPolicy.swift` consistent with actual storage, optional Health access, exports, deletion and TestFlight feedback handling.
+- The policy does not replace physical migration, independent fresh-library checks or Apple's beta review.
 
 References: [GitHub's macOS signing guidance](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications), [Apple build uploads](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/).
 
