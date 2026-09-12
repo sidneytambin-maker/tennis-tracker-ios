@@ -2,7 +2,7 @@
 
 The App Store Connect record is registered as **Court Story**, using `com.inclusophy.tennistracker`. Build 32 updates both on-device names, the CS icon, permission prompts, Siri responses and privacy wording. Bundle identifiers and library storage remain unchanged.
 
-Build 32 passed native tests, archive and signed-IPA checks, and independent clean-install privacy checks. Its metadata is published and the update is available to the Owner Verification internal group. External TestFlight review and availability are separate; see Court-Story-Rebrand.md for the verified release status. This is not an App Store release submission.
+Build 32 passed native tests, archive and signed-IPA checks, and independent clean-install privacy checks. Its metadata is published and the update is available to both Owner Verification and the Apple-approved Community Beta group. The public joining link is enabled with a 100-tester limit; see Court-Story-Rebrand.md for the verified release status. This is not an App Store release submission.
 
 ## Beta Description
 
